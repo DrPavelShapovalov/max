@@ -1,0 +1,43 @@
+{
+  "name": "analizator-kdo",
+  "version": "1.0.0",
+  "description": "Функционально-морфометрический анализатор показаний к дистракционному остеогенезу нижней челюсти",
+  "author": "Шаповалов П.И.",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^31.7.6",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "ru.cniis.analizatorkdo",
+    "productName": "АнализаторКДО",
+    "artifactName": "AnalizatorKDO-Setup-${version}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "app/**"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Анализатор КДО"
+    }
+  }
+}
