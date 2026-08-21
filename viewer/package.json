@@ -1,0 +1,42 @@
+{
+  "name": "kdo-planner-3d",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "КДО-Планировщик 3D — просмотр DICOM, MPR и 3D-реконструкция кости",
+  "author": "Шаповалов П.И.",
+  "main": "electron-main.cjs",
+  "repository": { "type": "git", "url": "https://github.com/DrPavelShapovalov/max.git" },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "electron": "electron .",
+    "dist": "vite build && electron-builder --win --publish never"
+  },
+  "dependencies": {
+    "dicom-parser": "^1.8.21",
+    "three": "^0.160.0",
+    "isosurface": "^1.0.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "electron": "^31.7.6",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "ru.cniis.kdoplanner3d",
+    "productName": "КДО-Планировщик 3D",
+    "artifactName": "KDO-Planner-3D-Setup-${version}.${ext}",
+    "directories": { "output": "release" },
+    "files": [ "electron-main.cjs", "dist/**" ],
+    "win": { "target": ["nsis"], "icon": "build/icon.ico" },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "КДО-Планировщик 3D"
+    }
+  }
+}
