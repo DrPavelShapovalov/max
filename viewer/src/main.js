@@ -1,8 +1,12 @@
 import * as THREE from 'three';
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { buildVolume } from './dicom.js';
 import { extractSurface } from './mc.js';
 import { splitByPlane } from './cut.js';
+import { DEVICES, arcCapacity, selectDevice, arcFrame, arcPoints } from './distractors.js';
+
+let gizmo = null, pickMode = false;
 
 const $ = id => document.getElementById(id);
 let volume = null;
@@ -145,6 +149,30 @@ function init3D() {
   scene.add(new THREE.AmbientLight(0xffffff, 0.55));
   const d1 = new THREE.DirectionalLight(0xffffff, 0.9); d1.position.set(1, -1, 1); scene.add(d1);
   const d2 = new THREE.DirectionalLight(0x88bbff, 0.4); d2.position.set(-1, 1, -0.5); scene.add(d2);
+
+  // гизмо для ручного перемещения (плоскость / область / фрагменты)
+  gizmo = new TransformControls(camera, cv);
+  gizmo.addEventListener('dragging-changed', (e) => { controls.enabled = !e.value; });
+  gizmo.setSize(0.8);
+  scene.add(gizmo);
+
+  // выбор фрагмента кликом (в режиме «Тащить»)
+  const ray = new THREE.Raycaster(), m = new THREE.Vector2();
+  cv.addEventListener('click', (ev) => {
+    if (!pickMode || !isCut) return;
+    const r = cv.getBoundingClientRect();
+    m.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
+    m.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(m, camera);
+    const targets = [fragFixed, fragMobileMesh].filter(Boolean);
+    const hit = ray.intersectObjects(targets, false)[0];
+    if (hit) {
+      let o = hit.object; if (o === fragMobileMesh) o = fragMobileGroup;
+      if (o === fragMobileGroup) mobileMode = 'manual';
+      gizmo.attach(o);
+    }
+  });
+
   resize3D();
   (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
 }
@@ -176,116 +204,199 @@ async function rebuild3D() {
   $('info3d').textContent = `${surf.triCount.toLocaleString('ru')} треуг. · ${(performance.now() - t0 | 0)} мс · шаг ×${surf.step}`;
 }
 
-// ---------- Остеотомия ----------
+// ---------- Остеотомия / дистракторы ----------
 let boneSurf = null, modelRadius = 150;
-let planeMesh = null, fragFixed = null, fragMobileGroup = null, fragMobileMesh = null;
-let isCut = false;
+let planeMesh = null, roiBox = null, fragFixed = null, fragMobileGroup = null, fragMobileMesh = null;
+let arcMesh = null;
+let isCut = false, cutN = null, cutP = null, cutSign = -1;
+let mobileMode = 'sliders';        // 'sliders' | 'arc' | 'manual'
+let curDevice = null, arcFrameCur = null, arcCapCur = 0;
 
-function planeNormal() {
-  const or = $('cutOrient').value;
-  const tx = (+$('cutTiltX').value) * Math.PI / 180;
-  const ty = (+$('cutTiltY').value) * Math.PI / 180;
-  let base;
-  if (or === 'axial') base = new THREE.Vector3(0, 0, 1);
-  else if (or === 'coronal') base = new THREE.Vector3(0, 1, 0);
-  else base = new THREE.Vector3(1, 0, 0);
-  const e = new THREE.Euler(tx, ty, 0);
-  return base.applyEuler(e).normalize();
-}
-function planePoint() {
-  const off = +$('cutOff').value;
-  return planeNormal().multiplyScalar(off);
-}
-function ensurePlaneViz() {
+// плоскость: источник истины — planeMesh (двигается слайдерами или гизмо)
+function getPlaneN() { const n = new THREE.Vector3(0,0,1); if (planeMesh) n.applyQuaternion(planeMesh.quaternion); return n.normalize(); }
+function getPlaneP() { return planeMesh ? planeMesh.position.clone() : new THREE.Vector3(); }
+
+function ensurePlaneViz(fromSliders) {
   if (!planeMesh) {
-    const g = new THREE.PlaneGeometry(1, 1);
-    const m = new THREE.MeshBasicMaterial({ color: 0x2fe4d6, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false });
-    planeMesh = new THREE.Mesh(g, m);
-    const edge = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ color: 0x2fe4d6, wireframe: true, transparent: true, opacity: 0.5 }));
-    planeMesh.add(edge);
-    scene.add(planeMesh);
+    const m = new THREE.MeshBasicMaterial({ color: 0x2fe4d6, transparent: true, opacity: 0.20, side: THREE.DoubleSide, depthWrite: false });
+    planeMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m);
+    planeMesh.add(new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x2fe4d6, wireframe: true, transparent: true, opacity: 0.5 })));
+    planeMesh.name = 'plane'; scene.add(planeMesh);
   }
-  const s = modelRadius * 2.2;
-  planeMesh.scale.set(s, s, 1);
-  const n = planeNormal(), p = planePoint();
-  planeMesh.position.copy(p);
-  planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+  const s = modelRadius * 2.2; planeMesh.scale.set(s, s, 1);
+  if (fromSliders) {
+    const or = $('cutOrient').value;
+    const tx = (+$('cutTiltX').value) * Math.PI/180, ty = (+$('cutTiltY').value) * Math.PI/180;
+    let base = or === 'axial' ? new THREE.Vector3(0,0,1) : or === 'coronal' ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
+    const n = base.applyEuler(new THREE.Euler(tx, ty, 0)).normalize();
+    planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), n);
+    planeMesh.position.copy(n.multiplyScalar(+$('cutOff').value));
+  }
   planeMesh.visible = !isCut;
 }
-let cutN = null, cutP = null;
+
+function ensureRoiViz() {
+  if (!roiBox) {
+    roiBox = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),
+      new THREE.MeshBasicMaterial({ color: 0xffc24d, transparent: true, opacity: 0.10, depthWrite: false }));
+    roiBox.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1,1,1)),
+      new THREE.LineBasicMaterial({ color: 0xffc24d })));
+    roiBox.name = 'roi'; scene.add(roiBox);
+    roiBox.position.set(0,0,0);
+  }
+  const sx=+$('roiSX').value, sy=+$('roiSY').value, sz=+$('roiSZ').value;
+  roiBox.scale.set(sx, sy, sz);
+  roiBox.visible = $('roiOn').checked && !isCut;
+}
+
+// разделение triangle-soup боксом ROI (по центроиду, ROI без поворота)
+function filterByBox(pos, box) {
+  const inA=[], outA=[]; const c=box.position, s=box.scale;
+  const hx=s.x/2, hy=s.y/2, hz=s.z/2;
+  for (let t=0;t<pos.length;t+=9){
+    const cx=(pos[t]+pos[t+3]+pos[t+6])/3, cy=(pos[t+1]+pos[t+4]+pos[t+7])/3, cz=(pos[t+2]+pos[t+5]+pos[t+8])/3;
+    const inside = Math.abs(cx-c.x)<=hx && Math.abs(cy-c.y)<=hy && Math.abs(cz-c.z)<=hz;
+    const dst = inside?inA:outA;
+    for (let k=0;k<9;k++) dst.push(pos[t+k]);
+  }
+  return { inside:new Float32Array(inA), outside:new Float32Array(outA) };
+}
+
+function makeMesh(pos, color) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.computeVertexNormals();
+  return new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.05, side: THREE.DoubleSide }));
+}
+
 function doCut() {
-  if (!boneSurf) return;
-  const n = planeNormal(), p = planePoint();
-  cutN = n.clone(); cutP = p.clone();     // фиксируем плоскость распила
+  if (!boneSurf || !planeMesh) return;
+  const n = getPlaneN(), p = getPlaneP();
+  cutN = n.clone(); cutP = p.clone();
+  const mobileSide = $('cutMobile').value; // 'A'(+) или 'B'(−)
+  cutSign = mobileSide === 'A' ? 1 : -1;
   const { posA, posB } = splitByPlane(boneSurf.positions, boneSurf.indices, n, p);
+  let fixedPos = mobileSide === 'B' ? posA : posB;
+  let mobilePos = mobileSide === 'B' ? posB : posA;
+
+  if ($('roiOn').checked) {           // локальный распил: подвижное = сторона ∩ ROI
+    const f = filterByBox(mobilePos, roiBox);
+    mobilePos = f.inside;
+    // остальное присоединяем к фиксированному
+    const merged = new Float32Array(fixedPos.length + f.outside.length);
+    merged.set(fixedPos, 0); merged.set(f.outside, fixedPos.length); fixedPos = merged;
+  }
   removeFrags();
-  boneMesh.visible = false;
-  if (planeMesh) planeMesh.visible = false;
+  boneMesh.visible = false; planeMesh.visible = false; if (roiBox) roiBox.visible = false;
 
-  const matFixed = new THREE.MeshStandardMaterial({ color: 0xe6ddc9, roughness: 0.62, metalness: 0.05, side: THREE.DoubleSide });
-  const matMobile = new THREE.MeshStandardMaterial({ color: 0x66d9e8, roughness: 0.55, metalness: 0.05, side: THREE.DoubleSide });
-  const mobileSide = $('cutMobile').value; // 'A' или 'B'
-  const fixedPos = mobileSide === 'B' ? posA : posB;
-  const mobilePos = mobileSide === 'B' ? posB : posA;
-
-  const gF = new THREE.BufferGeometry();
-  gF.setAttribute('position', new THREE.BufferAttribute(fixedPos, 3)); gF.computeVertexNormals();
-  fragFixed = new THREE.Mesh(gF, matFixed); scene.add(fragFixed);
-
-  const gM = new THREE.BufferGeometry();
-  gM.setAttribute('position', new THREE.BufferAttribute(mobilePos, 3)); gM.computeVertexNormals();
-  fragMobileMesh = new THREE.Mesh(gM, matMobile);
-  // группа с центром в точке плоскости → повороты вокруг остеотомии
-  fragMobileGroup = new THREE.Group();
-  fragMobileGroup.position.copy(p);
-  fragMobileMesh.position.copy(p.clone().multiplyScalar(-1));
-  fragMobileGroup.add(fragMobileMesh);
+  fragFixed = makeMesh(fixedPos, 0xe6ddc9); fragFixed.name='fixed'; scene.add(fragFixed);
+  fragMobileMesh = makeMesh(mobilePos, 0x66d9e8); fragMobileMesh.name='mobile';
+  fragMobileGroup = new THREE.Group(); fragMobileGroup.add(fragMobileMesh); fragMobileGroup.name='mobile';
   scene.add(fragMobileGroup);
 
-  isCut = true;
-  ['mvDist', 'mvX', 'mvY', 'mvRot'].forEach(id => { $(id).value = 0; });
-  ['mvDistv','mvXv','mvYv','mvRotv'].forEach(id => $(id).textContent = id==='mvRotv'?'0°':(id==='mvDistv'?'0 мм':'0'));
+  isCut = true; mobileMode = 'sliders';
+  ['mvDist','mvX','mvY','mvRot'].forEach(id => $(id).value = 0);
   applyMobileTransform();
-  const triF = fixedPos.length/9|0, triM = mobilePos.length/9|0;
-  $('cutInfo').textContent = `Распил выполнен · фикс. ${triF.toLocaleString('ru')} + подв. ${triM.toLocaleString('ru')} треуг.`;
+  clearArc();
+  const triM = mobilePos.length/9|0;
+  $('cutInfo').textContent = `Распил · подвижный фрагмент ${triM.toLocaleString('ru')} треуг.` + ($('roiOn').checked?' (локально)':'');
 }
+
+function setGroupRigid(group, quat, center, extraT) {
+  const rc = center.clone().applyQuaternion(quat);
+  group.quaternion.copy(quat);
+  group.position.copy(center).sub(rc).add(extraT || new THREE.Vector3());
+}
+
 function applyMobileTransform() {
-  if (!isCut || !fragMobileGroup || !cutN) return;
-  const n = cutN, p = cutP;
-  const dist = +$('mvDist').value, mx = +$('mvX').value, my = +$('mvY').value, rot = (+$('mvRot').value) * Math.PI/180;
-  // дистракция всегда «наружу» от распила: знак по стороне подвижного фрагмента
-  const sign = $('cutMobile').value === 'A' ? 1 : -1;
-  const move = n.clone().multiplyScalar(dist * sign).add(new THREE.Vector3(mx, my, 0));
-  fragMobileGroup.position.copy(p).add(move);
-  fragMobileGroup.quaternion.setFromAxisAngle(n, rot);
-  $('mvDistv').textContent = dist.toFixed(1) + ' мм';
-  $('mvXv').textContent = mx.toFixed(0); $('mvYv').textContent = my.toFixed(0);
-  $('mvRotv').textContent = (+$('mvRot').value).toFixed(0) + '°';
+  if (!isCut || !fragMobileGroup || mobileMode === 'manual') return;
+  if (mobileMode === 'arc' && arcFrameCur) { return; } // дугой управляет свой слайдер
+  const dist=+$('mvDist').value, mx=+$('mvX').value, my=+$('mvY').value, rot=(+$('mvRot').value)*Math.PI/180;
+  const quat = new THREE.Quaternion().setFromAxisAngle(cutN, rot);
+  const extra = cutN.clone().multiplyScalar(dist*cutSign).add(new THREE.Vector3(mx,my,0));
+  setGroupRigid(fragMobileGroup, quat, cutP, extra);
+  $('mvDistv').textContent = dist.toFixed(1)+' мм'; $('mvXv').textContent = mx.toFixed(0);
+  $('mvYv').textContent = my.toFixed(0); $('mvRotv').textContent = (+$('mvRot').value).toFixed(0)+'°';
 }
-function removeFrags() {
-  [fragFixed, fragMobileGroup].forEach(o => { if (o) { scene.remove(o); } });
-  fragFixed = fragMobileGroup = fragMobileMesh = null;
+
+// ---- Планирование КДА (криволинейная дистракция) ----
+function arcAxis() {
+  const d = cutN.clone().multiplyScalar(cutSign);       // направление выдвижения наружу
+  let up = new THREE.Vector3(0,0,1); if (Math.abs(d.dot(up))>0.9) up = new THREE.Vector3(0,1,0);
+  let a = new THREE.Vector3().crossVectors(d, up).normalize();
+  a.applyAxisAngle(d, (+$('arcRot').value)*Math.PI/180);  // «плоскость дуги»
+  return { d, a };
 }
-function resetCut(silent) {
-  removeFrags(); isCut = false;
+function planKDO() {
+  if (!isCut) { alert('Сначала распилите модель.'); return; }
+  const req = +$('reqLen').value;
+  curDevice = selectDevice(req);
+  const { d, a } = arcAxis();
+  arcFrameCur = arcFrame(cutP.clone(), d, a, curDevice.radius);
+  arcCapCur = arcCapacity(curDevice);
+  drawArc();
+  mobileMode = 'arc';
+  const cap = arcCapCur;
+  $('arcDist').max = cap.toFixed(1); $('arcDist').value = Math.min(req, cap);
+  moveAlongArc();
+  $('kdoInfo').innerHTML = `<b style="color:var(--accent)">${curDevice.name}</b> · радиус ${curDevice.radius} мм · дуга ${curDevice.angle}° · ёмкость ${cap.toFixed(1)} мм`;
+}
+function drawArc() {
+  clearArc();
+  const pts = arcPoints(arcFrameCur, curDevice.angle*Math.PI/180, 60);
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const geo = new THREE.TubeGeometry(curve, 60, Math.max(0.6, modelRadius*0.012), 8, false);
+  arcMesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x2fe4d6 }));
+  scene.add(arcMesh);
+}
+function clearArc(){ if (arcMesh){ scene.remove(arcMesh); arcMesh.geometry.dispose(); arcMesh=null; } }
+function moveAlongArc() {
+  if (mobileMode!=='arc' || !arcFrameCur) return;
+  const s = +$('arcDist').value;                 // длина вдоль дуги, мм
+  const theta = Math.min(s / curDevice.radius, curDevice.angle*Math.PI/180);
+  const quat = new THREE.Quaternion().setFromAxisAngle(arcFrameCur.a, theta*Math.sign(1));
+  setGroupRigid(fragMobileGroup, quat, arcFrameCur.C, null);
+  $('arcDistv').textContent = s.toFixed(1)+' мм';
+}
+
+function removeFrags(){ [fragFixed, fragMobileGroup].forEach(o=>{ if(o) scene.remove(o); }); fragFixed=fragMobileGroup=fragMobileMesh=null; if(gizmo) gizmo.detach(); }
+function resetCut(silent){
+  removeFrags(); clearArc(); isCut=false; mobileMode='sliders'; arcFrameCur=null;
   if (boneMesh) boneMesh.visible = true;
-  if (planeMesh) planeMesh.visible = false;
+  if (planeMesh) planeMesh.visible = false; if (roiBox) roiBox.visible = false;
+  if (gizmo) gizmo.detach();
   if (!silent && $('cutInfo')) $('cutInfo').textContent = 'Задайте плоскость и нажмите «Распилить»';
 }
+
+// ---- Гизмо: привязка к плоскости / области / фрагментам ----
+function attachGizmo(obj, mode){ if(!gizmo||!obj) return; gizmo.setMode(mode||'translate'); gizmo.attach(obj); }
+function setPickMode(on){ pickMode = on; $('pickBtn').classList.toggle('cp-act', on); $('pickBtn').classList.toggle('cp-ghost', !on); }
+
 function bindOsteotomy() {
   const upd = () => {
-    $('cutTiltXv').textContent = $('cutTiltX').value + '°';
-    $('cutTiltYv').textContent = $('cutTiltY').value + '°';
-    $('cutOffv').textContent = $('cutOff').value + ' мм';
-    if (!isCut) ensurePlaneViz();
+    $('cutTiltXv').textContent = $('cutTiltX').value+'°'; $('cutTiltYv').textContent = $('cutTiltY').value+'°';
+    $('cutOffv').textContent = $('cutOff').value+' мм';
+    if (!isCut){ ensurePlaneViz(true); }
   };
   ['cutOrient','cutTiltX','cutTiltY','cutOff'].forEach(id => $(id).addEventListener('input', upd));
-  $('cutDo').onclick = () => { if (volume) doCut(); };
-  $('cutReset').onclick = () => { resetCut(false); ensurePlaneViz(); };
-  $('cutMobile').addEventListener('change', () => { if (isCut) doCut(); });
-  ['mvDist','mvX','mvY','mvRot'].forEach(id => $(id).addEventListener('input', applyMobileTransform));
-  $('cpHead').onclick = () => $('cutpanel').classList.toggle('collapsed');
+  ['roiSX','roiSY','roiSZ'].forEach(id => $(id).addEventListener('input', ()=>{ $(id+'v').textContent=$(id).value; ensureRoiViz(); }));
+  $('roiOn').addEventListener('change', ()=>{ ensureRoiViz(); });
+  $('movePlane').onclick = ()=>{ if(planeMesh){ gizmo.setMode('translate'); gizmo.attach(planeMesh); } };
+  $('rotPlane').onclick = ()=>{ if(planeMesh){ gizmo.setMode('rotate'); gizmo.attach(planeMesh); } };
+  $('moveRoi').onclick  = ()=>{ ensureRoiViz(); if(roiBox){ gizmo.setMode('translate'); gizmo.attach(roiBox); } };
+  $('cutDo').onclick = ()=>{ if(volume) doCut(); };
+  $('cutReset').onclick = ()=>{ resetCut(false); ensurePlaneViz(true); };
+  $('cutMobile').addEventListener('change', ()=>{ if(isCut) doCut(); });
+  ['mvDist','mvX','mvY','mvRot'].forEach(id => $(id).addEventListener('input', ()=>{ mobileMode='sliders'; clearArc(); applyMobileTransform(); }));
+  // гизмо для фрагментов
+  $('pickBtn').onclick = ()=> setPickMode(!pickMode);
+  $('gizMove').onclick = ()=> gizmo && gizmo.setMode('translate');
+  $('gizRot').onclick  = ()=> gizmo && gizmo.setMode('rotate');
+  // КДА
+  $('arcRot').addEventListener('input', ()=>{ $('arcRotv').textContent=$('arcRot').value+'°'; if(mobileMode==='arc') planKDO(); });
+  $('reqLen').addEventListener('input', ()=>{ $('reqLenv').textContent=$('reqLen').value+' мм'; });
+  $('planKDO').onclick = planKDO;
+  $('arcDist').addEventListener('input', moveAlongArc);
+  $('cpHead').onclick = ()=> $('cutpanel').classList.toggle('collapsed');
 }
 
 // ---------- UI ----------
