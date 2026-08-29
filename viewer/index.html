@@ -35,6 +35,9 @@
   .prog>div{height:100%;background:var(--accent);width:0;box-shadow:0 0 8px var(--accent)}
   /* ── сетка вьюпортов ── */
   .grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;background:var(--line);min-height:0}
+  .grid.maxed{grid-template-columns:1fr;grid-template-rows:1fr}
+  .grid.maxed .vp{display:none}
+  .grid.maxed .vp.active{display:flex;grid-column:1;grid-row:1}
   .vp{position:relative;background:#000;overflow:hidden;display:flex;flex-direction:column}
   .vp canvas{flex:1;width:100%;height:100%;display:block}
   .vp .sl{position:absolute;left:8px;right:8px;bottom:8px;accent-color:var(--accent);opacity:.8}
@@ -71,7 +74,7 @@
     <div class="vp"><canvas id="cv-coronal" width="600" height="450"></canvas><input class="sl" id="sl-coronal" type="range" min="0" max="0" value="0"></div>
     <div class="vp"><canvas id="cv-sagittal" width="600" height="450"></canvas><input class="sl" id="sl-sagittal" type="range" min="0" max="0" value="0"></div>
     <div class="vp threeD"><canvas id="cv-3d"></canvas><span class="tag" id="info3d">3D</span>
-      <div id="dropHint">Нажмите <b>«Загрузить DICOM»</b> или перетащите папку с серией сюда<br>Аксиал · Коронар · Сагиттал · 3D-кость</div>
+      <div id="dropHint">Нажмите <b>«Загрузить DICOM»</b> или перетащите папку с серией сюда<br>Аксиал · Коронар · Сагиттал · 3D-кость<br><span style="opacity:.7">двойной клик по окну — на весь экран и обратно · колесо — срезы · мышь — вращение 3D</span></div>
     </div>
   </div>
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
 import { buildVolume } from './dicom.js';
 import { extractSurface } from './mc.js';
 
@@ -133,7 +133,13 @@ function init3D() {
   scene = new THREE.Scene(); scene.background = new THREE.Color(0x0a1418);
   camera = new THREE.PerspectiveCamera(45, 1, 1, 5000);
   camera.position.set(0, -350, 120);
-  controls = new OrbitControls(camera, cv); controls.enableDamping = true;
+  controls = new TrackballControls(camera, cv);
+  controls.rotateSpeed = 3.2;      // плавное вращение по любым осям
+  controls.zoomSpeed = 1.3;
+  controls.panSpeed = 0.8;
+  controls.dynamicDampingFactor = 0.12; // инерция/плавность
+  controls.staticMoving = false;
+  controls.keys = [];
   scene.add(new THREE.AmbientLight(0xffffff, 0.55));
   const d1 = new THREE.DirectionalLight(0xffffff, 0.9); d1.position.set(1, -1, 1); scene.add(d1);
   const d2 = new THREE.DirectionalLight(0x88bbff, 0.4); d2.position.set(-1, 1, -0.5); scene.add(d2);
@@ -142,7 +148,9 @@ function init3D() {
 }
 function resize3D() {
   const cv = $('cv-3d'); const r = cv.getBoundingClientRect();
+  if (r.width < 2 || r.height < 2) return;
   renderer.setSize(r.width, r.height, false); camera.aspect = r.width / r.height; camera.updateProjectionMatrix();
+  if (controls && controls.handleResize) controls.handleResize();
 }
 async function rebuild3D() {
   if (!volume) return;
@@ -211,6 +219,23 @@ function bindControls() {
   window.addEventListener('resize', () => { resize3D(); renderAllMPR(); });
 }
 
-init3D(); bindControls(); bindWheel();
+// Двойной клик по окну → на весь экран, ещё раз → назад к 4 окнам.
+let maximized = null;
+function bindMaximize() {
+  const grid = document.querySelector('.grid');
+  document.querySelectorAll('.vp').forEach(vp => {
+    vp.addEventListener('dblclick', () => {
+      if (maximized === vp) {
+        grid.classList.remove('maxed'); vp.classList.remove('active'); maximized = null;
+      } else {
+        document.querySelectorAll('.vp').forEach(v => v.classList.remove('active'));
+        vp.classList.add('active'); grid.classList.add('maxed'); maximized = vp;
+      }
+      requestAnimationFrame(() => { resize3D(); renderAllMPR(); });
+    });
+  });
+}
+
+init3D(); bindControls(); bindWheel(); bindMaximize();
 status('', null);
 window.__loadFiles = loadFiles; // хук для авто-тестов
