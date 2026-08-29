@@ -48,6 +48,24 @@
             font-family:var(--mono);font-size:12px;pointer-events:none}
   #dropHint b{color:var(--accent)}
   .status{position:fixed;bottom:10px;left:16px;font-family:var(--mono);font-size:11px;color:var(--accent);z-index:5}
+  /* ── панель остеотомии ── */
+  .cutpanel{position:absolute;top:8px;left:8px;width:236px;background:rgba(10,20,26,.92);
+     border:1px solid var(--line);border-radius:9px;backdrop-filter:blur(6px);font-size:11px;z-index:6;
+     box-shadow:0 8px 30px -12px #000}
+  .cp-head{display:flex;justify-content:space-between;align-items:center;padding:8px 11px;cursor:pointer;
+     font-weight:700;color:var(--accent);border-bottom:1px solid var(--line);user-select:none}
+  .cp-body{padding:9px 11px;display:flex;flex-direction:column;gap:7px}
+  .cutpanel.collapsed .cp-body{display:none}
+  .cp-row{display:flex;align-items:center;gap:7px}
+  .cp-row label{width:64px;color:var(--ink-soft);font-family:var(--mono);font-size:10px;flex-shrink:0}
+  .cp-row input[type=range]{flex:1;accent-color:var(--accent);min-width:0}
+  .cp-row select{flex:1;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:3px;font-size:11px}
+  .cp-row span{width:42px;text-align:right;font-family:var(--mono);font-size:10px;color:var(--ink-faint)}
+  .cp-btns{display:flex;gap:7px;margin-top:2px}
+  .cp-act{flex:1;background:var(--accent);color:#04120f;border:none;border-radius:6px;padding:7px;font-weight:650;cursor:pointer}
+  .cp-ghost{flex:1;background:var(--panel2);color:var(--ink-soft);border:1px solid var(--line);border-radius:6px;padding:7px;cursor:pointer}
+  .cp-sep{height:1px;background:var(--line);margin:3px 0}
+  .cp-info{font-family:var(--mono);font-size:10px;color:var(--ink-faint);line-height:1.4}
 </style>
 </head>
 <body>
@@ -74,6 +92,34 @@
     <div class="vp"><canvas id="cv-coronal" width="600" height="450"></canvas><input class="sl" id="sl-coronal" type="range" min="0" max="0" value="0"></div>
     <div class="vp"><canvas id="cv-sagittal" width="600" height="450"></canvas><input class="sl" id="sl-sagittal" type="range" min="0" max="0" value="0"></div>
     <div class="vp threeD"><canvas id="cv-3d"></canvas><span class="tag" id="info3d">3D</span>
+      <div class="cutpanel" id="cutpanel">
+        <div class="cp-head" id="cpHead"><span>✂ Остеотомия</span><span id="cpToggle">▾</span></div>
+        <div class="cp-body" id="cpBody">
+          <div class="cp-row"><label>Плоскость</label>
+            <select id="cutOrient">
+              <option value="axial">Аксиальная</option>
+              <option value="coronal">Коронарная</option>
+              <option value="sagittal" selected>Сагиттальная</option>
+            </select>
+          </div>
+          <div class="cp-row"><label>Наклон X</label><input type="range" id="cutTiltX" min="-60" max="60" value="0"><span id="cutTiltXv">0°</span></div>
+          <div class="cp-row"><label>Наклон Y</label><input type="range" id="cutTiltY" min="-60" max="60" value="0"><span id="cutTiltYv">0°</span></div>
+          <div class="cp-row"><label>Положение</label><input type="range" id="cutOff" min="-100" max="100" value="0"><span id="cutOffv">0 мм</span></div>
+          <div class="cp-btns">
+            <button id="cutDo" class="cp-act">Распилить</button>
+            <button id="cutReset" class="cp-ghost">Сброс</button>
+          </div>
+          <div class="cp-sep"></div>
+          <div class="cp-row"><label>Подвижный</label>
+            <select id="cutMobile"><option value="B">Сторона −</option><option value="A">Сторона +</option></select>
+          </div>
+          <div class="cp-row"><label>Дистракция</label><input type="range" id="mvDist" min="0" max="40" step="0.5" value="0"><span id="mvDistv">0 мм</span></div>
+          <div class="cp-row"><label>Сдвиг X</label><input type="range" id="mvX" min="-30" max="30" step="0.5" value="0"><span id="mvXv">0</span></div>
+          <div class="cp-row"><label>Сдвиг Y</label><input type="range" id="mvY" min="-30" max="30" step="0.5" value="0"><span id="mvYv">0</span></div>
+          <div class="cp-row"><label>Поворот</label><input type="range" id="mvRot" min="-30" max="30" step="0.5" value="0"><span id="mvRotv">0°</span></div>
+          <div class="cp-info" id="cutInfo">Задайте плоскость и нажмите «Распилить»</div>
+        </div>
+      </div>
       <div id="dropHint">Нажмите <b>«Загрузить DICOM»</b> или перетащите папку с серией сюда<br>Аксиал · Коронар · Сагиттал · 3D-кость<br><span style="opacity:.7">двойной клик по окну — на весь экран и обратно · колесо — срезы · мышь — вращение 3D</span></div>
     </div>
   </div>

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
 import { buildVolume } from './dicom.js';
 import { extractSurface } from './mc.js';
+import { splitByPlane } from './cut.js';
 
 const $ = id => document.getElementById(id);
 let volume = null;
@@ -35,6 +36,7 @@ async function loadFiles(fileList) {
     setupSliders();
     renderAllMPR();
     await rebuild3D();
+    ensurePlaneViz();
     status('', null);
     $('dropHint').style.display = 'none';
   } catch (e) {
@@ -164,11 +166,126 @@ async function rebuild3D() {
   geo.computeVertexNormals();
   const mat = new THREE.MeshStandardMaterial({ color: 0xe6ddc9, roughness: 0.62, metalness: 0.05, flatShading: false, side: THREE.DoubleSide });
   boneMesh = new THREE.Mesh(geo, mat); scene.add(boneMesh);
+  boneSurf = surf;                 // сохраняем для распила
+  resetCut(true);                  // сброс остеотомии при пересборке модели
   // подогнать камеру
   geo.computeBoundingSphere();
   const rr = geo.boundingSphere.radius || 150;
+  modelRadius = rr;
   camera.position.set(0, -rr * 2.4, rr * 0.7); controls.target.set(0, 0, 0);
   $('info3d').textContent = `${surf.triCount.toLocaleString('ru')} треуг. · ${(performance.now() - t0 | 0)} мс · шаг ×${surf.step}`;
+}
+
+// ---------- Остеотомия ----------
+let boneSurf = null, modelRadius = 150;
+let planeMesh = null, fragFixed = null, fragMobileGroup = null, fragMobileMesh = null;
+let isCut = false;
+
+function planeNormal() {
+  const or = $('cutOrient').value;
+  const tx = (+$('cutTiltX').value) * Math.PI / 180;
+  const ty = (+$('cutTiltY').value) * Math.PI / 180;
+  let base;
+  if (or === 'axial') base = new THREE.Vector3(0, 0, 1);
+  else if (or === 'coronal') base = new THREE.Vector3(0, 1, 0);
+  else base = new THREE.Vector3(1, 0, 0);
+  const e = new THREE.Euler(tx, ty, 0);
+  return base.applyEuler(e).normalize();
+}
+function planePoint() {
+  const off = +$('cutOff').value;
+  return planeNormal().multiplyScalar(off);
+}
+function ensurePlaneViz() {
+  if (!planeMesh) {
+    const g = new THREE.PlaneGeometry(1, 1);
+    const m = new THREE.MeshBasicMaterial({ color: 0x2fe4d6, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false });
+    planeMesh = new THREE.Mesh(g, m);
+    const edge = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ color: 0x2fe4d6, wireframe: true, transparent: true, opacity: 0.5 }));
+    planeMesh.add(edge);
+    scene.add(planeMesh);
+  }
+  const s = modelRadius * 2.2;
+  planeMesh.scale.set(s, s, 1);
+  const n = planeNormal(), p = planePoint();
+  planeMesh.position.copy(p);
+  planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+  planeMesh.visible = !isCut;
+}
+let cutN = null, cutP = null;
+function doCut() {
+  if (!boneSurf) return;
+  const n = planeNormal(), p = planePoint();
+  cutN = n.clone(); cutP = p.clone();     // фиксируем плоскость распила
+  const { posA, posB } = splitByPlane(boneSurf.positions, boneSurf.indices, n, p);
+  removeFrags();
+  boneMesh.visible = false;
+  if (planeMesh) planeMesh.visible = false;
+
+  const matFixed = new THREE.MeshStandardMaterial({ color: 0xe6ddc9, roughness: 0.62, metalness: 0.05, side: THREE.DoubleSide });
+  const matMobile = new THREE.MeshStandardMaterial({ color: 0x66d9e8, roughness: 0.55, metalness: 0.05, side: THREE.DoubleSide });
+  const mobileSide = $('cutMobile').value; // 'A' или 'B'
+  const fixedPos = mobileSide === 'B' ? posA : posB;
+  const mobilePos = mobileSide === 'B' ? posB : posA;
+
+  const gF = new THREE.BufferGeometry();
+  gF.setAttribute('position', new THREE.BufferAttribute(fixedPos, 3)); gF.computeVertexNormals();
+  fragFixed = new THREE.Mesh(gF, matFixed); scene.add(fragFixed);
+
+  const gM = new THREE.BufferGeometry();
+  gM.setAttribute('position', new THREE.BufferAttribute(mobilePos, 3)); gM.computeVertexNormals();
+  fragMobileMesh = new THREE.Mesh(gM, matMobile);
+  // группа с центром в точке плоскости → повороты вокруг остеотомии
+  fragMobileGroup = new THREE.Group();
+  fragMobileGroup.position.copy(p);
+  fragMobileMesh.position.copy(p.clone().multiplyScalar(-1));
+  fragMobileGroup.add(fragMobileMesh);
+  scene.add(fragMobileGroup);
+
+  isCut = true;
+  ['mvDist', 'mvX', 'mvY', 'mvRot'].forEach(id => { $(id).value = 0; });
+  ['mvDistv','mvXv','mvYv','mvRotv'].forEach(id => $(id).textContent = id==='mvRotv'?'0°':(id==='mvDistv'?'0 мм':'0'));
+  applyMobileTransform();
+  const triF = fixedPos.length/9|0, triM = mobilePos.length/9|0;
+  $('cutInfo').textContent = `Распил выполнен · фикс. ${triF.toLocaleString('ru')} + подв. ${triM.toLocaleString('ru')} треуг.`;
+}
+function applyMobileTransform() {
+  if (!isCut || !fragMobileGroup || !cutN) return;
+  const n = cutN, p = cutP;
+  const dist = +$('mvDist').value, mx = +$('mvX').value, my = +$('mvY').value, rot = (+$('mvRot').value) * Math.PI/180;
+  // дистракция всегда «наружу» от распила: знак по стороне подвижного фрагмента
+  const sign = $('cutMobile').value === 'A' ? 1 : -1;
+  const move = n.clone().multiplyScalar(dist * sign).add(new THREE.Vector3(mx, my, 0));
+  fragMobileGroup.position.copy(p).add(move);
+  fragMobileGroup.quaternion.setFromAxisAngle(n, rot);
+  $('mvDistv').textContent = dist.toFixed(1) + ' мм';
+  $('mvXv').textContent = mx.toFixed(0); $('mvYv').textContent = my.toFixed(0);
+  $('mvRotv').textContent = (+$('mvRot').value).toFixed(0) + '°';
+}
+function removeFrags() {
+  [fragFixed, fragMobileGroup].forEach(o => { if (o) { scene.remove(o); } });
+  fragFixed = fragMobileGroup = fragMobileMesh = null;
+}
+function resetCut(silent) {
+  removeFrags(); isCut = false;
+  if (boneMesh) boneMesh.visible = true;
+  if (planeMesh) planeMesh.visible = false;
+  if (!silent && $('cutInfo')) $('cutInfo').textContent = 'Задайте плоскость и нажмите «Распилить»';
+}
+function bindOsteotomy() {
+  const upd = () => {
+    $('cutTiltXv').textContent = $('cutTiltX').value + '°';
+    $('cutTiltYv').textContent = $('cutTiltY').value + '°';
+    $('cutOffv').textContent = $('cutOff').value + ' мм';
+    if (!isCut) ensurePlaneViz();
+  };
+  ['cutOrient','cutTiltX','cutTiltY','cutOff'].forEach(id => $(id).addEventListener('input', upd));
+  $('cutDo').onclick = () => { if (volume) doCut(); };
+  $('cutReset').onclick = () => { resetCut(false); ensurePlaneViz(); };
+  $('cutMobile').addEventListener('change', () => { if (isCut) doCut(); });
+  ['mvDist','mvX','mvY','mvRot'].forEach(id => $(id).addEventListener('input', applyMobileTransform));
+  $('cpHead').onclick = () => $('cutpanel').classList.toggle('collapsed');
 }
 
 // ---------- UI ----------
@@ -236,6 +353,6 @@ function bindMaximize() {
   });
 }
 
-init3D(); bindControls(); bindWheel(); bindMaximize();
+init3D(); bindControls(); bindWheel(); bindMaximize(); bindOsteotomy();
 status('', null);
 window.__loadFiles = loadFiles; // хук для авто-тестов

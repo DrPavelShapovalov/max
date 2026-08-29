@@ -3,3 +3,4 @@ dist/
 release/
 testdata/
 viewer_test.png
+t_*.png
