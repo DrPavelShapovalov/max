@@ -94,20 +94,35 @@ function renderMPR(plane) {
   let dw = CW, dh = CW / ar; if (dh > CH) { dh = CH; dw = CH * ar; }
   const ox = (CW - dw) / 2, oy = (CH - dh) / 2;
   ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(off, 0, 0, m.w, m.h, ox, oy, dw, dh);
+  const flipY = plane !== 'axial'; // superior наверх для коронар/сагиттал
+  if (flipY) {
+    ctx.save(); ctx.translate(ox, oy + dh); ctx.scale(1, -1);
+    ctx.drawImage(off, 0, 0, m.w, m.h, 0, 0, dw, dh); ctx.restore();
+  } else {
+    ctx.drawImage(off, 0, 0, m.w, m.h, ox, oy, dw, dh);
+  }
   // прицел (позиции других осей)
   ctx.strokeStyle = 'rgba(47,228,214,.55)'; ctx.lineWidth = 1;
   let u, v;
   if (plane === 'axial')   { u = idx[0] / volume.dims[0]; v = idx[1] / volume.dims[1]; }
   else if (plane === 'coronal') { u = idx[0] / volume.dims[0]; v = idx[2] / volume.dims[2]; }
   else { u = idx[1] / volume.dims[1]; v = idx[2] / volume.dims[2]; }
-  const lx = ox + u * dw, ly = oy + v * dh;
+  const lx = ox + u * dw, ly = oy + (flipY ? (1 - v) : v) * dh;
   ctx.beginPath(); ctx.moveTo(lx, oy); ctx.lineTo(lx, oy + dh); ctx.moveTo(ox, ly); ctx.lineTo(ox + dw, ly); ctx.stroke();
   // подпись
   ctx.fillStyle = 'rgba(47,228,214,.9)'; ctx.font = '11px ui-monospace,monospace';
   ctx.fillText(`${plane.toUpperCase()}  ${k + 1}/${m.count}`, 8, 16);
 }
-function renderAllMPR() { if (volume) planes.forEach(renderMPR); }
+function resizeMPRCanvases() {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  planes.forEach(p => {
+    const cv = $('cv-' + p);
+    const w = cv.clientWidth || 600, h = cv.clientHeight || 450;
+    cv.width = Math.max(2, Math.round(w * dpr));
+    cv.height = Math.max(2, Math.round(h * dpr));
+  });
+}
+function renderAllMPR() { if (volume) { resizeMPRCanvases(); planes.forEach(renderMPR); } }
 
 // ---------- 3D ----------
 let renderer, scene, camera, controls, boneMesh;
@@ -133,7 +148,7 @@ async function rebuild3D() {
   if (!volume) return;
   await new Promise(r => setTimeout(r, 10));
   const t0 = performance.now();
-  const surf = extractSurface(volume, threshold, 160);
+  const surf = extractSurface(volume, threshold, 200);
   if (boneMesh) { scene.remove(boneMesh); boneMesh.geometry.dispose(); boneMesh.material.dispose(); }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(surf.positions, 3));
@@ -193,7 +208,7 @@ function bindControls() {
     e.preventDefault();
     if (e.dataTransfer.files.length) loadFiles(e.dataTransfer.files);
   });
-  window.addEventListener('resize', () => { resize3D(); });
+  window.addEventListener('resize', () => { resize3D(); renderAllMPR(); });
 }
 
 init3D(); bindControls(); bindWheel();
