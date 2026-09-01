@@ -4,7 +4,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { buildVolume } from './dicom.js';
 import { extractSurface } from './mc.js';
 import { splitByPlane } from './cut.js';
-import { DEVICES, arcCapacity, selectDevice, arcFrame, arcPoints } from './distractors.js';
+import { DEVICES, arcRadius, selectDevice, arcFrame, arcPoints } from './distractors.js';
 
 let gizmo = null, pickMode = false;
 
@@ -181,6 +181,7 @@ function resize3D() {
   if (r.width < 2 || r.height < 2) return;
   renderer.setSize(r.width, r.height, false); camera.aspect = r.width / r.height; camera.updateProjectionMatrix();
   if (controls && controls.handleResize) controls.handleResize();
+  syncPenCanvas(); if (penPts.length) drawPen();
 }
 async function rebuild3D() {
   if (!volume) return;
@@ -210,7 +211,7 @@ let planeMesh = null, roiBox = null, fragFixed = null, fragMobileGroup = null, f
 let arcMesh = null;
 let isCut = false, cutN = null, cutP = null, cutSign = -1;
 let mobileMode = 'sliders';        // 'sliders' | 'arc' | 'manual'
-let curDevice = null, arcFrameCur = null, arcCapCur = 0;
+let curDevice = null, arcFrameCur = null, arcRadCur = 0, arcDegCur = 0;
 
 // плоскость: источник истины — planeMesh (двигается слайдерами или гизмо)
 function getPlaneN() { const n = new THREE.Vector3(0,0,1); if (planeMesh) n.applyQuaternion(planeMesh.quaternion); return n.normalize(); }
@@ -301,6 +302,90 @@ function doCut() {
   $('cutInfo').textContent = `Распил · подвижный фрагмент ${triM.toLocaleString('ru')} треуг.` + ($('roiOn').checked?' (локально)':'');
 }
 
+// ---- Карандаш: распил по нарисованному от руки контуру ----
+let penOn = false, penPts = [], penDrawing = false;
+function penCanvas(){ return $('cv-draw'); }
+function syncPenCanvas(){
+  const dc = penCanvas(), cv = $('cv-3d'); if (!dc || !cv) return;
+  const r = cv.getBoundingClientRect();
+  const dpr = Math.min(devicePixelRatio, 2);
+  if (dc.width !== Math.round(r.width*dpr) || dc.height !== Math.round(r.height*dpr)) {
+    dc.width = Math.round(r.width*dpr); dc.height = Math.round(r.height*dpr);
+  }
+}
+function drawPen(){
+  const dc = penCanvas(); const ctx = dc.getContext('2d');
+  const dpr = Math.min(devicePixelRatio, 2);
+  ctx.clearRect(0,0,dc.width,dc.height);
+  if (penPts.length < 1) return;
+  ctx.lineWidth = 2.5*dpr; ctx.strokeStyle = '#2fe4d6'; ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(penPts[0].x*dpr, penPts[0].y*dpr);
+  for (let i=1;i<penPts.length;i++) ctx.lineTo(penPts[i].x*dpr, penPts[i].y*dpr);
+  if (!penDrawing && penPts.length>2) { ctx.closePath(); ctx.setLineDash([6*dpr,5*dpr]); }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+function setPenMode(on){
+  penOn = on; const dc = penCanvas();
+  dc.classList.toggle('on', on); $('penBtn').classList.toggle('armed', on);
+  if (on) { setPickMode(false); syncPenCanvas(); }
+  else { penDrawing = false; }
+}
+function pointInPoly(x, y, poly){
+  let inside = false;
+  for (let i=0, j=poly.length-1; i<poly.length; j=i++){
+    const xi=poly[i].x, yi=poly[i].y, xj=poly[j].x, yj=poly[j].y;
+    if (((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+function bindPen(){
+  const dc = penCanvas();
+  const getP = (ev)=>{ const r=dc.getBoundingClientRect(); return { x:ev.clientX-r.left, y:ev.clientY-r.top }; };
+  dc.addEventListener('pointerdown', (ev)=>{ if(!penOn) return; penDrawing=true; penPts=[getP(ev)]; dc.setPointerCapture(ev.pointerId); drawPen(); });
+  dc.addEventListener('pointermove', (ev)=>{ if(!penOn||!penDrawing) return; penPts.push(getP(ev)); drawPen(); });
+  dc.addEventListener('pointerup',   ()=>{ if(!penOn) return; penDrawing=false; drawPen();
+    $('penInfo').textContent = penPts.length>2 ? `Контур готов (${penPts.length} тчк). Нажмите «Распилить по контуру».` : 'Контур слишком короткий — обведите зону ещё раз.'; });
+}
+function clearPen(){ penPts=[]; penDrawing=false; drawPen(); $('penInfo').textContent='Обведите зону распила прямо на 3D-модели, затем «Распилить по контуру».'; }
+function doLassoCut(){
+  if (!boneSurf) { alert('Сначала постройте 3D-модель.'); return; }
+  if (penPts.length < 3) { alert('Обведите зону распила карандашом (замкнутый контур).'); return; }
+  const dc = penCanvas(); const rw = dc.getBoundingClientRect();
+  const poly = penPts.map(p=>({x:p.x, y:p.y}));
+  const P = boneSurf.positions, I = boneSurf.indices;
+  const triCount = I ? I.length/3 : P.length/9;
+  const inA=[], outA=[]; const v=new THREE.Vector3();
+  const proj=(ix)=>{ v.set(P[ix*3],P[ix*3+1],P[ix*3+2]).project(camera);
+    return { x:(v.x+1)/2*rw.width, y:(1-(v.y+1)/2)*rw.height }; };
+  for (let t=0;t<triCount;t++){
+    const a=I?I[t*3]:t*3, b=I?I[t*3+1]:t*3+1, c=I?I[t*3+2]:t*3+2;
+    const pa=proj(a), pb=proj(b), pc=proj(c);
+    const cx=(pa.x+pb.x+pc.x)/3, cy=(pa.y+pb.y+pc.y)/3;
+    const inside = pointInPoly(cx, cy, poly);
+    const dst = inside?inA:outA;
+    for (const idx of [a,b,c]) { dst.push(P[idx*3],P[idx*3+1],P[idx*3+2]); }
+  }
+  const mobilePos = new Float32Array(inA), fixedPos = new Float32Array(outA);
+  if (mobilePos.length < 9) { alert('В контур не попала кость. Обведите зону точнее.'); return; }
+  removeFrags();
+  boneMesh.visible=false; if(planeMesh) planeMesh.visible=false; if(roiBox) roiBox.visible=false;
+  fragFixed = makeMesh(fixedPos, 0xe6ddc9); fragFixed.name='fixed'; scene.add(fragFixed);
+  fragMobileMesh = makeMesh(mobilePos, 0x66d9e8); fragMobileMesh.name='mobile';
+  fragMobileGroup = new THREE.Group(); fragMobileGroup.add(fragMobileMesh); fragMobileGroup.name='mobile';
+  scene.add(fragMobileGroup);
+  // ось дистракции для контурного распила — вдоль взгляда камеры, центр — центроид фрагмента
+  const box = new THREE.Box3().setFromObject(fragMobileMesh); const ctr = box.getCenter(new THREE.Vector3());
+  cutN = new THREE.Vector3(); camera.getWorldDirection(cutN); cutN.multiplyScalar(-1).normalize();
+  cutP = ctr; cutSign = 1;
+  isCut=true; mobileMode='sliders';
+  ['mvDist','mvX','mvY','mvRot'].forEach(id => $(id).value = 0);
+  applyMobileTransform(); clearArc();
+  setPenMode(false); clearPen();
+  const triM = mobilePos.length/9|0;
+  $('cutInfo').textContent = `Распил по контуру · подвижный фрагмент ${triM.toLocaleString('ru')} треуг.`;
+  $('penInfo').textContent = 'Готово. Настройте дистракцию/КДА или тащите фрагмент гизмо.';
+}
+
 function setGroupRigid(group, quat, center, extraT) {
   const rc = center.clone().applyQuaternion(quat);
   group.quaternion.copy(quat);
@@ -328,21 +413,24 @@ function arcAxis() {
 }
 function planKDO() {
   if (!isCut) { alert('Сначала распилите модель.'); return; }
-  const req = +$('reqLen').value;
-  curDevice = selectDevice(req);
+  const req = +$('reqLen').value;          // планируемая длина дистракции, мм (длина дуги)
+  const need = +$('reqDeg').value;         // требуемый угол коррекции, градусы
+  curDevice = selectDevice(need);          // аппарат по угловой кривизне (30..180)
+  const useDeg = Math.min(need, curDevice.deg); // фактический разворот ≤ градуса аппарата
+  arcDegCur = useDeg;
+  const R = arcRadius(req, useDeg);        // радиус дуги выводим из длины и угла
   const { d, a } = arcAxis();
-  arcFrameCur = arcFrame(cutP.clone(), d, a, curDevice.radius);
-  arcCapCur = arcCapacity(curDevice);
+  arcFrameCur = arcFrame(cutP.clone(), d, a, R);
+  arcRadCur = R;
   drawArc();
   mobileMode = 'arc';
-  const cap = arcCapCur;
-  $('arcDist').max = cap.toFixed(1); $('arcDist').value = Math.min(req, cap);
+  $('arcDist').max = req.toFixed(1); $('arcDist').value = req;
   moveAlongArc();
-  $('kdoInfo').innerHTML = `<b style="color:var(--accent)">${curDevice.name}</b> · радиус ${curDevice.radius} мм · дуга ${curDevice.angle}° · ёмкость ${cap.toFixed(1)} мм`;
+  $('kdoInfo').innerHTML = `<b style="color:var(--accent)">${curDevice.name}</b> · кривизна дуги ${curDevice.deg}° · коррекция ${useDeg.toFixed(0)}° · радиус ≈ ${R.toFixed(0)} мм`;
 }
 function drawArc() {
   clearArc();
-  const pts = arcPoints(arcFrameCur, curDevice.angle*Math.PI/180, 60);
+  const pts = arcPoints(arcFrameCur, arcDegCur*Math.PI/180, 60);
   const curve = new THREE.CatmullRomCurve3(pts);
   const geo = new THREE.TubeGeometry(curve, 60, Math.max(0.6, modelRadius*0.012), 8, false);
   arcMesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x2fe4d6 }));
@@ -352,10 +440,10 @@ function clearArc(){ if (arcMesh){ scene.remove(arcMesh); arcMesh.geometry.dispo
 function moveAlongArc() {
   if (mobileMode!=='arc' || !arcFrameCur) return;
   const s = +$('arcDist').value;                 // длина вдоль дуги, мм
-  const theta = Math.min(s / curDevice.radius, curDevice.angle*Math.PI/180);
-  const quat = new THREE.Quaternion().setFromAxisAngle(arcFrameCur.a, theta*Math.sign(1));
+  const theta = Math.min(s / arcRadCur, arcDegCur*Math.PI/180);
+  const quat = new THREE.Quaternion().setFromAxisAngle(arcFrameCur.a, theta);
   setGroupRigid(fragMobileGroup, quat, arcFrameCur.C, null);
-  $('arcDistv').textContent = s.toFixed(1)+' мм';
+  $('arcDistv').textContent = `${s.toFixed(1)} мм · ${(theta*180/Math.PI).toFixed(0)}°`;
 }
 
 function removeFrags(){ [fragFixed, fragMobileGroup].forEach(o=>{ if(o) scene.remove(o); }); fragFixed=fragMobileGroup=fragMobileMesh=null; if(gizmo) gizmo.detach(); }
@@ -394,9 +482,15 @@ function bindOsteotomy() {
   // КДА
   $('arcRot').addEventListener('input', ()=>{ $('arcRotv').textContent=$('arcRot').value+'°'; if(mobileMode==='arc') planKDO(); });
   $('reqLen').addEventListener('input', ()=>{ $('reqLenv').textContent=$('reqLen').value+' мм'; });
+  $('reqDeg').addEventListener('input', ()=>{ $('reqDegv').textContent=$('reqDeg').value+'°'; });
   $('planKDO').onclick = planKDO;
   $('arcDist').addEventListener('input', moveAlongArc);
   $('cpHead').onclick = ()=> $('cutpanel').classList.toggle('collapsed');
+  // карандаш
+  bindPen();
+  $('penBtn').onclick = ()=> setPenMode(!penOn);
+  $('penClear').onclick = clearPen;
+  $('penCut').onclick = doLassoCut;
 }
 
 // ---------- UI ----------

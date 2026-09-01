@@ -44,6 +44,9 @@
   .vp .tag{position:absolute;top:6px;right:8px;font-family:var(--mono);font-size:10px;color:var(--ink-faint);
            background:rgba(8,17,22,.6);padding:2px 6px;border-radius:4px;pointer-events:none}
   .vp.threeD{background:#0a1418}
+  .drawlayer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
+  .drawlayer.on{pointer-events:auto;cursor:crosshair}
+  #penBtn.armed{background:var(--accent);color:#04121a;border-color:var(--accent)}
   #dropHint{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--ink-faint);
             font-family:var(--mono);font-size:12px;pointer-events:none}
   #dropHint b{color:var(--accent)}
@@ -92,10 +95,19 @@
     <div class="vp"><canvas id="cv-axial" width="600" height="450"></canvas><input class="sl" id="sl-axial" type="range" min="0" max="0" value="0"></div>
     <div class="vp"><canvas id="cv-coronal" width="600" height="450"></canvas><input class="sl" id="sl-coronal" type="range" min="0" max="0" value="0"></div>
     <div class="vp"><canvas id="cv-sagittal" width="600" height="450"></canvas><input class="sl" id="sl-sagittal" type="range" min="0" max="0" value="0"></div>
-    <div class="vp threeD"><canvas id="cv-3d"></canvas><span class="tag" id="info3d">3D</span>
+    <div class="vp threeD"><canvas id="cv-3d"></canvas><canvas id="cv-draw" class="drawlayer"></canvas><span class="tag" id="info3d">3D</span>
       <div class="cutpanel" id="cutpanel">
         <div class="cp-head" id="cpHead"><span>✂ Остеотомия</span><span id="cpToggle">▾</span></div>
         <div class="cp-body" id="cpBody">
+          <div class="cp-title">Карандаш (от руки)</div>
+          <div class="cp-btns">
+            <button id="penBtn" class="cp-ghost">✏ Рисовать</button>
+            <button id="penClear" class="cp-ghost">Стереть</button>
+          </div>
+          <div class="cp-btns"><button id="penCut" class="cp-act">Распилить по контуру</button></div>
+          <div class="cp-info" id="penInfo">Обведите зону распила прямо на 3D-модели, затем «Распилить по контуру».</div>
+          <div class="cp-sep"></div>
+          <div class="cp-title">Плоскость (точный распил)</div>
           <div class="cp-row"><label>Плоскость</label>
             <select id="cutOrient">
               <option value="axial">Аксиальная</option>
@@ -136,9 +148,10 @@
           </div>
           <div class="cp-sep"></div>
           <div class="cp-title">Дистрактор (КДА)</div>
-          <div class="cp-row"><label>Треб. удлин.</label><input type="range" id="reqLen" min="2" max="40" step="0.5" value="15"><span id="reqLenv">15 мм</span></div>
+          <div class="cp-row"><label>Длина дистр.</label><input type="range" id="reqLen" min="2" max="40" step="0.5" value="15"><span id="reqLenv">15 мм</span></div>
+          <div class="cp-row"><label>Угол корр.</label><input type="range" id="reqDeg" min="5" max="180" step="1" value="30"><span id="reqDegv">30°</span></div>
           <div class="cp-btns"><button id="planKDO" class="cp-act">Спланировать КДО</button></div>
-          <div class="cp-info" id="kdoInfo">Подбор аппарата по требуемому удлинению</div>
+          <div class="cp-info" id="kdoInfo">Аппарат по углу коррекции (30/50/70/100/180°), радиус — из длины и угла</div>
           <div class="cp-row"><label>Плоск. дуги</label><input type="range" id="arcRot" min="0" max="180" value="0"><span id="arcRotv">0°</span></div>
           <div class="cp-row"><label>Дистр. дуга</label><input type="range" id="arcDist" min="0" max="40" step="0.5" value="0"><span id="arcDistv">0 мм</span></div>
           <div class="cp-info" id="cutInfo">Задайте плоскость и нажмите «Распилить»</div>

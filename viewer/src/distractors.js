@@ -1,25 +1,34 @@
 import * as THREE from 'three';
 
 // Библиотека компрессионно-дистракционных аппаратов (КДА).
-// «Цифра» аппарата = угловая кривизна дуги (градусы). Радиус — радиус кривизны
-// дуги (мм). Значения радиусов — ОРИЕНТИРОВОЧНЫЕ (placeholder); уточняются по
-// паспортам конкретных аппаратов. Ёмкость = длина дуги = R * angle(рад).
+// «Цифра» аппарата = максимальная угловая кривизна дуги в ГРАДУСАХ (не мм,
+// не радиус). Линейка: 30, 50, 70, 100, 180. Аппарат перемещает фрагмент по
+// дуге, разворачивая его максимум на столько градусов, сколько указано.
+//
+// Радиус дуги НЕ является паспортной величиной — он выводится из плана:
+// при заданной длине дистракции s (мм, длина дуги) и угле разворота α (рад)
+//   R = s / α.
+// Чем «острее» аппарат (больше градус) — тем сильнее криволинейность
+// (при той же длине меньше радиус, круче дуга).
 export const DEVICES = [
-  { name: 'R30',  angle: 30,  radius: 80 },
-  { name: 'R40',  angle: 40,  radius: 60 },
-  { name: 'R50',  angle: 50,  radius: 48 },
-  { name: 'R70',  angle: 70,  radius: 36 },
-  { name: 'R100', angle: 100, radius: 26 },
-  { name: 'R180', angle: 180, radius: 16 },
+  { name: 'КДА-30',  deg: 30  },
+  { name: 'КДА-50',  deg: 50  },
+  { name: 'КДА-70',  deg: 70  },
+  { name: 'КДА-100', deg: 100 },
+  { name: 'КДА-180', deg: 180 },
 ];
 
-export function arcCapacity(dev) { return dev.radius * dev.angle * Math.PI / 180; }
-
-// Подбор аппарата по требуемому удлинению (мм): наименьшая кривизна,
-// чья длина дуги перекрывает требуемое; иначе — максимальный (R180).
-export function selectDevice(requiredMm) {
-  for (const d of DEVICES) if (arcCapacity(d) >= requiredMm) return d;
+// Подбор аппарата по требуемому углу коррекции (градусы): наименьший аппарат,
+// чья дуга (deg) перекрывает требуемый разворот; иначе — максимальный (180).
+export function selectDevice(requiredDeg) {
+  for (const d of DEVICES) if (d.deg >= requiredDeg) return d;
   return DEVICES[DEVICES.length - 1];
+}
+
+// Радиус дуги (мм) из длины дистракции s (мм) и угла разворота angleDeg (град).
+export function arcRadius(lengthMm, angleDeg) {
+  const a = angleDeg * Math.PI / 180;
+  return a > 1e-4 ? lengthMm / a : lengthMm * 1e4; // почти прямая при малом угле
 }
 
 // Геометрия криволинейной дистракции.
@@ -35,7 +44,7 @@ export function arcFrame(P0, d, axis, radius) {
   return { C, a, w, r0, pointAt };
 }
 
-// Точки дуги для визуализации (полная ёмкость аппарата).
+// Точки дуги для визуализации (на угол angleRad).
 export function arcPoints(frame, angleRad, seg = 48) {
   const pts = [];
   for (let i = 0; i <= seg; i++) pts.push(frame.pointAt(angleRad * i / seg));
