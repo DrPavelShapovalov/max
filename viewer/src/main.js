@@ -334,22 +334,57 @@ function updateSelInfo(){
   const f=frags[activeFrag];
   $('cutInfo').textContent = `Активен фрагмент №${activeFrag+1}/${frags.length} · ${(f.soup.length/9|0).toLocaleString('ru')} треуг. Тащи гизмо или планируй КДО.`;
 }
-// общий распил области: base делится плоскостью, внутри зоны — 2 подвижных фрагмента
-function cutRegion(n, p, test, label){
+// союз-поиск
+function makeDSU(n){ const p=new Int32Array(n); for(let i=0;i<n;i++)p[i]=i;
+  const find=(x)=>{ while(p[x]!==x){ p[x]=p[p[x]]; x=p[x]; } return x; };
+  const uni=(a,b)=>{ a=find(a); b=find(b); if(a!==b)p[a]=b; };
+  return { find, uni }; }
+// связные компоненты triangle-soup (сварка вершин по позиции): comp[t] = корень
+function components(soup){
+  const ntri = soup.length/9; const nvraw = soup.length/3;
+  const map=new Map(); const vid=new Int32Array(nvraw); let nv=0;
+  for(let i=0;i<soup.length;i+=3){
+    const k=(Math.round(soup[i]*4))+'_'+(Math.round(soup[i+1]*4))+'_'+(Math.round(soup[i+2]*4));
+    let id=map.get(k); if(id===undefined){ id=nv++; map.set(k,id); } vid[i/3]=id;
+  }
+  const dsu=makeDSU(nv);
+  for(let t=0;t<ntri;t++){ const a=vid[t*3],b=vid[t*3+1],c=vid[t*3+2]; dsu.uni(a,b); dsu.uni(b,c); }
+  const comp=new Int32Array(ntri); for(let t=0;t<ntri;t++) comp[t]=dsu.find(vid[t*3]);
+  return { comp, ntri };
+}
+const triC=(s,t,ax)=>(s[t*9+ax]+s[t*9+3+ax]+s[t*9+6+ax])/3;
+// Компонентно-осознанный распил: выбираем КОСТЬ (связную деталь — нижнюю челюсть)
+// зоной/точкой, затем делим ВСЮ выбранную деталь плоскостью на 2 фрагмента.
+// Череп (др. компоненты) остаётся целым в опоре (base).
+function cutRegion(n, p, test, label, opt){
   ensureBase();
-  const { posA, posB } = splitByPlane(baseSoup, null, n, p);
-  const sA = splitInside(posA, test), sB = splitInside(posB, test);
-  const fragUp = sA.inside, fragLo = sB.inside;
-  if (fragUp.length<9 && fragLo.length<9){ alert('В зону распила не попала кость.'); return; }
-  baseSoup = concatF32(sA.outside, sB.outside);
-  rebuildBaseMesh();
+  const { comp, ntri } = components(baseSoup);
+  const sel = new Set();
+  if (opt && opt.point){                       // выбрать деталь ближайшего треугольника (линия)
+    let best=Infinity, br=-1;
+    for(let t=0;t<ntri;t++){ const dx=triC(baseSoup,t,0)-opt.point.x, dy=triC(baseSoup,t,1)-opt.point.y, dz=triC(baseSoup,t,2)-opt.point.z;
+      const d=dx*dx+dy*dy+dz*dz; if(d<best){best=d;br=comp[t];} }
+    if(br>=0) sel.add(br);
+  } else {                                       // выбрать все детали, пересекающие рамку
+    for(let t=0;t<ntri;t++){ if(test(triC(baseSoup,t,0),triC(baseSoup,t,1),triC(baseSoup,t,2))) sel.add(comp[t]); }
+  }
+  if(!sel.size){ alert('В зону распила не попала кость. Проведи линию/рамку прямо по кости.'); return; }
+  const up=[], lo=[], base=[]; const nx=n.x,ny=n.y,nz=n.z;
+  for(let t=0;t<ntri;t++){ const o=t*9;
+    if(!sel.has(comp[t])){ for(let k=0;k<9;k++) base.push(baseSoup[o+k]); continue; }
+    const d=(triC(baseSoup,t,0)-p.x)*nx+(triC(baseSoup,t,1)-p.y)*ny+(triC(baseSoup,t,2)-p.z)*nz;
+    const dst = d>=0?up:lo; for(let k=0;k<9;k++) dst.push(baseSoup[o+k]);
+  }
+  const fUp=new Float32Array(up), fLo=new Float32Array(lo);
+  if (fUp.length<9 || fLo.length<9){ alert('Плоскость не разделила кость на 2 части — сдвинь линию/наклон, чтобы она пересекала кость поперёк.'); return; }
+  baseSoup=new Float32Array(base); rebuildBaseMesh();
   const made=[];
-  if (fragUp.length>=9) made.push(addFrag(fragUp, 0x66d9e8, n, p));
-  if (fragLo.length>=9) made.push(addFrag(fragLo, 0xffc24d, n.clone().multiplyScalar(-1), p));
+  made.push(addFrag(fUp, 0x66d9e8, n, p));
+  made.push(addFrag(fLo, 0xffc24d, n.clone().multiplyScalar(-1), p));
   isCut = true; cutN=n.clone(); cutP=p.clone();
   clearDevPts(); clearArc(); clearRegen();
-  if (made.length) selectFrag(frags.indexOf(made[made.length-1]));
-  $('cutInfo').textContent = `Распил ${label}: получено ${made.length} подвижн. фрагм. Кликни фрагмент → тащи/планируй.`;
+  selectFrag(frags.indexOf(made[1]));            // по умолчанию активен нижний (дистальный)
+  $('cutInfo').textContent = `Распил ${label}: 2 фрагмента (верх+низ) из выбранной кости. Кликни нужный → тащи/планируй.`;
 }
 
 function doCut() {
@@ -474,12 +509,11 @@ function doLineCut(){
   buildLineFrag();
 }
 function buildLineFrag(){
-  const { center, R, n } = lineCut;
-  const R2 = R*R;
-  const test=(cx,cy,cz)=> ((cx-center.x)**2+(cy-center.y)**2+(cz-center.z)**2) <= R2;
-  cutRegion(n, center, test, 'по линии');
+  const { center, n } = lineCut;
+  // линия выбирает КОСТЬ (нижнюю челюсть) под штрихом и делит её всю плоскостью надвое
+  cutRegion(n, center, null, 'по линии', { point: center });
   setPenMode(false); penPts=[]; drawPen();
-  $('penInfo').textContent = 'Готово: 2 фрагмента (выше/ниже линии). Кликни нужный, ставь точки аппарата, планируй КДО.';
+  $('penInfo').textContent = 'Готово: кость под линией разделена на 2 фрагмента (выше/ниже). Кликни нужный → точки аппарата → КДО.';
 }
 function swapFragment(){ if(!frags.length){ return; } selectFrag((activeFrag+1)%frags.length); }
 
