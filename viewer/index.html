@@ -129,13 +129,10 @@
             <button id="movePlane" class="cp-ghost">Двигать плоскость</button>
             <button id="rotPlane" class="cp-ghost">Поворот</button>
           </div>
-          <div class="cp-sep"></div>
-          <div class="cp-row"><label><input type="checkbox" id="roiOn" style="width:auto"> Локально</label>
-            <span style="flex:1;color:var(--ink-faint);font-size:9.5px">пилить только область</span></div>
-          <div class="cp-row"><label>Обл. X</label><input type="range" id="roiSX" min="10" max="200" value="70"><span id="roiSXv">70</span></div>
-          <div class="cp-row"><label>Обл. Y</label><input type="range" id="roiSY" min="10" max="200" value="70"><span id="roiSYv">70</span></div>
-          <div class="cp-row"><label>Обл. Z</label><input type="range" id="roiSZ" min="10" max="200" value="70"><span id="roiSZv">70</span></div>
-          <div class="cp-btns"><button id="moveRoi" class="cp-ghost">Двигать область</button></div>
+          <div class="cp-row"><label>Ширина</label><input type="range" id="cutW" min="10" max="260" step="2" value="260"><span id="cutWv">вся</span></div>
+          <div class="cp-row"><label>Длина</label><input type="range" id="cutL" min="10" max="260" step="2" value="260"><span id="cutLv">вся</span></div>
+          <div class="cp-row"><label><input type="checkbox" id="planeOn" style="width:auto" checked> Показывать плоскость</label></div>
+          <div class="cp-info" style="color:var(--ink-faint);font-size:9.5px">Уменьши ширину/длину и наведи прямоугольник на угол — распил захватит только то, что внутри рамки.</div>
           <div class="cp-btns">
             <button id="cutDo" class="cp-act">Распилить</button>
             <button id="cutReset" class="cp-ghost">Сброс</button>
