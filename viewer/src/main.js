@@ -162,11 +162,11 @@ function init3D() {
     const r = cv.getBoundingClientRect();
     m.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
     m.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
-    if (devPtMode) {
+    if (devPtMode || symTgtMode) {
       ray.setFromCamera(m, camera);
       const tgts = [fragFixed, fragMobileMesh, boneMesh].filter(o=>o && o.visible);
       const hit = ray.intersectObjects(tgts, false)[0];
-      if (hit) addDevPt(hit.point);
+      if (hit) { if (symTgtMode) setSymTarget(hit.point); else addDevPt(hit.point); }
       return;
     }
     if (!pickMode || !isCut) return;
@@ -491,6 +491,78 @@ function addDevPt(pt){
   $('penInfo').textContent = devPts.length<2 ? 'Поставьте вторую точку аппарата.' : 'Зона аппарата задана. Нажмите «Спланировать КДО».';
 }
 
+// ---- Симметрия: зеркало здоровой стороны + авто-дистракция ----
+let mirrorMesh = null, symHealthy = null, symTgtMarker = null, symTgtMode = false;
+function midlineX(){ return (+$('midAdj').value) || 0; }          // средняя плоскость: X = midline (мм)
+function mirrorX(p){ const m=midlineX(); return new THREE.Vector3(2*m - p.x, p.y, p.z); }
+function toggleMirror(){
+  if (mirrorMesh){ scene.remove(mirrorMesh); mirrorMesh.geometry.dispose(); mirrorMesh=null; $('symInfo').textContent='Зеркало убрано.'; return; }
+  if (!boneSurf){ alert('Сначала постройте 3D-модель.'); return; }
+  const P=boneSurf.positions, I=boneSurf.indices, m=midlineX();
+  const g=new THREE.BufferGeometry();
+  const mp=new Float32Array(P.length);
+  for(let i=0;i<P.length;i+=3){ mp[i]=2*m-P[i]; mp[i+1]=P[i+1]; mp[i+2]=P[i+2]; }
+  g.setAttribute('position', new THREE.BufferAttribute(mp,3));
+  if(I) g.setIndex(new THREE.BufferAttribute(I,1));
+  g.computeVertexNormals();
+  mirrorMesh=new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color:0x39d98a, transparent:true, opacity:0.28, side:THREE.DoubleSide, depthWrite:false }));
+  scene.add(mirrorMesh);
+  $('symInfo').textContent='Зелёное — зеркало здоровой стороны (цель симметрии). Двигай «Среднюю», чтобы совместить.';
+}
+function setSymTgtMode(on){ symTgtMode=on; $('symTgtBtn').classList.toggle('armed', on);
+  if(on){ setPenMode(false); setDevPtMode(false); setPickMode(false);
+    $('symInfo').textContent='Кликни ориентир на ЗДОРОВОЙ стороне — его зеркало станет целью.'; } }
+function setSymTarget(pt){
+  symHealthy = pt.clone();
+  const tgt = mirrorX(pt);
+  if (symTgtMarker) scene.remove(symTgtMarker);
+  symTgtMarker = new THREE.Mesh(new THREE.SphereGeometry(Math.max(1.4,modelRadius*0.022),14,14),
+    new THREE.MeshBasicMaterial({ color:0x39d98a }));
+  symTgtMarker.position.copy(tgt); scene.add(symTgtMarker);
+  $('symInfo').textContent='Цель отмечена (зелёная). Нажми «Дистракция до симметрии».';
+}
+function clearSym(){
+  if(mirrorMesh){ scene.remove(mirrorMesh); mirrorMesh.geometry.dispose(); mirrorMesh=null; }
+  if(symTgtMarker){ scene.remove(symTgtMarker); symTgtMarker=null; }
+  symHealthy=null; symTgtMode=false; if($('symTgtBtn')) $('symTgtBtn').classList.remove('armed');
+}
+// авто-подбор аппарата и величины дистракции для достижения симметрии
+function planSymmetry(){
+  if (!isCut){ alert('Сначала распилите модель (лучше карандашом по линии).'); return; }
+  if (!symHealthy){ alert('Сначала отметь здоровый ориентир кнопкой «Здоровый ориентир».'); return; }
+  const target = mirrorX(symHealthy);                       // куда должен попасть фрагмент
+  // шарнир (у остеотомии) и дистальный ориентир фрагмента
+  const app  = devPts.length>=1 ? devPts[0].clone() : cutP.clone();
+  const land = devPts.length>=2 ? devPts[1].clone()
+             : (fragMobileMesh ? new THREE.Box3().setFromObject(fragMobileMesh).getCenter(new THREE.Vector3()) : cutP.clone());
+  const u = land.clone().sub(app);                          // текущий радиус-вектор
+  const w = target.clone().sub(app);                        // желаемое направление
+  const R = u.length();
+  if (R < 1e-3 || w.length() < 1e-3){ alert('Ориентиры слишком близко. Поставь точки аппарата пошире.'); return; }
+  let axis = new THREE.Vector3().crossVectors(u, w);
+  if (axis.lengthSq() < 1e-8) axis.copy(cutN);              // почти коллинеарны — ось вдоль нормали распила
+  axis.normalize();
+  const theta = u.angleTo(w);                               // угол коррекции (рад)
+  const angleDeg = theta * 180/Math.PI;
+  const arcLen = R * theta;                                 // длина дистракции по дуге (мм)
+  curDevice = selectDevice(angleDeg);
+  arcDegCur = Math.min(angleDeg, curDevice.deg);
+  arcRadCur = R;
+  const C = app.clone(), r0 = u.clone();
+  arcFrameCur = { C, a: axis, w: null, r0, pointAt:(t)=>C.clone().add(r0.clone().applyAxisAngle(axis, t)) };
+  drawArc();
+  mobileMode = 'arc';
+  $('reqLen').value = Math.min(40, arcLen).toFixed(1); $('reqLenv').textContent = arcLen.toFixed(1)+' мм';
+  $('reqDeg').value = Math.min(180, Math.round(angleDeg)); $('reqDegv').textContent = Math.round(angleDeg)+'°';
+  $('arcDist').max = arcLen.toFixed(1); $('arcDist').value = arcLen.toFixed(1);
+  moveAlongArc();
+  // остаточная асимметрия: куда реально попал ориентир
+  const landFinal = C.clone().add(r0.clone().applyAxisAngle(axis, arcDegCur*Math.PI/180));
+  const resid = landFinal.distanceTo(target);
+  $('kdoInfo').innerHTML = `<b style="color:var(--accent)">${curDevice.name}</b> · кривизна ${curDevice.deg}° · коррекция ${angleDeg.toFixed(0)}° · дистракция ${arcLen.toFixed(1)} мм`;
+  $('symInfo').innerHTML = `Для симметрии: <b>${curDevice.name}</b>, раскрутить <b>${arcLen.toFixed(1)} мм</b> (≈${angleDeg.toFixed(0)}°). Остаточная асимметрия ≈ ${resid.toFixed(1)} мм.`;
+}
+
 function setGroupRigid(group, quat, center, extraT) {
   const rc = center.clone().applyQuaternion(quat);
   group.quaternion.copy(quat);
@@ -562,7 +634,7 @@ function moveAlongArc() {
 
 function removeFrags(){ [fragFixed, fragMobileGroup].forEach(o=>{ if(o) scene.remove(o); }); fragFixed=fragMobileGroup=fragMobileMesh=null; if(gizmo) gizmo.detach(); }
 function resetCut(silent){
-  removeFrags(); clearArc(); clearDevPts(); lineComps=null; isCut=false; mobileMode='sliders'; arcFrameCur=null;
+  removeFrags(); clearArc(); clearDevPts(); clearSym(); lineComps=null; isCut=false; mobileMode='sliders'; arcFrameCur=null;
   if (boneMesh) boneMesh.visible = true;
   if (planeMesh) planeMesh.visible = false; if (roiBox) roiBox.visible = false;
   if (gizmo) gizmo.detach();
@@ -608,6 +680,13 @@ function bindOsteotomy() {
   $('penSwap').onclick = swapFragment;
   $('penMode').addEventListener('change', clearPen);
   $('devPtBtn').onclick = ()=> setDevPtMode(!devPtMode);
+  // симметрия
+  $('midAdj').addEventListener('input', ()=>{ $('midAdjv').textContent=$('midAdj').value+' мм';
+    if(mirrorMesh){ toggleMirror(); toggleMirror(); }               // перерисовать зеркало
+    if(symHealthy) setSymTarget(symHealthy); });
+  $('mirrorBtn').onclick = toggleMirror;
+  $('symTgtBtn').onclick = ()=> setSymTgtMode(!symTgtMode);
+  $('symPlanBtn').onclick = planSymmetry;
 }
 
 // ---------- UI ----------

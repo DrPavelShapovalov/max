@@ -163,6 +163,13 @@
           <div class="cp-row"><label>Плоск. дуги</label><input type="range" id="arcRot" min="0" max="180" value="0"><span id="arcRotv">0°</span></div>
           <div class="cp-row"><label>Дистр. дуга</label><input type="range" id="arcDist" min="0" max="40" step="0.5" value="0"><span id="arcDistv">0 мм</span></div>
           <div class="cp-info" id="cutInfo">Задайте плоскость и нажмите «Распилить»</div>
+          <div class="cp-sep"></div>
+          <div class="cp-title">Симметрия (авто-КДО)</div>
+          <div class="cp-row"><label>Средняя</label><input type="range" id="midAdj" min="-30" max="30" step="0.5" value="0"><span id="midAdjv">0 мм</span></div>
+          <div class="cp-btns"><button id="mirrorBtn" class="cp-ghost">Зеркало здоровой стороны</button></div>
+          <div class="cp-btns"><button id="symTgtBtn" class="cp-ghost">◎ Здоровый ориентир</button></div>
+          <div class="cp-btns"><button id="symPlanBtn" class="cp-act">Дистракция до симметрии</button></div>
+          <div class="cp-info" id="symInfo">Отметь на здоровой стороне ориентир (гонион и т.п.) — программа посчитает мм и аппарат для симметрии.</div>
         </div>
       </div>
       <div id="dropHint">Нажмите <b>«Загрузить DICOM»</b> или перетащите папку с серией сюда<br>Аксиал · Коронар · Сагиттал · 3D-кость<br><span style="opacity:.7">двойной клик по окну — на весь экран и обратно · колесо — срезы · мышь — вращение 3D</span></div>
