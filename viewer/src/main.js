@@ -159,10 +159,17 @@ function init3D() {
   // выбор фрагмента кликом (в режиме «Тащить»)
   const ray = new THREE.Raycaster(), m = new THREE.Vector2();
   cv.addEventListener('click', (ev) => {
-    if (!pickMode || !isCut) return;
     const r = cv.getBoundingClientRect();
     m.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
     m.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
+    if (devPtMode) {
+      ray.setFromCamera(m, camera);
+      const tgts = [fragFixed, fragMobileMesh, boneMesh].filter(o=>o && o.visible);
+      const hit = ray.intersectObjects(tgts, false)[0];
+      if (hit) addDevPt(hit.point);
+      return;
+    }
+    if (!pickMode || !isCut) return;
     ray.setFromCamera(m, camera);
     const targets = [fragFixed, fragMobileMesh].filter(Boolean);
     const hit = ray.intersectObjects(targets, false)[0];
@@ -302,8 +309,10 @@ function doCut() {
   $('cutInfo').textContent = `Распил · подвижный фрагмент ${triM.toLocaleString('ru')} треуг.` + ($('roiOn').checked?' (локально)':'');
 }
 
-// ---- Карандаш: распил по нарисованному от руки контуру ----
+// ---- Карандаш: распил по нарисованному от руки ----
 let penOn = false, penPts = [], penDrawing = false;
+let lineComps = null, penCandIdx = 0;   // кэш связных компонент для «Поменять фрагмент»
+function penMode(){ return $('penMode') ? $('penMode').value : 'line'; }
 function penCanvas(){ return $('cv-draw'); }
 function syncPenCanvas(){
   const dc = penCanvas(), cv = $('cv-3d'); if (!dc || !cv) return;
@@ -321,7 +330,7 @@ function drawPen(){
   ctx.lineWidth = 2.5*dpr; ctx.strokeStyle = '#2fe4d6'; ctx.lineJoin='round'; ctx.lineCap='round';
   ctx.beginPath(); ctx.moveTo(penPts[0].x*dpr, penPts[0].y*dpr);
   for (let i=1;i<penPts.length;i++) ctx.lineTo(penPts[i].x*dpr, penPts[i].y*dpr);
-  if (!penDrawing && penPts.length>2) { ctx.closePath(); ctx.setLineDash([6*dpr,5*dpr]); }
+  if (!penDrawing && penMode()==='loop' && penPts.length>2) { ctx.closePath(); ctx.setLineDash([6*dpr,5*dpr]); }
   ctx.stroke(); ctx.setLineDash([]);
 }
 function setPenMode(on){
@@ -341,49 +350,145 @@ function pointInPoly(x, y, poly){
 function bindPen(){
   const dc = penCanvas();
   const getP = (ev)=>{ const r=dc.getBoundingClientRect(); return { x:ev.clientX-r.left, y:ev.clientY-r.top }; };
-  dc.addEventListener('pointerdown', (ev)=>{ if(!penOn) return; penDrawing=true; penPts=[getP(ev)]; dc.setPointerCapture(ev.pointerId); drawPen(); });
-  dc.addEventListener('pointermove', (ev)=>{ if(!penOn||!penDrawing) return; penPts.push(getP(ev)); drawPen(); });
-  dc.addEventListener('pointerup',   ()=>{ if(!penOn) return; penDrawing=false; drawPen();
-    $('penInfo').textContent = penPts.length>2 ? `Контур готов (${penPts.length} тчк). Нажмите «Распилить по контуру».` : 'Контур слишком короткий — обведите зону ещё раз.'; });
+  const onMove = (ev)=>{ if(!penOn||!penDrawing) return; penPts.push(getP(ev)); drawPen(); };
+  const onUp = ()=>{ if(!penOn||!penDrawing) return; penDrawing=false; drawPen();
+    const ok = penPts.length>2;
+    $('penInfo').textContent = ok ? (penMode()==='line'
+        ? `Линия готова (${penPts.length} тчк). Нажмите «Распилить по нарисованному».`
+        : `Контур готов (${penPts.length} тчк). Нажмите «Распилить по нарисованному».`)
+      : 'Слишком коротко — проведите линию ещё раз.'; };
+  dc.addEventListener('pointerdown', (ev)=>{ if(!penOn) return; penDrawing=true; penPts=[getP(ev)]; drawPen();
+    ev.preventDefault(); });
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
 }
-function clearPen(){ penPts=[]; penDrawing=false; drawPen(); $('penInfo').textContent='Обведите зону распила прямо на 3D-модели, затем «Распилить по контуру».'; }
-function doLassoCut(){
-  if (!boneSurf) { alert('Сначала постройте 3D-модель.'); return; }
-  if (penPts.length < 3) { alert('Обведите зону распила карандашом (замкнутый контур).'); return; }
+function clearPen(){ penPts=[]; penDrawing=false; drawPen();
+  $('penInfo').textContent='Проведите линию распила прямо по кости — отделится только связанный фрагмент.'; }
+
+// проекция вершины в экранные px (относительно cv-draw)
+function projVert(P, ix, rw, v){ v.set(P[ix*3],P[ix*3+1],P[ix*3+2]).project(camera);
+  return { x:(v.x+1)/2*rw.width, y:(1-(v.y+1)/2)*rw.height }; }
+
+// сторона точки относительно открытой ломаной (по ближайшему сегменту)
+function sideOfLine(px, py, poly){
+  let best=Infinity, sign=1;
+  for (let i=0;i<poly.length-1;i++){
+    const a=poly[i], b=poly[i+1];
+    const dx=b.x-a.x, dy=b.y-a.y, L2=dx*dx+dy*dy || 1e-6;
+    let t=((px-a.x)*dx+(py-a.y)*dy)/L2; t=Math.max(0,Math.min(1,t));
+    const cx=a.x+t*dx, cy=a.y+t*dy; const d=(px-cx)**2+(py-cy)**2;
+    if (d<best){ best=d; sign = ((b.x-a.x)*(py-a.y)-(b.y-a.y)*(px-a.x))>=0 ? 1 : -1; }
+  }
+  return sign;
+}
+
+// союз-поиск
+function makeDSU(n){ const p=new Int32Array(n); for(let i=0;i<n;i++)p[i]=i;
+  const find=(x)=>{ while(p[x]!==x){ p[x]=p[p[x]]; x=p[x]; } return x; };
+  const uni=(a,b)=>{ a=find(a); b=find(b); if(a!==b)p[a]=b; };
+  return { find, uni }; }
+
+// Локальный распил по линии: рвём связность меша вдоль нарисованной линии,
+// выделяем связные компоненты, подвижным делаем компоненту у линии.
+function doLineCut(){
+  const dc = penCanvas(); const rw = dc.getBoundingClientRect();
+  const poly = penPts.map(p=>({x:p.x,y:p.y}));
+  const P = boneSurf.positions, I = boneSurf.indices;
+  if (!I) { doLoopCut(); return; }               // без индексов связность не построить
+  const nv = P.length/3, v=new THREE.Vector3();
+  const side = new Int8Array(nv), sx=new Float32Array(nv), sy=new Float32Array(nv);
+  for (let i=0;i<nv;i++){ const s=projVert(P,i,rw,v); sx[i]=s.x; sy[i]=s.y; side[i]=sideOfLine(s.x,s.y,poly); }
+  const dsu = makeDSU(nv);
+  const tri = I.length/3;
+  const edge=(a,b)=>{ if(side[a]===side[b]) dsu.uni(a,b); };  // не соединяем через линию
+  for (let t=0;t<tri;t++){ const a=I[t*3],b=I[t*3+1],c=I[t*3+2]; edge(a,b); edge(b,c); edge(c,a); }
+  // группируем треугольники по компонентам (по стороне-большинству вершин)
+  const comps = new Map();
+  for (let t=0;t<tri;t++){
+    const a=I[t*3],b=I[t*3+1],c=I[t*3+2];
+    const sSum=side[a]+side[b]+side[c]; const maj = sSum>=0?1:-1;
+    const rep = side[a]===maj?a : side[b]===maj?b : c;
+    const root = dsu.find(rep);
+    let e = comps.get(root); if(!e){ e={tris:[], n:0, cx:0, cy:0}; comps.set(root,e); }
+    e.tris.push(t); e.n++;
+    e.cx += (sx[a]+sx[b]+sx[c])/3; e.cy += (sy[a]+sy[b]+sy[c])/3;
+  }
+  // кандидаты: сортируем по близости центроида к середине линии
+  const mid = poly[Math.floor(poly.length/2)];
+  const arr = [...comps.values()].filter(e=>e.n>=8).map(e=>{ e.cx/=e.n; e.cy/=e.n;
+    e.d=(e.cx-mid.x)**2+(e.cy-mid.y)**2; return e; }).sort((a,b)=>a.d-b.d);
+  if (!arr.length) { alert('Линия не пересекла кость. Проведите её прямо по кости.'); return; }
+  lineComps = { arr, P, I }; penCandIdx = 0;
+  buildFragFromComp();
+}
+function buildFragFromComp(){
+  const { arr, P, I } = lineComps;
+  const mob = arr[penCandIdx % arr.length];
+  const mobSet = new Set(mob.tris);
+  const inA=[], outA=[];
+  const tri = I.length/3;
+  for (let t=0;t<tri;t++){ const a=I[t*3],b=I[t*3+1],c=I[t*3+2];
+    const dst = mobSet.has(t)?inA:outA;
+    dst.push(P[a*3],P[a*3+1],P[a*3+2], P[b*3],P[b*3+1],P[b*3+2], P[c*3],P[c*3+1],P[c*3+2]); }
+  finalizeFrag(new Float32Array(inA), new Float32Array(outA), `Линия · фрагмент ${(mob.n).toLocaleString('ru')} треуг.`);
+  $('penInfo').textContent = `Готово. Если отделился не тот кусок — «Поменять фрагмент». Всего компонент: ${arr.length}.`;
+}
+function swapFragment(){ if(!lineComps){ return; } penCandIdx++; buildFragFromComp(); }
+
+// Контурный (loop) распил — вырубка по замкнутому контуру вдоль взгляда.
+function doLoopCut(){
   const dc = penCanvas(); const rw = dc.getBoundingClientRect();
   const poly = penPts.map(p=>({x:p.x, y:p.y}));
   const P = boneSurf.positions, I = boneSurf.indices;
   const triCount = I ? I.length/3 : P.length/9;
   const inA=[], outA=[]; const v=new THREE.Vector3();
-  const proj=(ix)=>{ v.set(P[ix*3],P[ix*3+1],P[ix*3+2]).project(camera);
-    return { x:(v.x+1)/2*rw.width, y:(1-(v.y+1)/2)*rw.height }; };
   for (let t=0;t<triCount;t++){
     const a=I?I[t*3]:t*3, b=I?I[t*3+1]:t*3+1, c=I?I[t*3+2]:t*3+2;
-    const pa=proj(a), pb=proj(b), pc=proj(c);
+    const pa=projVert(P,a,rw,v), pb=projVert(P,b,rw,v), pc=projVert(P,c,rw,v);
     const cx=(pa.x+pb.x+pc.x)/3, cy=(pa.y+pb.y+pc.y)/3;
-    const inside = pointInPoly(cx, cy, poly);
-    const dst = inside?inA:outA;
-    for (const idx of [a,b,c]) { dst.push(P[idx*3],P[idx*3+1],P[idx*3+2]); }
+    const dst = pointInPoly(cx, cy, poly)?inA:outA;
+    for (const idx of [a,b,c]) dst.push(P[idx*3],P[idx*3+1],P[idx*3+2]);
   }
-  const mobilePos = new Float32Array(inA), fixedPos = new Float32Array(outA);
-  if (mobilePos.length < 9) { alert('В контур не попала кость. Обведите зону точнее.'); return; }
-  removeFrags();
+  const mobilePos=new Float32Array(inA), fixedPos=new Float32Array(outA);
+  if (mobilePos.length<9){ alert('В контур не попала кость. Обведите зону точнее.'); return; }
+  finalizeFrag(mobilePos, fixedPos, `Контур · фрагмент ${(mobilePos.length/9|0).toLocaleString('ru')} треуг.`);
+}
+function penCutDispatch(){
+  if (!boneSurf) { alert('Сначала постройте 3D-модель.'); return; }
+  if (penPts.length < 3) { alert('Сначала нарисуйте линию/контур карандашом.'); return; }
+  if (penMode()==='line') doLineCut(); else doLoopCut();
+}
+// общая сборка фрагментов + оси дистракции (вдоль взгляда камеры)
+function finalizeFrag(mobilePos, fixedPos, info){
+  removeFrags(); clearDevPts();
   boneMesh.visible=false; if(planeMesh) planeMesh.visible=false; if(roiBox) roiBox.visible=false;
   fragFixed = makeMesh(fixedPos, 0xe6ddc9); fragFixed.name='fixed'; scene.add(fragFixed);
   fragMobileMesh = makeMesh(mobilePos, 0x66d9e8); fragMobileMesh.name='mobile';
   fragMobileGroup = new THREE.Group(); fragMobileGroup.add(fragMobileMesh); fragMobileGroup.name='mobile';
   scene.add(fragMobileGroup);
-  // ось дистракции для контурного распила — вдоль взгляда камеры, центр — центроид фрагмента
-  const box = new THREE.Box3().setFromObject(fragMobileMesh); const ctr = box.getCenter(new THREE.Vector3());
-  cutN = new THREE.Vector3(); camera.getWorldDirection(cutN); cutN.multiplyScalar(-1).normalize();
-  cutP = ctr; cutSign = 1;
+  const box=new THREE.Box3().setFromObject(fragMobileMesh); const ctr=box.getCenter(new THREE.Vector3());
+  cutN=new THREE.Vector3(); camera.getWorldDirection(cutN); cutN.multiplyScalar(-1).normalize();
+  cutP=ctr; cutSign=1;
   isCut=true; mobileMode='sliders';
   ['mvDist','mvX','mvY','mvRot'].forEach(id => $(id).value = 0);
   applyMobileTransform(); clearArc();
-  setPenMode(false); clearPen();
-  const triM = mobilePos.length/9|0;
-  $('cutInfo').textContent = `Распил по контуру · подвижный фрагмент ${triM.toLocaleString('ru')} треуг.`;
-  $('penInfo').textContent = 'Готово. Настройте дистракцию/КДА или тащите фрагмент гизмо.';
+  setPenMode(false); penPts=[]; drawPen();
+  $('cutInfo').textContent = 'Распил · ' + info;
+}
+
+// ---- Точки под аппарат (клик по фрагменту) ----
+let devPtMode = false, devPts = [], devMarkers = [];
+function setDevPtMode(on){ devPtMode=on; $('devPtBtn').classList.toggle('armed', on);
+  if(on){ setPenMode(false); setPickMode(false);
+    $('penInfo').textContent='Кликните 2 точки по кости — начало и конец аппарата вдоль линии распила.'; } }
+function clearDevPts(){ devMarkers.forEach(m=>scene.remove(m)); devMarkers=[]; devPts=[]; }
+function addDevPt(pt){
+  if (devPts.length>=2) clearDevPts();
+  devPts.push(pt.clone());
+  const s=new THREE.Mesh(new THREE.SphereGeometry(Math.max(1.2,modelRadius*0.02),12,12),
+    new THREE.MeshBasicMaterial({color:0xffc24d}));
+  s.position.copy(pt); scene.add(s); devMarkers.push(s);
+  $('penInfo').textContent = devPts.length<2 ? 'Поставьте вторую точку аппарата.' : 'Зона аппарата задана. Нажмите «Спланировать КДО».';
 }
 
 function setGroupRigid(group, quat, center, extraT) {
@@ -406,6 +511,12 @@ function applyMobileTransform() {
 // ---- Планирование КДА (криволинейная дистракция) ----
 function arcAxis() {
   const d = cutN.clone().multiplyScalar(cutSign);       // направление выдвижения наружу
+  // если поставлены 2 точки аппарата — ось дуги идёт вдоль линии аппарата
+  if (devPts.length === 2) {
+    let a = devPts[1].clone().sub(devPts[0]);
+    a.sub(d.clone().multiplyScalar(a.dot(d)));           // перпендикуляр к направлению выдвижения
+    if (a.lengthSq() > 1e-6) return { d, a: a.normalize() };
+  }
   let up = new THREE.Vector3(0,0,1); if (Math.abs(d.dot(up))>0.9) up = new THREE.Vector3(0,1,0);
   let a = new THREE.Vector3().crossVectors(d, up).normalize();
   a.applyAxisAngle(d, (+$('arcRot').value)*Math.PI/180);  // «плоскость дуги»
@@ -420,13 +531,16 @@ function planKDO() {
   arcDegCur = useDeg;
   const R = arcRadius(req, useDeg);        // радиус дуги выводим из длины и угла
   const { d, a } = arcAxis();
-  arcFrameCur = arcFrame(cutP.clone(), d, a, R);
+  // точка приложения дуги: середина зоны аппарата, если заданы точки
+  const P0 = devPts.length===2 ? devPts[0].clone().add(devPts[1]).multiplyScalar(0.5) : cutP.clone();
+  arcFrameCur = arcFrame(P0, d, a, R);
   arcRadCur = R;
   drawArc();
   mobileMode = 'arc';
   $('arcDist').max = req.toFixed(1); $('arcDist').value = req;
   moveAlongArc();
-  $('kdoInfo').innerHTML = `<b style="color:var(--accent)">${curDevice.name}</b> · кривизна дуги ${curDevice.deg}° · коррекция ${useDeg.toFixed(0)}° · радиус ≈ ${R.toFixed(0)} мм`;
+  const zone = devPts.length===2 ? ' · зона по точкам' : '';
+  $('kdoInfo').innerHTML = `<b style="color:var(--accent)">${curDevice.name}</b> · кривизна дуги ${curDevice.deg}° · коррекция ${useDeg.toFixed(0)}° · дистракция ${req.toFixed(1)} мм · радиус ≈ ${R.toFixed(0)} мм${zone}`;
 }
 function drawArc() {
   clearArc();
@@ -448,7 +562,7 @@ function moveAlongArc() {
 
 function removeFrags(){ [fragFixed, fragMobileGroup].forEach(o=>{ if(o) scene.remove(o); }); fragFixed=fragMobileGroup=fragMobileMesh=null; if(gizmo) gizmo.detach(); }
 function resetCut(silent){
-  removeFrags(); clearArc(); isCut=false; mobileMode='sliders'; arcFrameCur=null;
+  removeFrags(); clearArc(); clearDevPts(); lineComps=null; isCut=false; mobileMode='sliders'; arcFrameCur=null;
   if (boneMesh) boneMesh.visible = true;
   if (planeMesh) planeMesh.visible = false; if (roiBox) roiBox.visible = false;
   if (gizmo) gizmo.detach();
@@ -490,7 +604,10 @@ function bindOsteotomy() {
   bindPen();
   $('penBtn').onclick = ()=> setPenMode(!penOn);
   $('penClear').onclick = clearPen;
-  $('penCut').onclick = doLassoCut;
+  $('penCut').onclick = penCutDispatch;
+  $('penSwap').onclick = swapFragment;
+  $('penMode').addEventListener('change', clearPen);
+  $('devPtBtn').onclick = ()=> setDevPtMode(!devPtMode);
 }
 
 // ---------- UI ----------
