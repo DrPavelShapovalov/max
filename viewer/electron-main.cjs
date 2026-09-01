@@ -5,7 +5,7 @@ const path = require('path');
 function createWindow() {
   const win = new BrowserWindow({
     width: 1500, height: 950, minWidth: 1100, minHeight: 720,
-    title: 'КДО-Планировщик 3D',
+    title: 'OSSA 3D — Craniofacial Distraction Planner',
     icon: path.join(__dirname, 'build', 'icon.ico'),
     backgroundColor: '#081116',
     autoHideMenuBar: true,

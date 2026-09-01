@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "КДО-Планировщик 3D — просмотр DICOM, MPR и 3D-реконструкция кости",
+  "description": "OSSA 3D — Craniofacial Distraction Planner",
   "author": "Шаповалов П.И.",
   "main": "electron-main.cjs",
   "repository": { "type": "git", "url": "https://github.com/DrPavelShapovalov/max.git" },
@@ -25,8 +25,8 @@
   },
   "build": {
     "appId": "ru.cniis.kdoplanner3d",
-    "productName": "КДО-Планировщик 3D",
-    "artifactName": "KDO-Planner-3D-Setup-${version}.${ext}",
+    "productName": "OSSA 3D",
+    "artifactName": "OSSA-3D-Setup-${version}.${ext}",
     "directories": { "output": "release" },
     "files": [ "electron-main.cjs", "dist/**" ],
     "win": { "target": ["nsis"], "icon": "build/icon.ico" },
@@ -36,7 +36,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "КДО-Планировщик 3D"
+      "shortcutName": "OSSA 3D"
     }
   }
 }
