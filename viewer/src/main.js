@@ -81,17 +81,21 @@ function sliceMeta(plane) {
   if (plane === 'coronal')  return { w: nx, h: nz, pw: nx * sx, ph: nz * sz, count: ny, axis: 1 };
   return { w: ny, h: nz, pw: ny * sy, ph: nz * sz, count: nx, axis: 0 }; // sagittal
 }
+// один воксель среза (для сэмплинга/плотности)
+function voxel(plane, a, b, k){
+  const [nx, ny, nz] = volume.dims; const d = volume.data;
+  if (plane === 'axial')   return d[k*nx*ny + b*nx + a];
+  if (plane === 'coronal') return d[b*nx*ny + k*nx + a];
+  return d[b*nx*ny + k + a*nx]; // sagittal
+}
 function sampleSlice(plane, k, w, h) {
-  const [nx, ny, nz] = volume.dims;
-  const d = volume.data;
+  const m = sliceMeta(plane); const half = (slabN>1)? (slabN>>1) : 0;
   const out = new Int16Array(w * h);
-  if (plane === 'axial') {
-    const base = k * nx * ny;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) out[y * w + x] = d[base + y * nx + x];
-  } else if (plane === 'coronal') {
-    for (let z = 0; z < h; z++) { const base = z * nx * ny + k * nx; for (let x = 0; x < w; x++) out[z * w + x] = d[base + x]; }
-  } else {
-    for (let z = 0; z < h; z++) { const base = z * nx * ny + k; for (let y = 0; y < w; y++) out[z * w + y] = d[base + y * nx]; }
+  for (let b=0;b<h;b++) for (let a=0;a<w;a++){
+    if (!half){ out[b*w+a] = voxel(plane,a,b,k); continue; }
+    let mx=-32768;                             // толстый срез — MIP (макс. интенсивность, для кости)
+    for (let s=-half;s<=half;s++){ const kk=k+s; if(kk<0||kk>=m.count) continue; const val=voxel(plane,a,b,kk); if(val>mx) mx=val; }
+    out[b*w+a] = mx;
   }
   return out;
 }
@@ -132,9 +136,86 @@ function renderMPR(plane) {
   else { u = idx[1] / volume.dims[1]; v = idx[2] / volume.dims[2]; }
   const lx = ox + u * dw, ly = oy + (flipY ? (1 - v) : v) * dh;
   ctx.beginPath(); ctx.moveTo(lx, oy); ctx.lineTo(lx, oy + dh); ctx.moveTo(ox, ly); ctx.lineTo(ox + dw, ly); ctx.stroke();
+  // сохранить раскладку для перевода клик↔мм
+  mprLayout[plane] = { ox, oy, dw, dh, flipY, m, k };
+  drawMprMeas(plane, ctx);
   // подпись
   ctx.fillStyle = 'rgba(47,228,214,.9)'; ctx.font = '11px ui-monospace,monospace';
-  ctx.fillText(`${plane.toUpperCase()}  ${k + 1}/${m.count}`, 8, 16);
+  ctx.fillText(`${plane.toUpperCase()}  ${k + 1}/${m.count}${slabN>1?'  ⊟'+slabN:''}`, 8, 16);
+}
+// ---------- измерения на MPR ----------
+let slabN = 1;
+let mprLayout = {};
+let mprMode = null;                 // null|'dist'|'angle'|'dens'
+let mprMeas = { axial:[], coronal:[], sagittal:[] };
+let mprDraft = null;                // текущее незавершённое измерение
+function frac2px(plane, f){ const L=mprLayout[plane]; return { x:L.ox+f.fx*L.dw, y:L.oy+(L.flipY?(1-f.fy):f.fy)*L.dh }; }
+function px2frac(plane, x, y){ const L=mprLayout[plane]; let fx=(x-L.ox)/L.dw, fy=(y-L.oy)/L.dh; if(L.flipY) fy=1-fy; return {fx,fy}; }
+function fracDistMM(plane, a, b){ const L=mprLayout[plane]; const dx=(a.fx-b.fx)*L.m.pw, dy=(a.fy-b.fy)*L.m.ph; return Math.hypot(dx,dy); }
+function drawMprMeas(plane, ctx){
+  const L=mprLayout[plane]; if(!L) return;
+  const list = mprMeas[plane].filter(o=>o.k===L.k).concat(mprDraft && mprDraft.plane===plane ? [mprDraft] : []);
+  ctx.lineWidth=1.5; ctx.font='11px ui-monospace,monospace';
+  for(const o of list){
+    const P=o.pts.map(f=>frac2px(plane,f));
+    if(o.type==='dist' && P.length>=1){ ctx.strokeStyle='#ffc24d'; ctx.fillStyle='#ffc24d';
+      if(P.length>=2){ ctx.beginPath(); ctx.moveTo(P[0].x,P[0].y); ctx.lineTo(P[1].x,P[1].y); ctx.stroke();
+        const mm=fracDistMM(plane,o.pts[0],o.pts[1]); ctx.fillText(mm.toFixed(1)+' мм',(P[0].x+P[1].x)/2+4,(P[0].y+P[1].y)/2-4); }
+      P.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,7);ctx.fill();}); }
+    else if(o.type==='angle' && P.length>=1){ ctx.strokeStyle='#38a8ff'; ctx.fillStyle='#38a8ff';
+      if(P.length>=2){ctx.beginPath();ctx.moveTo(P[0].x,P[0].y);ctx.lineTo(P[1].x,P[1].y);if(P[2])ctx.lineTo(P[2].x,P[2].y);ctx.stroke();}
+      if(P.length>=3){ const a=o.pts[0],c=o.pts[1],b=o.pts[2]; const L2=mprLayout[plane];
+        const v1={x:(a.fx-c.fx)*L2.m.pw,y:(a.fy-c.fy)*L2.m.ph}, v2={x:(b.fx-c.fx)*L2.m.pw,y:(b.fy-c.fy)*L2.m.ph};
+        const ang=Math.acos((v1.x*v2.x+v1.y*v2.y)/(Math.hypot(v1.x,v1.y)*Math.hypot(v2.x,v2.y)||1))*180/Math.PI;
+        ctx.fillText(ang.toFixed(1)+'°',P[1].x+5,P[1].y-5); }
+      P.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,7);ctx.fill();}); }
+    else if(o.type==='dens' && P.length>=1){ ctx.strokeStyle='#39d98a'; ctx.fillStyle='#39d98a';
+      const c=P[0]; const rpx = P.length>=2? Math.hypot(P[1].x-c.x,P[1].y-c.y) : 10;
+      ctx.beginPath(); ctx.arc(c.x,c.y,rpx,0,7); ctx.stroke();
+      if(o.hu!=null) ctx.fillText(`${o.hu|0} HU · ${o.area.toFixed(0)} мм²`, c.x+rpx+4, c.y); }
+  }
+}
+function setMprMode(mode){
+  mprMode = (mprMode===mode)? null : mode; mprDraft=null;
+  ['mDist','mAngle','mDens'].forEach(id=>$(id).classList.remove('armed'));
+  if(mprMode){ setMeasMode(null); const b=$({dist:'mDist',angle:'mAngle',dens:'mDens'}[mprMode]); b&&b.classList.add('armed'); }
+}
+function clearMpr(){ mprMeas={axial:[],coronal:[],sagittal:[]}; mprDraft=null; if(volume) renderAllMPR(); }
+function computeDensity(o){
+  const plane=o.plane, m=sliceMeta(plane), k=o.k, c=o.pts[0], e=o.pts[1];
+  const cx=c.fx*m.w, cy=c.fy*m.h; const rpx=Math.hypot((e.fx-c.fx)*m.w,(e.fy-c.fy)*m.h);
+  const r2=rpx*rpx; let sum=0,n=0;
+  for(let b=Math.max(0,Math.floor(cy-rpx));b<Math.min(m.h,Math.ceil(cy+rpx));b++)
+    for(let a=Math.max(0,Math.floor(cx-rpx));a<Math.min(m.w,Math.ceil(cx+rpx));a++)
+      if((a-cx)**2+(b-cy)**2<=r2){ sum+=voxel(plane,a,b,k); n++; }
+  o.hu = n? sum/n : 0;
+  const rmm=(Math.abs(e.fx-c.fx)*m.pw + Math.abs(e.fy-c.fy)*m.ph)/2;
+  o.area=Math.PI*rmm*rmm;
+}
+function onMprClick(plane, f, k){
+  if(!mprDraft || mprDraft.plane!==plane || mprDraft.k!==k || mprDraft.type!==mprMode) mprDraft={type:mprMode,plane,k,pts:[]};
+  mprDraft.pts.push(f);
+  const need = mprMode==='angle'?3:2;
+  if(mprMode==='dens' && mprDraft.pts.length===2) computeDensity(mprDraft);
+  if(mprDraft.pts.length>=need){
+    if(mprMode==='dist') mprDraft.mm=fracDistMM(plane,mprDraft.pts[0],mprDraft.pts[1]);
+    let msg;
+    if(mprMode==='dist') msg=`MPR длина: ${mprDraft.mm.toFixed(1)} мм`;
+    else if(mprMode==='angle'){ const P=mprDraft.pts, L=mprLayout[plane];
+      const v1={x:(P[0].fx-P[1].fx)*L.m.pw,y:(P[0].fy-P[1].fy)*L.m.ph}, v2={x:(P[2].fx-P[1].fx)*L.m.pw,y:(P[2].fy-P[1].fy)*L.m.ph};
+      msg=`MPR угол: ${(Math.acos((v1.x*v2.x+v1.y*v2.y)/(Math.hypot(v1.x,v1.y)*Math.hypot(v2.x,v2.y)||1))*180/Math.PI).toFixed(1)}°`; }
+    else msg=`MPR плотность: ${mprDraft.hu|0} HU · ${mprDraft.area.toFixed(0)} мм²`;
+    mprMeas[plane].push(mprDraft); mprDraft=null;
+    $('measVal').textContent=msg; $('measVal').style.display='';
+  }
+  renderMPR(plane);
+}
+function bindMprMeas(){
+  planes.forEach(plane=>{ const cv=$('cv-'+plane);
+    cv.addEventListener('mousedown',(ev)=>{ if(!volume||!mprMode) return; ev.preventDefault(); ev.stopPropagation();
+      const r=cv.getBoundingClientRect(); const x=(ev.clientX-r.left)*cv.width/r.width, y=(ev.clientY-r.top)*cv.height/r.height;
+      onMprClick(plane, px2frac(plane,x,y), idx[sliceMeta(plane).axis]); }, true);
+  });
 }
 function resizeMPRCanvases() {
   const dpr = Math.min(devicePixelRatio || 1, 2);
@@ -1043,6 +1124,12 @@ let thrTimer;
 function bindControls() {
   $('fileInput').addEventListener('change', e => loadFiles(e.target.files));
   $('loadBtn').onclick = () => $('fileInput').click();
+  $('slab').addEventListener('input', e=>{ slabN=+e.target.value; $('slabv').textContent=slabN; if(volume) renderAllMPR(); });
+  $('mDist').onclick = ()=> setMprMode('dist');
+  $('mAngle').onclick = ()=> setMprMode('angle');
+  $('mDens').onclick = ()=> setMprMode('dens');
+  $('mClear').onclick = clearMpr;
+  bindMprMeas();
   $('wc').oninput = e => { win.center = +e.target.value; $('wcval').textContent = win.center; renderAllMPR(); };
   $('ww').oninput = e => { win.width = +e.target.value; $('wwval').textContent = win.width; renderAllMPR(); };
   document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => {
