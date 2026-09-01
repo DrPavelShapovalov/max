@@ -34,6 +34,7 @@
   .chip{background:var(--panel2);border:1px solid var(--line);color:var(--ink-soft);border-radius:6px;
         padding:4px 9px;font-size:11px;font-family:var(--mono);cursor:pointer}
   .chip:hover{color:var(--accent);border-color:var(--accent)}
+  .chip.armed{background:var(--accent);color:#04120f;border-color:var(--accent);font-weight:650}
   .meta{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);text-align:right;line-height:1.4}
   .prog{height:3px;background:transparent;opacity:0;transition:opacity .2s}
   .prog>div{height:100%;background:var(--accent);width:0;box-shadow:0 0 8px var(--accent)}
@@ -107,6 +108,8 @@
     <div class="grp" title="Ширина окна">WW <input type="range" id="ww" min="1" max="4000" value="1500"><span id="wwval">1500</span></div>
     <span class="chip" data-preset="300,1500">Кость</span>
     <span class="chip" data-preset="40,400">Мягкие ткани</span>
+    <span class="chip" id="rotFree" title="Свободное вращение по любым осям">↻ Свободно</span>
+    <span class="chip" id="rotTurn" title="Вращение по кругу (турель)">⟳ По кругу</span>
     <div class="grp" title="Порог кости для 3D">3D&nbsp;порог <input type="range" id="thr" min="-200" max="1500" value="300"><span id="thrval">300 HU</span></div>
     <div class="meta"><span id="meta">Серия не загружена</span></div>
   </div>
@@ -127,11 +130,12 @@
             <select id="penMode">
               <option value="line" selected>Линия остеотомии</option>
               <option value="loop">Контур области</option>
+              <option value="knife">🔪 Нож (обрезать)</option>
             </select>
           </div>
           <div class="btns"><button id="penBtn" class="ghost">✏ Рисовать</button><button id="penClear" class="ghost">Стереть</button></div>
-          <div class="btns"><button id="penCut" class="act-b">Распилить по линии</button></div>
-          <div class="btns"><button id="penSwap" class="ghost">Поменять фрагмент</button></div>
+          <div class="btns"><button id="penCut" class="act-b">Применить</button></div>
+          <div class="btns"><button id="penSwap" class="ghost">Выбрать другой фрагмент</button><button id="knifeUndo" class="ghost">↩ Вернуть</button></div>
           <div class="info" id="penInfo">Проведи линию через кость — отделятся фрагменты выше и ниже линии (локально). «Поменять фрагмент» — какой подвижен.</div>
 
           <div class="sep"></div>
