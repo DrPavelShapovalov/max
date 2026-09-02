@@ -51,7 +51,7 @@ async function loadSeries(i){
   if(!dicomGroups) return;
   curSeries = i;
   status('Сборка серии…', 0.5);
-  const vol = assembleSeries(dicomGroups, i, (p,m)=>status(m,p));
+  const vol = await assembleSeries(dicomGroups, i, (p,m)=>status(m,p));
   volume = vol;
   win = { ...vol.window };
   threshold = 300;

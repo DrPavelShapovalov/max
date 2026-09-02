@@ -1,4 +1,5 @@
 import dicomParser from 'dicom-parser';
+import { decodeFrame, codecName } from './decode.js';
 
 // Загрузка DICOM с ГРУППИРОВКОЙ ПО СЕРИЯМ.
 // Несколько серий в папке (мягкотканная / костная / разведка) больше не
@@ -42,7 +43,7 @@ function readSlice(buffer) {
     instance, seriesUID, seriesNum, desc, kernel, modality,
     compressed: !UNCOMPRESSED.has(tsuid), tsuid,
     wc: isNaN(wc) ? null : wc, ww: isNaN(ww) ? null : ww,
-    _byteArray: byteArray, _pdEl: pdEl,
+    _byteArray: byteArray, _pdEl: pdEl, _ds: ds,
   };
 }
 
@@ -91,7 +92,12 @@ function prepareGroup(g){
   g.normal = nrm; g.isBone = isBoneKernel(g);
 }
 
-function assemble(g, onProgress){
+async function decodeSlice(s){
+  if(!s.compressed) return extractPixels(s);
+  const frame = dicomParser.readEncapsulatedImageFrame(s._ds, s._pdEl, 0);
+  return await decodeFrame(s.tsuid, frame, { rows:s.rows, cols:s.cols, bitsAllocated:s.bits, pixelRep:s.pixelRep, samples:s.samples });
+}
+async function assemble(g, onProgress){
   const valid = g.slices;
   const rows=valid[0].rows, cols=valid[0].cols, nz=valid.length;
   let zsp = valid[0].thickness || 1;
@@ -100,7 +106,10 @@ function assemble(g, onProgress){
   const data=new Int16Array(cols*rows*nz);
   let min=32767,max=-32768;
   for(let z=0;z<nz;z++){
-    const s=valid[z]; const px=extractPixels(s); const base=z*cols*rows;
+    const s=valid[z]; let px;
+    try { px = await decodeSlice(s); }
+    catch(e){ throw Object.assign(new Error('Не удалось декодировать сжатие: '+codecName(s.tsuid)), {code:'CODEC'}); }
+    const base=z*cols*rows;
     for(let i=0;i<cols*rows;i++){ let v=(px[i]*s.slope+s.intercept)|0; data[base+i]=v; if(v<min)min=v; if(v>max)max=v; }
     if(onProgress) onProgress(0.5+(z+1)/nz*0.5, `Сборка объёма ${z+1}/${nz}`);
   }
@@ -110,16 +119,13 @@ function assemble(g, onProgress){
 
 // Разбор всех файлов → список серий. Возвращает {series, assembleIndex}.
 export async function loadDicom(files, onProgress){
-  const heads=[]; let compressedSeen=false;
+  const heads=[];
   for(let i=0;i<files.length;i++){
     let s=null; try{ s=readSlice(await files[i].arrayBuffer()); }catch(e){ s=null; }
-    if(s){ if(s.compressed) compressedSeen=true; else heads.push(s); }
+    if(s) heads.push(s);                          // сжатые тоже — декодируем при сборке
     if(onProgress) onProgress((i+1)/files.length*0.5, `Чтение файлов ${i+1}/${files.length}`);
   }
-  if(!heads.length){
-    if(compressedSeen){ const e=new Error('COMPRESSED'); e.code='COMPRESSED'; throw e; }
-    throw new Error('Не найдено пригодных DICOM-срезов (нужна несжатая КТ-серия).');
-  }
+  if(!heads.length) throw new Error('Не найдено пригодных DICOM-срезов.');
   // группировка: серия + геометрия кадра (rows/cols) — чтобы разведка/иная матрица не смешивалась
   const map=new Map();
   for(const s of heads){ const key=`${s.seriesUID}#${s.rows}x${s.cols}#${s.samples}`;
