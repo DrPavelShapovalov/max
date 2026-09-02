@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
-import { buildVolume } from './dicom.js';
+import { loadDicom, assembleSeries } from './dicom.js';
 import { extractSurface } from './mc.js';
 import { splitByPlane } from './cut.js';
 import { DEVICES, arcRadius, selectDevice, arcFrame, arcPoints } from './distractors.js';
@@ -24,32 +24,22 @@ function status(msg, pct) {
 }
 
 // ---------- Загрузка ----------
+let dicomGroups = null, curSeries = 0;
 async function loadFiles(fileList) {
   const files = Array.from(fileList).filter(f => !f.name.startsWith('.'));
   if (!files.length) return;
   status('Загрузка…', 0);
   try {
-    const vol = await buildVolume(files, (p, m) => status(m, p));
-    volume = vol;
-    win = { ...vol.window };
-    threshold = 300;
-    idx = [vol.dims[0] >> 1, vol.dims[1] >> 1, vol.dims[2] >> 1];
-    $('wc').value = win.center; $('ww').value = win.width;
-    $('thr').value = threshold; $('thrval').textContent = threshold + ' HU';
-    $('meta').textContent = `${vol.modality || 'CT'} · ${vol.dims.join('×')} · ${vol.spacing.map(s => s.toFixed(2)).join('/')} мм · HU ${vol.min}…${vol.max}`;
-    setupSliders();
-    $('dropHint').style.display = 'none';
-    await sliceFlip();                       // пролистать срезы «в процессе загрузки»
-    status('Реконструкция 3D…', 0.9);
-    renderAllMPR();
-    await rebuild3D();
-    ensurePlaneViz();
-    status('', null);
-    $('dropHint').style.display = 'none';
+    const { groups, series } = await loadDicom(files, (p, m) => status(m, p));
+    dicomGroups = groups;
+    buildSeriesTabs(series);
+    // серия по умолчанию: костная (для 3D) если есть, иначе самая большая
+    const def = series.findIndex(s=>s.isBone);
+    await loadSeries(def>=0 ? def : 0);
   } catch (e) {
     if (e.code === 'COMPRESSED') {
       status('');
-      alert('Эта серия сжата (JPEG/JPEG2000). Поддержка сжатых DICOM появится в следующем обновлении — пока экспортируйте серию как «uncompressed» из ВИДАР/RadiAnt.');
+      alert('Эта серия сжата (JPEG/JPEG2000). Экспортируй серию как «uncompressed» из ВИДАР/RadiAnt и загрузи снова.');
     } else {
       status('');
       alert('Ошибка загрузки: ' + e.message);
@@ -57,6 +47,47 @@ async function loadFiles(fileList) {
     }
   }
 }
+async function loadSeries(i){
+  if(!dicomGroups) return;
+  curSeries = i;
+  status('Сборка серии…', 0.5);
+  const vol = assembleSeries(dicomGroups, i, (p,m)=>status(m,p));
+  volume = vol;
+  win = { ...vol.window };
+  threshold = 300;
+  idx = [vol.dims[0]>>1, vol.dims[1]>>1, vol.dims[2]>>1];
+  $('wc').value = win.center; $('ww').value = win.width; $('wcval').textContent=win.center; $('wwval').textContent=win.width;
+  $('thr').value = threshold; $('thrval').textContent = threshold + ' HU';
+  $('meta').textContent = `${vol.modality||'CT'} · ${vol.dims.join('×')} · ${vol.spacing.map(s=>s.toFixed(2)).join('/')} мм · HU ${vol.min}…${vol.max}`;
+  document.querySelectorAll('#seriesTabs .tab').forEach((t,k)=>t.classList.toggle('active',k===i));
+  mprMeas={axial:[],coronal:[],sagittal:[]};
+  resetCut(true);
+  setupSliders(); $('dropHint').style.display='none';
+  await sliceFlip();
+  status('Реконструкция 3D…', 0.9);
+  renderAllMPR();
+  await rebuild3D();
+  ensurePlaneViz();
+  status('', null);
+}
+function buildSeriesTabs(series){
+  const bar = $('seriesTabs'); bar.innerHTML='';
+  let tabs;
+  if (series.length>1){
+    tabs = series.map(s=>({ label:(s.isBone?'🦴 ':'◍ ')+s.label, onClick:()=>loadSeries(s.index) }));
+  } else {
+    // одна серия → два режима-вкладки (как в ВИДАР): костный / мягкотканный
+    tabs = [
+      { label:'🦴 Костный режим', onClick:()=>{ applyWin(300,1500); markTab(0); } },
+      { label:'◍ Мягкие ткани',  onClick:()=>{ applyWin(40,400);  markTab(1); } },
+    ];
+  }
+  tabs.forEach((t,k)=>{ const el=document.createElement('div'); el.className='tab'+(k===0?' active':'');
+    el.textContent=t.label; el.onclick=()=>{ t.onClick(); }; bar.appendChild(el); });
+  bar.style.display = 'flex';
+}
+function markTab(k){ document.querySelectorAll('#seriesTabs .tab').forEach((t,i)=>t.classList.toggle('active',i===k)); }
+function applyWin(c,w){ win={center:c,width:w}; $('wc').value=c; $('ww').value=w; $('wcval').textContent=c; $('wwval').textContent=w; if(volume) renderAllMPR(); }
 
 // быстрая прокрутка аксиальных срезов во время загрузки (визуализация)
 async function sliceFlip(){
@@ -93,9 +124,10 @@ function sampleSlice(plane, k, w, h) {
   const out = new Int16Array(w * h);
   for (let b=0;b<h;b++) for (let a=0;a<w;a++){
     if (!half){ out[b*w+a] = voxel(plane,a,b,k); continue; }
-    let mx=-32768;                             // толстый срез — MIP (макс. интенсивность, для кости)
-    for (let s=-half;s<=half;s++){ const kk=k+s; if(kk<0||kk>=m.count) continue; const val=voxel(plane,a,b,kk); if(val>mx) mx=val; }
-    out[b*w+a] = mx;
+    // толстый срез: усреднение соседних срезов (наложение + размытие, видно ориентиры)
+    let sum=0,n=0;
+    for (let s=-half;s<=half;s++){ const kk=k+s; if(kk<0||kk>=m.count) continue; sum+=voxel(plane,a,b,kk); n++; }
+    out[b*w+a] = n? (sum/n)|0 : voxel(plane,a,b,k);
   }
   return out;
 }
@@ -950,24 +982,30 @@ function planKDO() {
   if (!isCut || activeFrag<0) { alert('Сначала распили и кликни подвижный (дистальный) фрагмент.'); return; }
   if (devPts.length<2) { alert('Поставь 2 точки аппарата: 1-я — дистальная опора, 2-я — медиальная.'); return; }
   const mode = $('kdoMode').value;
-  const P1 = devPts[0].clone(), P2 = devPts[1].clone();          // distal, medial
-  let bodyAxis = P1.clone().sub(P2); if(bodyAxis.lengthSq()<1e-6) bodyAxis.copy(activeRec().n); bodyAxis.normalize();
-  let target, mm, dir;
+  const P1 = devPts[0].clone(), P2 = devPts[1].clone();          // 1-я дистальная опора, 2-я медиальная
+  // НАПРАВЛЕНИЕ дистракции — строго вдоль тела (рельс от медиальной к дистальной опоре),
+  // фрагмент едет прямо, не «криво».
+  let dir = P1.clone().sub(P2); if(dir.lengthSq()<1e-6) dir.copy(activeRec().n); dir.normalize();
+  let mm, curveDeg=0;
   if (mode==='uni'){
-    target = nearestMirrorTarget(P1);
-    if(!target){ alert('Нет опорной кости.'); return; }
-    dir = target.clone().sub(P1); mm = dir.length();
-    if (mm<0.5){ alert('Уже симметрично, либо отметь среднюю линию 3 точками для корректного зеркала.'); return; }
-    dir.normalize();
+    const target = nearestMirrorTarget(P1);                      // зеркало здоровой стороны
+    if (target){
+      const disp = target.clone().sub(P1);
+      mm = disp.dot(dir);                                        // проекция дефицита на ось тела
+      curveDeg = disp.clone().sub(dir.clone().multiplyScalar(mm)).length(); // поперечная составляющая (мм)
+      if (mm < 1) mm = Math.max(2, disp.length());               // если проекция мала — берём модуль
+    } else mm = 12;
   } else {
     const {point,normal}=midNormalPoint();
-    mm = Math.abs(P1.clone().sub(point).dot(normal));            // до средней плоскости
-    dir = bodyAxis.clone();
-    if (mm<0.5){ alert('Опора уже у средней линии.'); return; }
+    const toMid = point.clone().sub(P1).dot(dir);                // сколько пройти вдоль тела до средней
+    mm = Math.abs(toMid) > 1 ? Math.abs(toMid) : 12;
   }
-  const ang = bodyAxis.angleTo(dir)*180/Math.PI;                 // отклонение от оси тела
-  let best=DEVICES[0]; for(const d of DEVICES) if(Math.abs(d.deg-(180-ang))<Math.abs(best.deg-(180-ang))) best=d;
-  curDevice = best;
+  mm = Math.min(mm, 40);
+  // тип аппарата: если поперечная коррекция мала — прямой (180); иначе криволинейный
+  let deg = 180;
+  if (curveDeg > 3){ const need = Math.min(150, 10 + curveDeg*4);
+    let best=DEVICES[0]; for(const d of DEVICES) if(Math.abs(d.deg-(180-need))<Math.abs(best.deg-(180-need))) best=d; deg=best.deg; }
+  curDevice = DEVICES.find(d=>d.deg===deg) || DEVICES[DEVICES.length-1];
   let up=new THREE.Vector3(0,0,1); if(Math.abs(dir.dot(up))>0.9) up=new THREE.Vector3(0,1,0);
   const perp=new THREE.Vector3().crossVectors(dir,up).normalize();
   distr = { P0:P1, dir, perp, deg:curDevice.deg, L:mm };
@@ -975,7 +1013,7 @@ function planKDO() {
   $('arcDist').max=mm.toFixed(1); $('arcDist').value=mm.toFixed(1); moveAlongArc();
   const rec=activeRec(); rec.planDev=curDevice; rec.planMM=mm;
   const typ = curDevice.deg===180?'Прямой (180°)':curDevice.name;
-  $('kdoInfo').innerHTML = `<b style="color:var(--accent)">${typ}</b> — <b>${mm.toFixed(1)} мм</b> · ${curDevice.deg===180?'линейно вдоль тела':'криволинейно, изгиб '+(180-curDevice.deg)+'°'}`;
+  $('kdoInfo').innerHTML = `<b style="color:var(--accent)">${typ}</b> — <b>${mm.toFixed(0)} мм</b> · ${curDevice.deg===180?'линейно вдоль тела':'криволинейно'}`;
   $('symInfo').textContent = mode==='uni'?'Цель: симметрия со здоровой стороной. Ползунок «Дистракция» — анимация.':'Цель: смыкание по средней линии. Ползунок «Дистракция» — анимация.';
   lastPlan = { mode, device:typ, mm, deg:curDevice.deg };
 }
