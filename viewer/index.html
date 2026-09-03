@@ -156,6 +156,7 @@
     <span class="chip" id="mDens" title="Плотность/площадь кружком">⊙ HU</span>
     <span class="chip" id="mClear" title="Очистить измерения MPR">✕</span>
     <div class="grp" title="Порог кости для 3D">3D&nbsp;порог <input type="range" id="thr" min="-200" max="1500" value="300"><span id="thrval">300 HU</span></div>
+    <label class="grp" title="Отделять нижнюю челюсть при построении 3D"><input type="checkbox" id="autoSeg" checked style="accent-color:var(--accent)"> Сегментация&nbsp;НЧ</label>
     <div class="meta"><span id="meta">Серия не загружена</span></div>
   </div>
   <div class="prog"><div id="progbar"></div></div>
@@ -203,6 +204,7 @@
           <div class="btns"><button id="movePlane" class="ghost">Двигать</button><button id="rotPlane" class="ghost">Вращать</button></div>
           <div class="info">Уменьши ширину/высоту/толщину и наведи рамку на угол — распил захватит только кость внутри рамки.</div>
           <div class="btns"><button id="cutDo" class="act-b">Распилить рамкой</button><button id="cutReset" class="ghost">Сброс</button></div>
+          <div class="btns"><button id="segBtn" class="ghost">🦷 Отделить нижнюю челюсть</button></div>
 
           <div class="sep"></div>
           <div class="sect">Перемещение фрагмента</div>

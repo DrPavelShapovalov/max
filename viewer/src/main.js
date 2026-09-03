@@ -361,6 +361,50 @@ async function rebuild3D() {
   modelRadius = rr;
   camera.position.set(0, -rr * 2.4, rr * 0.7); controls.target.set(0, 0, 0);
   $('info3d').textContent = `${surf.triCount.toLocaleString('ru')} треуг. · ${(performance.now() - t0 | 0)} мс · шаг ×${surf.step}`;
+  if ($('autoSeg') && $('autoSeg').checked) autoSegment(true);
+}
+// связные детали кости (по индексному мешу) — сортированы по размеру
+function segmentComponents(surf){
+  const P=surf.positions, I=surf.indices; const nv=P.length/3;
+  const parent=new Int32Array(nv); for(let i=0;i<nv;i++)parent[i]=i;
+  const find=x=>{ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; };
+  const uni=(a,b)=>{ a=find(a); b=find(b); if(a!==b)parent[a]=b; };
+  const nt=I.length/3;
+  for(let t=0;t<nt;t++){ const a=I[t*3],b=I[t*3+1],c=I[t*3+2]; uni(a,b); uni(b,c); }
+  const map=new Map();
+  for(let t=0;t<nt;t++){ const r=find(I[t*3]); let e=map.get(r); if(!e){ e=[]; map.set(r,e); } e.push(t); }
+  const comps=[...map.values()].map(tris=>{
+    const soup=new Float32Array(tris.length*9); let o=0;
+    for(const t of tris){ for(let k=0;k<3;k++){ const vi=I[t*3+k]; soup[o++]=P[vi*3]; soup[o++]=P[vi*3+1]; soup[o++]=P[vi*3+2]; } }
+    return { soup, n:tris.length };
+  });
+  comps.sort((a,b)=>b.n-a.n);
+  return comps;
+}
+// авто-сегментация: череп = самая большая деталь (опора), остальные крупные —
+// подвижные (нижняя челюсть отделяется сама, если не сращена на пороге)
+function autoSegment(silent){
+  if(!boneSurf) return false;
+  const comps = segmentComponents(boneSurf);
+  const total = comps.reduce((s,c)=>s+c.n,0);
+  const keep = comps.slice(1).filter(c=>c.n >= total*0.03).slice(0,4);   // до 4 крупных подвижных
+  if(!keep.length){
+    if(!silent) alert('Кость — единая деталь (челюсть сращена с черепом на текущем пороге). Подними «3D порог» или используй распил.');
+    $('cutInfo').textContent = 'Единая деталь: подними 3D порог для отделения челюсти или распили.';
+    return false;
+  }
+  removeFrags();
+  const baseParts=[ comps[0].soup ];
+  comps.slice(1).forEach(c=>{ if(!keep.includes(c)) baseParts.push(c.soup); });
+  let bl=0; baseParts.forEach(s=>bl+=s.length); baseSoup=new Float32Array(bl);
+  let bo=0; baseParts.forEach(s=>{ baseSoup.set(s,bo); bo+=s.length; });
+  rebuildBaseMesh();
+  keep.forEach((c,i)=> addFrag(c.soup, i===0?0x66d9e8:0xffc24d, new THREE.Vector3(0,0,1), soupCentroid(c.soup)));
+  isCut=true; clearArc(); clearRegen(); clearDevPts();
+  let mi=-1, lowZ=Infinity; frags.forEach((f,i)=>{ if(f.centroid.z<lowZ){ lowZ=f.centroid.z; mi=i; } });
+  if(mi>=0) selectFrag(mi);
+  $('cutInfo').textContent = `Сегментация: ${frags.length} подвижн. деталь(ей) + череп. Кликни нижнюю челюсть → тащи/планируй. Сращено — подними порог или распили.`;
+  return true;
 }
 
 // ---------- Остеотомия / дистракторы (мультифрагментная модель) ----------
@@ -1090,6 +1134,7 @@ function bindOsteotomy() {
   $('rotPlane').onclick = ()=>{ if(planeMesh){ if(!$('planeOn').checked){$('planeOn').checked=true; ensurePlaneViz(false);} gizmo.setMode('rotate'); gizmo.attach(planeMesh); } };
   $('cutDo').onclick = ()=>{ if(volume) doCut(); };
   $('cutReset').onclick = ()=>{ resetCut(false); ensurePlaneViz(true); };
+  $('segBtn').onclick = ()=>{ if(boneSurf) autoSegment(false); };
   ['mvDist','mvX','mvY','mvRot'].forEach(id => $(id).addEventListener('input', ()=>{ mobileMode='sliders'; clearArc(); clearRegen(); applyMobileTransform(); }));
   // гизмо для фрагментов
   $('pickBtn').onclick = ()=> setPickMode(!pickMode);
