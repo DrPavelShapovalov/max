@@ -289,11 +289,24 @@ function onMprClick(plane, f, k){
   }
   renderMPR(plane);
 }
+function setCrosshair(plane, f){        // перетаскиваемый указатель: задаёт срезы др. плоскостей
+  const [nx,ny,nz]=volume.dims;
+  const cl=(v,n)=>Math.max(0,Math.min(n-1,Math.round(v*(n-1))));
+  if(plane==='axial'){ idx[0]=cl(f.fx,nx); idx[1]=cl(f.fy,ny); }
+  else if(plane==='coronal'){ idx[0]=cl(f.fx,nx); idx[2]=cl(f.fy,nz); }
+  else { idx[1]=cl(f.fx,ny); idx[2]=cl(f.fy,nz); }
+  planes.forEach(p=>{ $('sl-'+p).value=idx[sliceMeta(p).axis]; });
+  renderAllMPR();
+}
 function bindMprMeas(){
-  planes.forEach(plane=>{ const cv=$('cv-'+plane);
-    cv.addEventListener('mousedown',(ev)=>{ if(!volume||!mprMode) return; ev.preventDefault(); ev.stopPropagation();
-      const r=cv.getBoundingClientRect(); const x=(ev.clientX-r.left)*cv.width/r.width, y=(ev.clientY-r.top)*cv.height/r.height;
-      onMprClick(plane, px2frac(plane,x,y), idx[sliceMeta(plane).axis]); }, true);
+  planes.forEach(plane=>{ const cv=$('cv-'+plane); let dragging=false;
+    const toFrac=(ev)=>{ const r=cv.getBoundingClientRect(); return px2frac(plane,(ev.clientX-r.left)*cv.width/r.width,(ev.clientY-r.top)*cv.height/r.height); };
+    cv.addEventListener('mousedown',(ev)=>{ if(!volume) return;
+      if(mprMode){ ev.preventDefault(); ev.stopPropagation(); onMprClick(plane, toFrac(ev), idx[sliceMeta(plane).axis]); return; }
+      if(plane==='coronal'&&oblique.on) return;      // косой строится наклоном
+      ev.preventDefault(); dragging=true; setCrosshair(plane, toFrac(ev)); }, true);
+    cv.addEventListener('mousemove',(ev)=>{ if(dragging && !mprMode){ setCrosshair(plane, toFrac(ev)); } });
+    window.addEventListener('mouseup',()=>{ dragging=false; });
   });
 }
 function resizeMPRCanvases() {
@@ -446,10 +459,11 @@ function autoSegment(silent){
   let bl=0; baseParts.forEach(s=>bl+=s.length); baseSoup=new Float32Array(bl);
   let bo=0; baseParts.forEach(s=>{ baseSoup.set(s,bo); bo+=s.length; });
   rebuildBaseMesh();
-  keep.forEach((c,i)=> addFrag(c.soup, i===0?0x66d9e8:0xffc24d, new THREE.Vector3(0,0,1), soupCentroid(c.soup)));
+  keep.forEach((c,i)=> addFrag(c.soup, i===0?0x66d9e8:0xffc24d, new THREE.Vector3(0,0,1), soupCentroid(c.soup), 'Деталь '+(i+1)));
   isCut=true; clearArc(); clearRegen(); clearDevPts();
   let mi=-1, lowZ=Infinity; frags.forEach((f,i)=>{ if(f.centroid.z<lowZ){ lowZ=f.centroid.z; mi=i; } });
-  if(mi>=0) selectFrag(mi);
+  if(mi>=0){ frags[mi].name='Нижняя челюсть'; selectFrag(mi); }
+  refreshObjPanel();
   $('cutInfo').textContent = `Сегментация: ${frags.length} подвижн. деталь(ей) + череп. Кликни нижнюю челюсть → тащи/планируй. Сращено — подними порог или распили.`;
   return true;
 }
@@ -543,13 +557,47 @@ function rebuildBaseMesh(){
   baseMesh = makeMesh(baseSoup, 0xe6ddc9); baseMesh.name='base'; scene.add(baseMesh);
   if (boneMesh) boneMesh.visible=false;
 }
-function addFrag(soup, color, n, p){
+function addFrag(soup, color, n, p, name){
   const mesh = makeMesh(soup, color); mesh.name='frag';
   const group = new THREE.Group(); group.add(mesh); scene.add(group);
   const rec = { group, mesh, soup, color, n:n.clone(), p:p.clone(),
-    centroid: soupCentroid(soup), dist:0 };
+    centroid: soupCentroid(soup), dist:0, name: name || ('Фрагмент '+(frags.length+1)) };
   mesh.userData.frag = rec;
-  frags.push(rec); return rec;
+  frags.push(rec); refreshObjPanel(); return rec;
+}
+function removeOneFrag(rec){
+  const i=frags.indexOf(rec); if(i<0) return;
+  scene.remove(rec.group); rec.mesh.geometry.dispose();
+  frags.splice(i,1); if(activeFrag>=frags.length) activeFrag=frags.length-1;
+  refreshObjPanel();
+}
+// какой объект под экранной точкой: фрагмент, 'base' или null
+function pickObjectAt(px, py, rw){
+  const ray=new THREE.Raycaster();
+  ray.setFromCamera(new THREE.Vector2((px/rw.width)*2-1, -(py/rw.height)*2+1), camera);
+  const meshes=[...frags.map(f=>f.mesh)]; if(baseMesh&&baseMesh.visible) meshes.push(baseMesh); if(boneMesh&&boneMesh.visible) meshes.push(boneMesh);
+  const h=ray.intersectObjects(meshes.filter(Boolean), false)[0];
+  if(!h) return null;
+  return h.object.userData.frag ? h.object.userData.frag : 'base';
+}
+// распилить ОДИН объект плоскостью → 2 объекта; остальные не трогаем
+function splitFragByPlane(rec, n, p, label){
+  rec.mesh.updateMatrixWorld(true); const M=rec.mesh.matrixWorld;
+  const P=rec.soup; const A=[],B=[]; const v=new THREE.Vector3();
+  for(let t=0;t<P.length;t+=9){
+    const w=[]; let cx=0,cy=0,cz=0;
+    for(let k=0;k<3;k++){ v.set(P[t+k*3],P[t+k*3+1],P[t+k*3+2]).applyMatrix4(M); w.push(v.x,v.y,v.z); cx+=v.x;cy+=v.y;cz+=v.z; }
+    const d=(cx/3-p.x)*n.x+(cy/3-p.y)*n.y+(cz/3-p.z)*n.z;
+    (d>=0?A:B).push(w[0],w[1],w[2],w[3],w[4],w[5],w[6],w[7],w[8]);
+  }
+  if(A.length<9 || B.length<9){ alert('Плоскость не пересекла объект насквозь — наклони/сдвинь линию.'); return; }
+  const nm=rec.name||'Объект';
+  removeOneFrag(rec);
+  const a=addFrag(new Float32Array(A), rec.color||0x66d9e8, n, p, nm+' ①');
+  const b=addFrag(new Float32Array(B), 0xffc24d, n.clone().multiplyScalar(-1), p, nm+' ②');
+  isCut=true; cutN=n.clone(); cutP=p.clone(); clearArc(); clearRegen();
+  selectFrag(frags.indexOf(b));
+  $('cutInfo').textContent = `Распил «${nm}» → 2 объекта. Другие объекты сохранены — режь их тоже. Двигай/планируй.`;
 }
 function soupCentroid(pos){ const c=new THREE.Vector3(); const nt=pos.length/3;
   for(let i=0;i<pos.length;i+=3){ c.x+=pos[i]; c.y+=pos[i+1]; c.z+=pos[i+2]; } return c.multiplyScalar(1/nt); }
@@ -558,7 +606,21 @@ function selectFrag(i){
   frags.forEach((f,k)=>{ f.mesh.material.emissive.setHex(k===i?0x134e4a:0x000000);
     f.mesh.material.emissiveIntensity = k===i?0.9:0; });
   if (i>=0 && gizmo){ gizmo.attach(frags[i].group); }
-  updateSelInfo();
+  updateSelInfo(); refreshObjPanel();
+}
+// ---- Панель объектов (как дерево в BonaByte) ----
+function refreshObjPanel(){
+  const box=$('objList'); if(!box) return;
+  let html='';
+  if (baseMesh) html+=`<div class="obj-row" data-base="1"><span class="eye" data-eye="base">${baseMesh.visible?'👁':'—'}</span><span class="dot" style="background:#e6ddc9"></span><span class="nm">Череп (опора)</span></div>`;
+  frags.forEach((f,i)=>{ const col='#'+(f.color>>>0).toString(16).padStart(6,'0').slice(-6);
+    html+=`<div class="obj-row${i===activeFrag?' sel':''}" data-i="${i}"><span class="eye" data-eyei="${i}">${f.group.visible?'👁':'—'}</span><span class="dot" style="background:${col}"></span><span class="nm" data-sel="${i}">${f.name}</span><span class="del" data-del="${i}">✕</span></div>`; });
+  if(!frags.length && !baseMesh) html='<div class="info">Нет объектов — загрузите КТ.</div>';
+  box.innerHTML=html;
+  box.querySelectorAll('[data-sel]').forEach(el=>el.onclick=()=>{ const i=+el.dataset.sel; selectFrag(i); if(gizmo){gizmo.setMode('translate');gizmo.attach(frags[i].group);} });
+  box.querySelectorAll('[data-eyei]').forEach(el=>el.onclick=()=>{ const i=+el.dataset.eyei; frags[i].group.visible=!frags[i].group.visible; refreshObjPanel(); });
+  box.querySelectorAll('[data-eye="base"]').forEach(el=>el.onclick=()=>{ if(baseMesh){ baseMesh.visible=!baseMesh.visible; refreshObjPanel(); } });
+  box.querySelectorAll('[data-del]').forEach(el=>el.onclick=()=>{ const i=+el.dataset.del; removeOneFrag(frags[i]); });
 }
 function updateSelInfo(){
   if (activeFrag<0){ $('cutInfo').textContent = `Фрагментов: ${frags.length}. Кликни фрагмент, чтобы выбрать.`; return; }
@@ -622,7 +684,9 @@ function doCut() {
     const inv=new THREE.Matrix4().compose(planeMesh.position, planeMesh.quaternion, new THREE.Vector3(1,1,1)).invert();
     const v=new THREE.Vector3();
     test=(cx,cy,cz)=>{ v.set(cx,cy,cz).applyMatrix4(inv); return Math.abs(v.x)<=hx&&Math.abs(v.y)<=hy&&Math.abs(v.z)<=hz; };
-  } else test=()=>true;                 // полная плоскость — распил кости пополам
+  } else test=()=>true;
+  // если выбран отдельный объект — режем только его (плоскостью)
+  if (activeFrag>=0 && frags[activeFrag]){ splitFragByPlane(frags[activeFrag], n, p, 'плоскостью'); return; }
   cutRegion(n, p, test, bounded?'рамкой':'плоскостью');
 }
 
@@ -728,24 +792,29 @@ function doLineCut(){
   let n = new THREE.Vector3().crossVectors(u, viewDir); // нормаль плоскости «выше/ниже линии»
   if (n.lengthSq()<1e-6) n.copy(viewDir); n.normalize();
   const strokeLen = A.distanceTo(B);
-  lineCut = { center, n:n.clone(), u:u.clone(), viewDir:viewDir.clone().normalize(), strokeLen };
+  // объект под серединой штриха — режем ТОЛЬКО его
+  const midScreen = penPts[Math.floor(penPts.length/2)];
+  const target = pickObjectAt(midScreen.x, midScreen.y, rw);
+  lineCut = { center, n:n.clone(), u:u.clone(), viewDir:viewDir.clone().normalize(), strokeLen, target };
   buildLineFrag();
 }
 function buildLineFrag(){
-  const { center, n, u, viewDir, strokeLen } = lineCut;
-  // ЛОКАЛЬНАЯ зона реза: бокс вдоль штриха (u), в глубину (взгляд) и по высоте (нормаль)
+  const { center, n, u, viewDir, strokeLen, target } = lineCut;
+  if (target && target!=='base'){          // распил отдельного объекта (напр. нижней челюсти)
+    splitFragByPlane(target, n, center, 'линия');
+    setPenMode(false); penPts=[]; drawPen();
+    $('penInfo').textContent = 'Распил объекта готов. Другие объекты не тронуты. Режь дальше или планируй КДО.';
+    return;
+  }
+  // распил опоры (черепа) — локально, боксом вокруг штриха
   const halfU = strokeLen/2 + modelRadius*0.06;
-  const halfDepth = modelRadius*0.55;              // в глубину — вся толщина ветви
-  const halfHeight = modelRadius*0.6;              // вдоль нормали — захват сегмента
-  const w = new THREE.Vector3().crossVectors(u, viewDir).normalize(); // = ±n
+  const halfDepth = modelRadius*0.55, halfHeight = modelRadius*0.6;
+  const w = new THREE.Vector3().crossVectors(u, viewDir).normalize();
   const test=(cx,cy,cz)=>{ const dx=cx-center.x,dy=cy-center.y,dz=cz-center.z;
-    const au=Math.abs(dx*u.x+dy*u.y+dz*u.z);
-    const ad=Math.abs(dx*viewDir.x+dy*viewDir.y+dz*viewDir.z);
-    const ah=Math.abs(dx*w.x+dy*w.y+dz*w.z);
-    return au<=halfU && ad<=halfDepth && ah<=halfHeight; };
+    return Math.abs(dx*u.x+dy*u.y+dz*u.z)<=halfU && Math.abs(dx*viewDir.x+dy*viewDir.y+dz*viewDir.z)<=halfDepth && Math.abs(dx*w.x+dy*w.y+dz*w.z)<=halfHeight; };
   cutRegion(n, center, test, 'линия');
   setPenMode(false); penPts=[]; drawPen();
-  $('penInfo').textContent = 'Готово: локальная остеотомия. Поставь 2 точки аппарата (дистальная опора → медиальная) и «Спланировать КДО».';
+  $('penInfo').textContent = 'Локальная остеотомия опоры. Поставь 2 точки аппарата и «Спланировать КДО».';
 }
 function swapFragment(){ if(!frags.length){ return; } selectFrag((activeFrag+1)%frags.length); }
 
@@ -1153,7 +1222,7 @@ function removeFrags(){
   frags.forEach(f=>{ scene.remove(f.group); f.mesh.geometry.dispose(); });
   frags=[]; activeFrag=-1;
   if (baseMesh){ scene.remove(baseMesh); baseMesh.geometry.dispose(); baseMesh=null; }
-  baseSoup=null; if(gizmo) gizmo.detach();
+  baseSoup=null; if(gizmo) gizmo.detach(); refreshObjPanel();
 }
 function resetCut(silent){
   removeFrags(); clearArc(); clearRegen(); clearDevPts(); clearSym(); lineCut=null; distr=null;

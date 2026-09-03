@@ -90,6 +90,15 @@
   .ghost:hover{color:var(--accent);border-color:var(--accent)}
   .ghost.armed{background:var(--accent);color:#04120f;border-color:var(--accent);font-weight:650}
   .sep{height:1px;background:var(--line);margin:3px 0}
+  .objlist{max-height:132px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+  .obj-row{display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:5px;font-size:11px;cursor:default}
+  .obj-row.sel{background:rgba(47,228,214,.12);outline:1px solid var(--line)}
+  .obj-row .eye{cursor:pointer;width:15px;text-align:center;opacity:.85;font-size:10px}
+  .obj-row .dot{width:9px;height:9px;border-radius:2px;flex:0 0 auto}
+  .obj-row .nm{flex:1;cursor:pointer;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .obj-row.sel .nm{color:var(--accent)}
+  .obj-row .del{cursor:pointer;color:var(--ink-faint);opacity:.6}
+  .obj-row .del:hover{color:#ff6b6b;opacity:1}
   .info{font-family:var(--mono);font-size:10px;color:var(--ink-faint);line-height:1.45}
   .info b{color:var(--ink-soft)}
   /* нижняя мерная панель — горизонтальная */
@@ -174,6 +183,9 @@
       <div class="panel" id="panelCut">
         <div class="p-head" data-panel="panelCut"><span class="ico">✂ Распил / Остеотомия</span><span class="tg">▾</span></div>
         <div class="p-body">
+          <div class="sect">Объекты</div>
+          <div id="objList" class="objlist"><div class="info">Загрузите КТ.</div></div>
+          <div class="sep"></div>
           <div class="sect">Карандаш — от руки</div>
           <div class="row"><label>Режим</label>
             <select id="penMode">
