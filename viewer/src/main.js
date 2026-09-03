@@ -131,7 +131,54 @@ function sampleSlice(plane, k, w, h) {
   }
   return out;
 }
+// ---------- Косой (полуаксиальный / панорамный) реформат ----------
+let oblique = { on:false, angle:0 };
+function sampleVoxelMM(wx, wy, wz){          // мм → ближайший воксель
+  const [nx,ny,nz]=volume.dims, [sx,sy,sz]=volume.spacing, d=volume.data;
+  const a=Math.round(wx/sx), b=Math.round(wy/sy), c=Math.round(wz/sz);
+  if(a<0||a>=nx||b<0||b>=ny||c<0||c>=nz) return -1000;
+  return d[c*nx*ny + b*nx + a];
+}
+function renderOblique(){
+  const cv=$('cv-coronal'), ctx=cv.getContext('2d');
+  const [nx,ny,nz]=volume.dims, [sx,sy,sz]=volume.spacing;
+  // центр — по прицелу; наклон α вокруг оси L-R (полуаксиальный ↔ полукоронарный)
+  const cxmm=idx[0]*sx, cymm=idx[1]*sy, czmm=idx[2]*sz;
+  const a=oblique.angle*Math.PI/180;
+  const e1=[1,0,0];                          // L-R
+  const e2=[0, Math.cos(a), Math.sin(a)];    // наклон между A-P и S-I
+  const nrm=[0, -Math.sin(a), Math.cos(a)];  // нормаль (для толстого слоя)
+  const Wmm=nx*sx, Hmm=Math.max(ny*sy, nz*sz);
+  const step=Math.min(sx,sy,sz);
+  const outW=Math.min(700, Math.round(Wmm/step)), outH=Math.min(700, Math.round(Hmm/step));
+  const du=Wmm/outW, dv=Hmm/outH;
+  const slabHalf=(slabN>1)?(slabN*Math.min(sx,sy,sz))/2:0;
+  const nsteps=slabHalf>0?Math.max(1,Math.round(slabHalf/step)):0;
+  const lo=win.center-win.width/2, span=win.width||1;
+  const imgc=document.createElement('canvas'); imgc.width=outW; imgc.height=outH;
+  const img=new ImageData(outW,outH); const dta=img.data;
+  for(let v=0;v<outH;v++){ const ev=(v-outH/2)*dv;
+    for(let u=0;u<outW;u++){ const eu=(u-outW/2)*du;
+      const bx=cxmm+eu*e1[0]+ev*e2[0], by=cymm+eu*e1[1]+ev*e2[1], bz=czmm+eu*e1[2]+ev*e2[2];
+      let val;
+      if(nsteps===0){ val=sampleVoxelMM(bx,by,bz); }
+      else { let s=0,cnt=0; for(let t=-nsteps;t<=nsteps;t++){ const o=t*step;
+        s+=sampleVoxelMM(bx+o*nrm[0], by+o*nrm[1], bz+o*nrm[2]); cnt++; } val=s/cnt; }
+      let g=(val-lo)/span; g=g<0?0:g>1?1:g; g=(g*255)|0;
+      const oo=(v*outW+u)*4; dta[oo]=dta[oo+1]=dta[oo+2]=g; dta[oo+3]=255;
+    } }
+  imgc.getContext('2d').putImageData(img,0,0);
+  const CW=cv.width, CH=cv.height; ctx.fillStyle='#000'; ctx.fillRect(0,0,CW,CH);
+  const ar=Wmm/Hmm; let dw=CW,dh=CW/ar; if(dh>CH){dh=CH;dw=CH*ar;} const ox=(CW-dw)/2,oy=(CH-dh)/2;
+  ctx.imageSmoothingEnabled=true;
+  ctx.save(); ctx.translate(ox,oy+dh); ctx.scale(1,-1); ctx.drawImage(imgc,0,0,outW,outH,0,0,dw,dh); ctx.restore();
+  mprLayout['coronal']={ ox,oy,dw,dh, flipY:true, m:{pw:Wmm,ph:Hmm}, k:idx[1] };
+  drawMprMeas('coronal', ctx);
+  ctx.fillStyle='rgba(47,228,214,.9)'; ctx.font='11px ui-monospace,monospace';
+  ctx.fillText(`OBLIQUE ${oblique.angle}°${slabN>1?'  ⊟'+slabN:''}`, 8, 16);
+}
 function renderMPR(plane) {
+  if (plane==='coronal' && oblique.on && volume){ renderOblique(); return; }
   const m = sliceMeta(plane);
   const k = idx[m.axis];
   const px = sampleSlice(plane, k, m.w, m.h);
@@ -1208,6 +1255,8 @@ function bindControls() {
   $('fileInput').addEventListener('change', e => loadFiles(e.target.files));
   $('loadBtn').onclick = () => $('fileInput').click();
   $('slab').addEventListener('input', e=>{ slabN=+e.target.value; $('slabv').textContent=slabN; if(volume) renderAllMPR(); });
+  $('obl').onclick = ()=>{ oblique.on=!oblique.on; $('obl').classList.toggle('armed',oblique.on); if(volume) renderMPR('coronal'); };
+  $('oblA').addEventListener('input', e=>{ oblique.angle=+e.target.value; $('oblAv').textContent=oblique.angle+'°'; if(volume&&oblique.on) renderMPR('coronal'); });
   $('mDist').onclick = ()=> setMprMode('dist');
   $('mAngle').onclick = ()=> setMprMode('angle');
   $('mDens').onclick = ()=> setMprMode('dens');
