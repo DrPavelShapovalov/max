@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { loadDicom, assembleSeries } from './dicom.js';
 import { extractSurface } from './mc.js';
+import { segmentMandible } from './seg.js';
 import { splitByPlane } from './cut.js';
 import { DEVICES, arcRadius, selectDevice, arcFrame, arcPoints } from './distractors.js';
 
@@ -372,7 +373,7 @@ function init3D() {
     const r = cv.getBoundingClientRect();
     m.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
     m.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
-    if (devPtMode || symTgtMode || midMode || measMode) {
+    if (devPtMode || symTgtMode || midMode || measMode || nerveMode) {
       ray.setFromCamera(m, camera);
       const tgts = [boneMesh, baseMesh, ...frags.map(f=>f.mesh)].filter(o=>o && o.visible);
       const hit = ray.intersectObjects(tgts, false)[0];
@@ -380,6 +381,7 @@ function init3D() {
         if (measMode) addMeasPt(hit.point);
         else if (midMode) addMidPt(hit.point);
         else if (symTgtMode) setSymTarget(hit.point);
+        else if (nerveMode) addNervePt(hit.point);
         else addDevPt(hit.point);
       }
       return;
@@ -445,6 +447,32 @@ function segmentComponents(surf){
 // подвижные (нижняя челюсть отделяется сама, если не сращена на пороге)
 function autoSegment(silent){
   if(!boneSurf) return false;
+  // 1) воксельная сегментация нижней челюсти (рвёт тонкие сращения)
+  if (volume){
+    const seg = segmentMandible(volume, threshold);
+    if (seg){
+      const [nx,ny,nz]=volume.dims, [spx,spy,spz]=volume.spacing;
+      const P=boneSurf.positions, I=boneSurf.indices, nt=I.length/3;
+      const mand=[], skull=[];
+      for(let t=0;t<nt;t++){
+        let cx=0,cy=0,cz=0; const vi=[I[t*3],I[t*3+1],I[t*3+2]];
+        for(const j of vi){ cx+=P[j*3]; cy+=P[j*3+1]; cz+=P[j*3+2]; } cx/=3;cy/=3;cz/=3;
+        const vx=(cx + nx*spx/2)/spx, vy=(cy + ny*spy/2)/spy, vz=(cz + nz*spz/2)/spz;
+        const dst = seg.get(vx,vy,vz)?mand:skull;
+        for(const j of vi){ dst.push(P[j*3],P[j*3+1],P[j*3+2]); }
+      }
+      if(mand.length>=90 && skull.length>=90){
+        removeFrags();
+        baseSoup=new Float32Array(skull); rebuildBaseMesh();
+        const rec=addFrag(new Float32Array(mand), 0x66d9e8, new THREE.Vector3(0,0,1), soupCentroid(new Float32Array(mand)), 'Нижняя челюсть');
+        isCut=true; clearArc(); clearRegen(); clearDevPts();
+        selectFrag(frags.indexOf(rec)); refreshObjPanel();
+        $('cutInfo').textContent='Сегментация: «Нижняя челюсть» отделена. Кликни её и режь/двигай — череп не тронется.';
+        return true;
+      }
+    }
+  }
+  // 2) запасной путь — по связным деталям меша
   const comps = segmentComponents(boneSurf);
   const total = comps.reduce((s,c)=>s+c.n,0);
   const keep = comps.slice(1).filter(c=>c.n >= total*0.03).slice(0,4);   // до 4 крупных подвижных
@@ -1060,8 +1088,81 @@ function exportSTL(){
     for(const p of [a,b,c]){ dv.setFloat32(off,p.x,true); dv.setFloat32(off+4,p.y,true); dv.setFloat32(off+8,p.z,true); off+=12; }
     dv.setUint16(off,0,true); off+=2;
   }
-  downloadBlob(new Blob([buf],{type:'application/sla'}), `KDO-plan-${Date.now()}.stl`);
+  downloadBlob(new Blob([buf],{type:'application/sla'}), `OSSA-plan-${Date.now()}.stl`);
   status(`STL сохранён · ${nt.toLocaleString('ru')} треуг.`); setTimeout(()=>status('',null),2500);
+}
+// ---- STL: экспорт объекта / импорт, примитивы, винты, нерв ----
+function soupToSTL(P){
+  const nt=P.length/9|0; const buf=new ArrayBuffer(84+nt*50); const dv=new DataView(buf);
+  dv.setUint32(80,nt,true); let off=84; const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),nrm=new THREE.Vector3();
+  for(let t=0;t<P.length;t+=9){ a.set(P[t],P[t+1],P[t+2]);b.set(P[t+3],P[t+4],P[t+5]);c.set(P[t+6],P[t+7],P[t+8]);
+    nrm.crossVectors(b.clone().sub(a),c.clone().sub(a)).normalize();
+    dv.setFloat32(off,nrm.x,true);dv.setFloat32(off+4,nrm.y,true);dv.setFloat32(off+8,nrm.z,true);off+=12;
+    for(const p of[a,b,c]){dv.setFloat32(off,p.x,true);dv.setFloat32(off+4,p.y,true);dv.setFloat32(off+8,p.z,true);off+=12;} dv.setUint16(off,0,true);off+=2; }
+  return buf;
+}
+function objWorldTris(rec){ rec.mesh.updateMatrixWorld(true); return meshWorldTris(rec.mesh, rec.mesh.matrixWorld); }
+function exportActiveSTL(){ const r=activeRec(); if(!r){ alert('Выбери объект в списке «Объекты».'); return; }
+  downloadBlob(new Blob([soupToSTL(objWorldTris(r))],{type:'application/sla'}), (r.name||'object').replace(/\s+/g,'_')+'.stl');
+  status('STL объекта сохранён'); setTimeout(()=>status('',null),2000); }
+function parseSTL(buf){
+  const dv=new DataView(buf);
+  // бинарный?
+  if(buf.byteLength>84){ const nt=dv.getUint32(80,true); if(84+nt*50===buf.byteLength){
+    const out=new Float32Array(nt*9); let o=0,off=84;
+    for(let t=0;t<nt;t++){ off+=12; for(let k=0;k<3;k++){ out[o++]=dv.getFloat32(off,true); out[o++]=dv.getFloat32(off+4,true); out[o++]=dv.getFloat32(off+8,true); off+=12; } off+=2; }
+    return out; } }
+  // ASCII
+  const txt=new TextDecoder().decode(new Uint8Array(buf)); const nums=[]; const re=/vertex\s+([-\d.eE]+)\s+([-\d.eE]+)\s+([-\d.eE]+)/g; let m;
+  while((m=re.exec(txt))){ nums.push(+m[1],+m[2],+m[3]); }
+  return new Float32Array(nums);
+}
+function importSTLFiles(fileList){
+  const files=Array.from(fileList); if(!files.length) return;
+  files.forEach(async f=>{ try{ const soup=parseSTL(await f.arrayBuffer());
+    if(soup.length<9){ alert('Не удалось прочитать STL: '+f.name); return; }
+    const rec=addFrag(soup, 0x9b8cff, new THREE.Vector3(0,0,1), soupCentroid(soup), f.name.replace(/\.stl$/i,''));
+    isCut=true; selectFrag(frags.indexOf(rec)); if(gizmo){gizmo.setMode('translate');gizmo.attach(rec.group);}
+    status('Импортирован '+f.name); setTimeout(()=>status('',null),2000);
+  }catch(e){ alert('Ошибка импорта STL: '+e.message); } });
+}
+function geoToSoup(geo){ const g=geo.toNonIndexed(); return new Float32Array(g.attributes.position.array); }
+function placeAtView(rec){ // поставить объект в центр сцены перед камерой
+  const t=(controls&&controls.target)?controls.target.clone():new THREE.Vector3();
+  rec.group.position.copy(t); rec.centroid=t.clone();
+}
+function addPrimitive(kind){
+  const s=Math.max(6, modelRadius*0.14);
+  let geo, name;
+  if(kind==='cyl'){ geo=new THREE.CylinderGeometry(s*0.5,s*0.5,s*2.4,28); name='Цилиндр'; }
+  else if(kind==='box'){ geo=new THREE.BoxGeometry(s*1.6,s*0.9,s*0.9); name='Блок'; }
+  else { geo=new THREE.SphereGeometry(s,28,18); name='Сфера'; }
+  const rec=addFrag(geoToSoup(geo), 0x39a0ff, new THREE.Vector3(0,0,1), new THREE.Vector3(), name);
+  placeAtView(rec); isCut=true; selectFrag(frags.indexOf(rec)); if(gizmo){gizmo.setMode('translate');gizmo.attach(rec.group);}
+  $('cutInfo').textContent=`Примитив «${name}» добавлен. Двигай/вращай гизмо, экспортируй в STL.`;
+}
+function addScrew(){
+  const d=+($('screwD')?.value||2.0), L=+($('screwL')?.value||10);
+  const geo=new THREE.CylinderGeometry(d/2,d/2,L,20);
+  // маленький конус-острие
+  const rec=addFrag(geoToSoup(geo), 0xcfd6dd, new THREE.Vector3(0,0,1), new THREE.Vector3(), `Винт Ø${d}×${L}`);
+  placeAtView(rec); isCut=true; selectFrag(frags.indexOf(rec)); if(gizmo){gizmo.setMode('translate');gizmo.attach(rec.group);}
+}
+// ---- Нерв: трасса нижнечелюстного канала по точкам ----
+let nerveMode=false, nervePts=[], nerveMarks=[];
+function setNerveMode(on){ nerveMode=on; $('nerveBtn')?.classList.toggle('armed',on);
+  if(on){ setPenMode(false); setDevPtMode(false); setMidMode(false); setMeasMode&&setMeasMode(null); setPickMode(false);
+    nervePts=[]; nerveMarks.forEach(m=>scene.remove(m)); nerveMarks=[];
+    $('cutInfo').textContent='Нерв: кликай точки вдоль канала (по кости/срезам). «Готово» — построить трассу.'; } }
+function addNervePt(pt){ nervePts.push(pt.clone()); const m=markerMesh(0xff5d6c); m.position.copy(pt); scene.add(m); nerveMarks.push(m); }
+function buildNerve(){
+  if(nervePts.length<2){ alert('Нужно ≥2 точек канала.'); return; }
+  nerveMarks.forEach(m=>scene.remove(m)); nerveMarks=[];
+  const curve=new THREE.CatmullRomCurve3(nervePts.slice());
+  const geo=new THREE.TubeGeometry(curve, Math.max(8,nervePts.length*6), Math.max(0.8,modelRadius*0.012), 10, false);
+  const rec=addFrag(geoToSoup(geo), 0xff5d6c, new THREE.Vector3(0,0,1), soupCentroid(geoToSoup(geo)), 'Нижнечелюстной нерв');
+  isCut=true; nerveMode=false; $('nerveBtn')?.classList.remove('armed'); nervePts=[];
+  $('cutInfo').textContent='Трасса нерва построена (объект «Нижнечелюстной нерв»).';
 }
 function exportProtocol(){
   const now=new Date().toLocaleString('ru-RU');
@@ -1251,6 +1352,16 @@ function bindOsteotomy() {
   $('cutDo').onclick = ()=>{ if(volume) doCut(); };
   $('cutReset').onclick = ()=>{ resetCut(false); ensurePlaneViz(true); };
   $('segBtn').onclick = ()=>{ if(boneSurf) autoSegment(false); };
+  // импланты / ориентиры
+  $('primCyl').onclick = ()=> addPrimitive('cyl');
+  $('primBox').onclick = ()=> addPrimitive('box');
+  $('primSph').onclick = ()=> addPrimitive('sph');
+  $('screwBtn').onclick = addScrew;
+  $('nerveBtn').onclick = ()=> setNerveMode(!nerveMode);
+  $('nerveDone').onclick = buildNerve;
+  $('expObjSTL').onclick = exportActiveSTL;
+  $('impSTLbtn').onclick = ()=> $('impSTL').click();
+  $('impSTL').addEventListener('change', e=> importSTLFiles(e.target.files));
   ['mvDist','mvX','mvY','mvRot'].forEach(id => $(id).addEventListener('input', ()=>{ mobileMode='sliders'; clearArc(); clearRegen(); applyMobileTransform(); }));
   // гизмо для фрагментов
   $('pickBtn').onclick = ()=> setPickMode(!pickMode);

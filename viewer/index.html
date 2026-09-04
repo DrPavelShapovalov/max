@@ -211,9 +211,9 @@
           <div class="row"><label>Наклон X</label><input type="range" id="cutTiltX" min="-60" max="60" value="0"><span class="v" id="cutTiltXv">0°</span></div>
           <div class="row"><label>Наклон Y</label><input type="range" id="cutTiltY" min="-60" max="60" value="0"><span class="v" id="cutTiltYv">0°</span></div>
           <div class="row"><label>Положение</label><input type="range" id="cutOff" min="-120" max="120" value="0"><span class="v" id="cutOffv">0 мм</span></div>
-          <div class="row"><label>Ширина</label><input type="range" id="cutW" min="10" max="260" step="2" value="260"><span class="v" id="cutWv">вся</span></div>
-          <div class="row"><label>Высота</label><input type="range" id="cutL" min="10" max="260" step="2" value="260"><span class="v" id="cutLv">вся</span></div>
-          <div class="row"><label>Толщина</label><input type="range" id="cutD" min="6" max="200" step="2" value="200"><span class="v" id="cutDv">вся</span></div>
+          <div class="row"><label>Ширина</label><input type="range" id="cutW" min="10" max="260" step="2" value="70"><span class="v" id="cutWv">70 мм</span></div>
+          <div class="row"><label>Высота</label><input type="range" id="cutL" min="10" max="260" step="2" value="70"><span class="v" id="cutLv">70 мм</span></div>
+          <div class="row"><label>Толщина</label><input type="range" id="cutD" min="6" max="200" step="2" value="40"><span class="v" id="cutDv">40 мм</span></div>
           <div class="row"><label><input type="checkbox" id="planeOn" style="width:auto" checked> Показывать рамку</label></div>
           <div class="btns"><button id="movePlane" class="ghost">Двигать</button><button id="rotPlane" class="ghost">Вращать</button></div>
           <div class="info">Уменьши ширину/высоту/толщину и наведи рамку на угол — распил захватит только кость внутри рамки.</div>
@@ -231,6 +231,19 @@
           <div class="row"><label>Поворот</label><input type="range" id="mvRot" min="-30" max="30" step="0.5" value="0"><span class="v" id="mvRotv">0°</span></div>
           <div class="btns"><button id="pickBtn" class="ghost">✋ Тащить</button><button id="gizMove" class="ghost">Сдвиг</button><button id="gizRot" class="ghost">Пов.</button></div>
           <div class="info" id="cutInfo">Нарисуй линию карандашом или наведи рамку и распили.</div>
+
+          <div class="sep"></div>
+          <div class="sect">Импланты и ориентиры</div>
+          <div class="btns"><button id="primCyl" class="ghost">⬤ Цилиндр</button><button id="primBox" class="ghost">▬ Блок</button><button id="primSph" class="ghost">● Сфера</button></div>
+          <div class="row"><label>Винт Ø</label>
+            <select id="screwD"><option>1.5</option><option selected>2.0</option><option>2.3</option><option>2.7</option></select>
+            <select id="screwL"><option>6</option><option selected>8</option><option>10</option><option>12</option><option>14</option></select>
+          </div>
+          <div class="btns"><button id="screwBtn" class="ghost">🔩 Добавить винт</button></div>
+          <div class="btns"><button id="nerveBtn" class="ghost">🩸 Нерв: точки</button><button id="nerveDone" class="ghost">Готово</button></div>
+          <div class="btns"><button id="expObjSTL" class="ghost">⬇ STL объекта</button><button id="impSTLbtn" class="ghost">⬆ Импорт STL</button></div>
+          <input type="file" id="impSTL" accept=".stl" multiple style="display:none">
+          <div class="info">Примитив/винт → двигай гизмо на место → «STL объекта» для печати. Импорт STL — свой эндопротез.</div>
         </div>
       </div>
 
