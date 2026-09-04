@@ -700,6 +700,55 @@ function cutRegion(n, p, test, label){
   $('cutInfo').textContent = `Остеотомия (${label}): 2 фрагмента. Поставь 2 точки аппарата и «Спланировать КДО».`;
 }
 
+// ---- РОБАСТНЫЙ РАСПИЛ («пила»): удаляем тонкий пропил ВНУТРИ зоны, затем
+// пересчитываем связные компоненты. КРУПНЕЙШАЯ компонента ВСЕГДА остаётся
+// неподвижной опорой (череп) — распил физически не может «развалить весь череп».
+// Отделяются только те куски, что реально отсоединились пропилом.
+function currentBoneSoup(){
+  ensureBase();
+  const parts=[baseSoup]; frags.forEach(f=>parts.push(f.soup));
+  let len=0; parts.forEach(s=>len+=s.length); const out=new Float32Array(len);
+  let o=0; parts.forEach(s=>{ out.set(s,o); o+=s.length; }); return out;
+}
+function sawCut(n, p, test, label){
+  const soup=currentBoneSoup();
+  const kerf=Math.max(1.2, modelRadius*0.012);          // толщина пропила вдоль нормали (тонкая)
+  const kept=[];
+  for(let t=0;t<soup.length;t+=9){
+    const cx=(soup[t]+soup[t+3]+soup[t+6])/3, cy=(soup[t+1]+soup[t+4]+soup[t+7])/3, cz=(soup[t+2]+soup[t+5]+soup[t+8])/3;
+    const d=(cx-p.x)*n.x+(cy-p.y)*n.y+(cz-p.z)*n.z;
+    if(test(cx,cy,cz) && Math.abs(d)<=kerf) continue;   // удалили полосу пропила = разрез
+    for(let k=0;k<9;k++) kept.push(soup[t+k]);
+  }
+  const keptF=new Float32Array(kept);
+  const { comp, ntri } = components(keptF);
+  const map=new Map();
+  for(let t=0;t<ntri;t++){ let e=map.get(comp[t]); if(!e){ e=[]; map.set(comp[t],e); } e.push(t); }
+  let groups=[...map.values()].map(tris=>{ const s=new Float32Array(tris.length*9); let o=0;
+    for(const t of tris){ for(let k=0;k<9;k++) s[o++]=keptF[t*9+k]; } return s; });
+  groups.sort((a,b)=>b.length-a.length);
+  if(groups.length<2){
+    alert('Пропил не отделил фрагмент: линия/рамка не прошла кость НАСКВОЗЬ (кусок остался соединён в другом месте). Проведи рез через всю толщу ветви/тела, при необходимости расширь рамку или распили вторую сторону.');
+    return false;
+  }
+  // крупнейшая компонента — опора (череп), НИКОГДА не рассыпается; мелкие крошки → в опору
+  removeFrags();
+  const baseParts=[groups[0]]; const movable=[];
+  for(let i=1;i<groups.length;i++){ if(groups[i].length/9 >= Math.max(40, ntri*0.008)) movable.push(groups[i]); else baseParts.push(groups[i]); }
+  let bl=0; baseParts.forEach(s=>bl+=s.length); baseSoup=new Float32Array(bl);
+  let bo=0; baseParts.forEach(s=>{ baseSoup.set(s,bo); bo+=s.length; });
+  rebuildBaseMesh();
+  const baseC=soupCentroid(baseSoup);
+  movable.forEach((s,i)=>{ const c=soupCentroid(s); const nn=c.clone().sub(baseC).normalize();
+    addFrag(s, i===0?0x66d9e8:0xffc24d, nn, c, movable.length>1?('Фрагмент '+(i+1)):'Нижняя челюсть (фрагмент)'); });
+  isCut=true; cutN=n.clone(); cutP=p.clone(); clearArc(); clearRegen(); clearDevPts();
+  let mi=-1, lowZ=Infinity; frags.forEach((f,i)=>{ if(f.centroid.z<lowZ){ lowZ=f.centroid.z; mi=i; } });
+  if(mi>=0) selectFrag(mi);
+  refreshObjPanel();
+  $('cutInfo').textContent=`Распил (${label}): отделено фрагментов — ${movable.length}. Череп остаётся целой опорой. Поставь 2 точки аппарата → «Рассчитать КДО».`;
+  return true;
+}
+
 function doCut() {
   if (!boneSurf || !planeMesh) return;
   planeMesh.updateMatrixWorld(true);
@@ -715,7 +764,7 @@ function doCut() {
   } else test=()=>true;
   // если выбран отдельный объект — режем только его (плоскостью)
   if (activeFrag>=0 && frags[activeFrag]){ splitFragByPlane(frags[activeFrag], n, p, 'плоскостью'); return; }
-  cutRegion(n, p, test, bounded?'рамкой':'плоскостью');
+  sawCut(n, p, test, bounded?'рамкой':'плоскостью');
 }
 
 // ---- Карандаш: распил по нарисованному от руки ----
@@ -840,7 +889,7 @@ function buildLineFrag(){
   const w = new THREE.Vector3().crossVectors(u, viewDir).normalize();
   const test=(cx,cy,cz)=>{ const dx=cx-center.x,dy=cy-center.y,dz=cz-center.z;
     return Math.abs(dx*u.x+dy*u.y+dz*u.z)<=halfU && Math.abs(dx*viewDir.x+dy*viewDir.y+dz*viewDir.z)<=halfDepth && Math.abs(dx*w.x+dy*w.y+dz*w.z)<=halfHeight; };
-  cutRegion(n, center, test, 'линия');
+  sawCut(n, center, test, 'линия');
   setPenMode(false); penPts=[]; drawPen();
   $('penInfo').textContent = 'Локальная остеотомия опоры. Поставь 2 точки аппарата и «Спланировать КДО».';
 }
@@ -1247,6 +1296,10 @@ function planKDO() {
   // НАПРАВЛЕНИЕ дистракции — строго вдоль тела (рельс от медиальной к дистальной опоре),
   // фрагмент едет прямо, не «криво».
   let dir = P1.clone().sub(P2); if(dir.lengthSq()<1e-6) dir.copy(activeRec().n); dir.normalize();
+  // физиологично: фрагмент едет НАРУЖУ (вперёд-вниз), не внутрь черепа.
+  // Если вектор смотрит в сторону опоры (черепа) — разворачиваем.
+  if (baseSoup){ const outward=activeRec().centroid.clone().sub(soupCentroid(baseSoup));
+    if(dir.dot(outward)<0) dir.negate(); }
   let mm, curveDeg=0;
   if (mode==='uni'){
     const target = nearestMirrorTarget(P1);                      // зеркало здоровой стороны
