@@ -456,6 +456,12 @@ function zoomStep(f){                 // приблизить/отдалить �
   const dir = camera.position.clone().sub(tgt);
   camera.position.copy(tgt).add(dir.multiplyScalar(f));
 }
+// тест-хук (безвреден в проде): позволяет headless-проверку эндопротеза
+function __ossaTestHook(){ try{ window.__ossa = {
+  buildTMJ, addPrimitive, selectFrag,
+  frags:()=>frags,
+  testBone(){ modelRadius=100; baseSoup=geoToSoup(new THREE.BoxGeometry(50,140,50)); rebuildBaseMesh(); },
+}; }catch(e){} }
 function init3D() {
   const cv = $('cv-3d');
   renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
@@ -1315,6 +1321,140 @@ function addScrew(){
   const rec=addFrag(geoToSoup(geo), 0xcfd6dd, new THREE.Vector3(0,0,1), new THREE.Vector3(), `Винт Ø${d}×${L}`);
   placeAtView(rec); isCut=true; selectFrag(frags.indexOf(rec)); if(gizmo){gizmo.setMode('translate');gizmo.attach(rec.group);}
 }
+// ================= Эндопротез ВНЧС (как в BonaByte) =================
+// Заготовку-примитив ставят на ветвь у мыщелка; по нажатию формируется
+// мыщелково-ветвевой эндопротез, ПРИЛЕЖАЩАЯ поверхность которого повторяет
+// рельеф кости (лучевое конформирование), + суставная ямка (fossa).
+function geoToWorldSoup(geo, mat){
+  const g=geo.toNonIndexed(); const p=g.attributes.position.array; const out=new Float32Array(p.length); const v=new THREE.Vector3();
+  for(let i=0;i<p.length;i+=3){ v.set(p[i],p[i+1],p[i+2]).applyMatrix4(mat); out[i]=v.x;out[i+1]=v.y;out[i+2]=v.z; }
+  return out;
+}
+function concatSoups(list){ let n=0; list.forEach(s=>n+=s.length); const out=new Float32Array(n); let o=0; list.forEach(s=>{ out.set(s,o); o+=s.length; }); return out; }
+function boneTargets(excludeRec){
+  const t=[]; if(baseMesh&&baseMesh.visible) t.push(baseMesh);
+  frags.forEach(f=>{ if(f!==excludeRec && f.group.visible && !/эндопротез|ямка|винт|нерв|канал/i.test(f.name||'')) t.push(f.mesh); });
+  if(!t.length && boneMesh&&boneMesh.visible) t.push(boneMesh);
+  return t;
+}
+function castBone(origin, dir, targets, maxD){
+  const rc=new THREE.Raycaster(origin, dir.clone().normalize(), 0.01, maxD||modelRadius*3);
+  const h=rc.intersectObjects(targets,false)[0]; return h?h.point.clone():null;
+}
+function localAABB(soup){ const mn=new THREE.Vector3(1e9,1e9,1e9), mx=new THREE.Vector3(-1e9,-1e9,-1e9);
+  for(let i=0;i<soup.length;i+=3){ const x=soup[i],y=soup[i+1],z=soup[i+2];
+    if(x<mn.x)mn.x=x; if(y<mn.y)mn.y=y; if(z<mn.z)mn.z=z; if(x>mx.x)mx.x=x; if(y>mx.y)mx.y=y; if(z>mx.z)mx.z=z; }
+  return { mn, mx, size:mx.clone().sub(mn), center:mn.clone().add(mx).multiplyScalar(0.5) }; }
+// сетка-поверхность, конформированная к кости лучами вдоль castDir
+function conformGrid(C, ua, ub, half_a, half_b, castDir, targets, NA, NB){
+  const back=castDir.clone().multiplyScalar(-1);
+  const startD=Math.max(half_a,half_b)+modelRadius*0.6;
+  const pts=[], hitMask=[]; let hitSum=0, hitN=0;
+  for(let i=0;i<=NA;i++){ const ta=(i/NA*2-1)*half_a; pts[i]=[]; hitMask[i]=[];
+    for(let j=0;j<=NB;j++){ const tb=(j/NB*2-1)*half_b;
+      const base=C.clone().add(ua.clone().multiplyScalar(ta)).add(ub.clone().multiplyScalar(tb));
+      const origin=base.clone().add(back.clone().multiplyScalar(startD));
+      const hit=castBone(origin, castDir, targets, startD*2.2);
+      if(hit){ pts[i][j]=hit; hitMask[i][j]=true; hitSum+=hit.clone().sub(base).dot(castDir); hitN++; }
+      else { pts[i][j]=base.clone(); hitMask[i][j]=false; }
+    } }
+  // заполнить промахи средней глубиной попаданий (ровный край плиты)
+  const meanD=hitN?hitSum/hitN:0;
+  for(let i=0;i<=NA;i++)for(let j=0;j<=NB;j++){ if(!hitMask[i][j]){
+    const tb=(j/NB*2-1)*half_b, ta=(i/NA*2-1)*half_a;
+    const base=C.clone().add(ua.clone().multiplyScalar(ta)).add(ub.clone().multiplyScalar(tb));
+    pts[i][j]=base.clone().add(castDir.clone().multiplyScalar(meanD)); } }
+  return { pts, hitN };
+}
+function pushQuad(arr,a,b,c,d){ arr.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z); arr.push(a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z); }
+// плита по двум сеткам (внутренняя по кости, внешняя со смещением) + бортики
+function plateSoup(inner, outer, NA, NB){
+  const A=[];
+  for(let i=0;i<NA;i++)for(let j=0;j<NB;j++){
+    pushQuad(A, inner[i][j],inner[i+1][j],inner[i+1][j+1],inner[i][j+1]);        // прилежащая
+    pushQuad(A, outer[i][j+1],outer[i+1][j+1],outer[i+1][j],outer[i][j]);        // внешняя (обратная)
+  }
+  for(let i=0;i<NA;i++){ pushQuad(A, inner[i][0],outer[i][0],outer[i+1][0],inner[i+1][0]);
+    pushQuad(A, inner[i][NB],inner[i+1][NB],outer[i+1][NB],outer[i][NB]); }
+  for(let j=0;j<NB;j++){ pushQuad(A, inner[0][j],inner[0][j+1],outer[0][j+1],outer[0][j]);
+    pushQuad(A, inner[NA][j],outer[NA][j],outer[NA][j+1],inner[NA][j+1]); }
+  return new Float32Array(A);
+}
+function buildTMJ(){
+  const rec=activeRec();
+  if(!rec){ alert('Сначала добавь заготовку (Блок/Цилиндр), поставь гизмо на ветвь у мыщелка так, чтобы одна грань смотрела на кость, и выбери её в «Объекты».'); return; }
+  const targets=boneTargets(rec);
+  if(!targets.length){ alert('Нет костной поверхности для конформирования. Построй 3D-кость.'); return; }
+  rec.group.updateMatrixWorld(true); const M=rec.group.matrixWorld;
+  const bb=localAABB(rec.soup);
+  const C=bb.center.clone().applyMatrix4(M);
+  // мировые оси примитива и полуразмеры
+  const q=new THREE.Quaternion(); const pos=new THREE.Vector3(); const scl=new THREE.Vector3(); M.decompose(pos,q,scl);
+  const axes=[ new THREE.Vector3(1,0,0).applyQuaternion(q), new THREE.Vector3(0,1,0).applyQuaternion(q), new THREE.Vector3(0,0,1).applyQuaternion(q) ];
+  const halfs=[ bb.size.x/2*scl.x, bb.size.y/2*scl.y, bb.size.z/2*scl.z ];
+  // прилежащая нормаль: направление, где ближе всего кость
+  let nIn=null, best=1e9, inAxis=-1;
+  for(let a=0;a<3;a++){ for(const s of [1,-1]){ const dir=axes[a].clone().multiplyScalar(s);
+    const hit=castBone(C.clone().add(dir.clone().multiplyScalar(halfs[a]*0.2)), dir, targets, modelRadius*2);
+    if(hit){ const d=hit.distanceTo(C); if(d<best){ best=d; nIn=dir.clone(); inAxis=a; } } } }
+  if(!nIn){ alert('Заготовка не обращена к кости: подведи её грань к ветви (кости) гизмо и повтори.'); return; }
+  // из оставшихся осей: длинная = ветвь (aLong), другая = ширина (w)
+  const rest=[0,1,2].filter(a=>a!==inAxis);
+  let la=rest[0], wa=rest[1]; if(halfs[la]<halfs[wa]){ const t=la; la=wa; wa=t; }
+  let aLong=axes[la].clone(), w=axes[wa].clone();
+  // верх ветви = где выше по Z (краниально) → там мыщелок
+  if(C.clone().add(aLong.clone().multiplyScalar(halfs[la])).z < C.clone().add(aLong.clone().multiplyScalar(-halfs[la])).z) aLong.negate();
+  const nOut=nIn.clone().negate();
+  const headR=(+($('tmjHead')?.value||16))/2, thick=+($('tmjThick')?.value||2), gap=+($('tmjGap')?.value||1);
+  const NA=24, NB=12, hu=halfs[la], hw=halfs[wa];
+  // ---- плита-фиксатор, прилежащая поверхность по кости ----
+  const g=conformGrid(C, aLong, w, hu, hw, nIn, targets, NA, NB);
+  const inner=g.pts; const outer=inner.map(row=>row.map(p=>p.clone().add(nOut.clone().multiplyScalar(thick))));
+  const soups=[ plateSoup(inner,outer,NA,NB) ];
+  // ---- шейка + мыщелковая головка на краниальном конце ----
+  const topCenter=C.clone().add(aLong.clone().multiplyScalar(hu)).add(nOut.clone().multiplyScalar(thick*0.5));
+  const neckLen=headR*1.1, headCenter=topCenter.clone().add(aLong.clone().multiplyScalar(neckLen+headR*0.6));
+  const orient=(geo, axisDir, center)=>{ const m=new THREE.Matrix4();
+    const quat=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), axisDir.clone().normalize());
+    m.compose(center, quat, new THREE.Vector3(1,1,1)); return geoToWorldSoup(geo, m); };
+  soups.push( orient(new THREE.CylinderGeometry(headR*0.5, headR*0.62, neckLen, 20), aLong, topCenter.clone().add(aLong.clone().multiplyScalar(neckLen/2))) );
+  soups.push( geoToWorldSoup(new THREE.SphereGeometry(headR,28,20), new THREE.Matrix4().setPosition(headCenter)) );
+  const prosSoup=concatSoups(soups);
+  const pr=addFrag(prosSoup, 0xd9a066, aLong.clone(), soupCentroid(prosSoup), 'Эндопротез ВНЧС (мыщелок+ветвь)');
+  // ---- суставная ямка (fossa): внутренняя вогнутая по головке, внешняя по черепу ----
+  let fInfo='';
+  if($('tmjFossa') && $('tmjFossa').checked){
+    const Rcup=headR+gap;                                   // вогнутость по головке+зазор
+    const Rf=headR*1.35;                                    // радиус блюдца
+    const rings=14, seg=26; const FA=[];
+    // ось ямки = aLong (краниально), плоскость диска ⟂ aLong (базис w, w2)
+    const w2=new THREE.Vector3().crossVectors(aLong,w).normalize();
+    const skullDir=aLong.clone();                          // наружу к черепу
+    const innerAt=(r,th)=>{ const rad=w.clone().multiplyScalar(Math.cos(th)*r).add(w2.clone().multiplyScalar(Math.sin(th)*r));
+      const up=Math.sqrt(Math.max(0,Rcup*Rcup-r*r));       // вогнутая чаша над головкой
+      return headCenter.clone().add(rad).add(aLong.clone().multiplyScalar(gap+ (Rcup-up))); };
+    // внешняя поверхность — конформ к черепу (луч вверх), иначе смещение
+    const outerAt=(inner)=>{ const hit=castBone(inner.clone().add(skullDir.clone().multiplyScalar(0.5)), skullDir, targets, headR*3);
+      return hit? hit : inner.clone().add(skullDir.clone().multiplyScalar(thick*1.5)); };
+    const IN=[], OUT=[];
+    for(let i=0;i<=rings;i++){ const r=Rf*i/rings; IN[i]=[]; OUT[i]=[];
+      for(let j=0;j<=seg;j++){ const th=j/seg*2*Math.PI; const ip=innerAt(r,th); IN[i][j]=ip; OUT[i][j]=outerAt(ip); } }
+    for(let i=0;i<rings;i++)for(let j=0;j<seg;j++){
+      pushQuad(FA, IN[i][j],IN[i][j+1],IN[i+1][j+1],IN[i+1][j]);            // вогнутая (к головке)
+      pushQuad(FA, OUT[i+1][j],OUT[i+1][j+1],OUT[i][j+1],OUT[i][j]);        // к черепу
+    }
+    for(let j=0;j<seg;j++) pushQuad(FA, IN[rings][j],IN[rings][j+1],OUT[rings][j+1],OUT[rings][j]); // борт
+    const fossaSoup=new Float32Array(FA);
+    addFrag(fossaSoup, 0x9ec7e2, aLong.clone(), soupCentroid(fossaSoup), 'Суставная ямка (fossa)');
+    fInfo=' + суставная ямка';
+  }
+  removeOneFrag(rec);                            // заготовка «поглощена» — как в BonaByte
+  isCut=true; selectFrag(frags.indexOf(pr)); if(gizmo){ gizmo.setMode('translate'); gizmo.attach(pr.group); }
+  refreshObjPanel();
+  $('tmjInfo').textContent = `Эндопротез ВНЧС сформирован${fInfo}. Прилежащая поверхность повторяет кость (попаданий: ${g.hitN}). Двигай/вращай гизмо, добавь винты, экспортируй в STL.`;
+  $('cutInfo').textContent = 'Эндопротез ВНЧС готов — компоненты в списке «Объекты».';
+}
+
 // ---- Нерв: трасса нижнечелюстного канала по точкам ----
 let nerveMode=false, nervePts=[], nerveMarks=[];
 function setNerveMode(on){ nerveMode=on; $('nerveBtn')?.classList.toggle('armed',on);
@@ -1554,6 +1694,7 @@ function attachGizmo(obj, mode){ if(!gizmo||!obj) return; gizmo.setMode(mode||'t
 function setPickMode(on){ pickMode = on; $('pickBtn').classList.toggle('armed', on); }
 
 function bindOsteotomy() {
+  __ossaTestHook();
   const upd = () => {
     $('cutTiltXv').textContent = $('cutTiltX').value+'°'; $('cutTiltYv').textContent = $('cutTiltY').value+'°';
     $('cutOffv').textContent = $('cutOff').value+' мм';
@@ -1573,6 +1714,8 @@ function bindOsteotomy() {
   $('primBox').onclick = ()=> addPrimitive('box');
   $('primSph').onclick = ()=> addPrimitive('sph');
   $('screwBtn').onclick = addScrew;
+  $('tmjBtn').onclick = buildTMJ;
+  ['tmjHead','tmjThick','tmjGap'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('input',()=>{ $(id+'v').textContent = el.value+' мм'; }); });
   $('nerveBtn').onclick = ()=> setNerveMode(!nerveMode);
   $('nerveDone').onclick = buildNerve;
   $('nerveAuto').onclick = autoNerve;

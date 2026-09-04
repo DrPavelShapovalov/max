@@ -233,6 +233,15 @@
           <div class="info" id="cutInfo">Нарисуй линию карандашом или наведи рамку и распили.</div>
 
           <div class="sep"></div>
+          <div class="sect">Эндопротез ВНЧС</div>
+          <div class="info">1) Поставь заготовку (Блок/Цилиндр) гизмо на ветвь у мыщелка — так, чтобы одна грань была обращена к кости. 2) Задай параметры. 3) «Сформировать эндопротез».</div>
+          <div class="row"><label>Головка Ø</label><input type="range" id="tmjHead" min="8" max="24" step="1" value="16"><span class="v" id="tmjHeadv">16 мм</span></div>
+          <div class="row"><label>Толщина</label><input type="range" id="tmjThick" min="1" max="4" step="0.5" value="2"><span class="v" id="tmjThickv">2 мм</span></div>
+          <div class="row"><label>Зазор сустава</label><input type="range" id="tmjGap" min="0.5" max="3" step="0.5" value="1"><span class="v" id="tmjGapv">1 мм</span></div>
+          <div class="row"><label><input type="checkbox" id="tmjFossa" checked style="width:auto"> Строить суставную ямку (fossa)</label></div>
+          <div class="btns"><button id="tmjBtn" class="act-b">🦴 Сформировать эндопротез ВНЧС</button></div>
+          <div class="info" id="tmjInfo">Рельеф прилежащей поверхности повторит кость (лучевое конформирование). Компоненты — подвижные объекты, экспортируются в STL.</div>
+
           <div class="sect">Импланты и ориентиры</div>
           <div class="btns"><button id="primCyl" class="ghost">⬤ Цилиндр</button><button id="primBox" class="ghost">▬ Блок</button><button id="primSph" class="ghost">● Сфера</button></div>
           <div class="row"><label>Винт Ø</label>
