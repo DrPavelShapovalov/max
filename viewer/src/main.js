@@ -5,6 +5,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { loadDicom, assembleSeries } from './dicom.js';
 import { extractSurface } from './mc.js';
 import { segmentMandible } from './seg.js';
+import { traceMandibularCanal } from './nerve.js';
 import { splitByPlane } from './cut.js';
 import { DEVICES, arcRadius, selectDevice, arcFrame, arcPoints } from './distractors.js';
 
@@ -728,7 +729,12 @@ function sawCut(n, p, test, label){
     for(const t of tris){ for(let k=0;k<9;k++) s[o++]=keptF[t*9+k]; } return s; });
   groups.sort((a,b)=>b.length-a.length);
   if(groups.length<2){
-    alert('Пропил не отделил фрагмент: линия/рамка не прошла кость НАСКВОЗЬ (кусок остался соединён в другом месте). Проведи рез через всю толщу ветви/тела, при необходимости расширь рамку или распили вторую сторону.');
+    alert('Пропил не отделил фрагмент — кусок остался соединён в другом месте.\n\n'+
+      '• ОДНОСТОРОННИЙ случай (одна ветвь спаяна с основанием черепа): сначала нажми '+
+      '«Отделить нижнюю челюсть» (или галка «Сегментация НЧ») — челюсть станет отдельным '+
+      'объектом; затем распили ТОЛЬКО поражённую ветвь: этого достаточно, фрагмент повернётся '+
+      'вокруг здоровой стороны.\n'+
+      '• Иначе проведи рез через всю толщу кости (расширь рамку) или распили вторую сторону.');
     return false;
   }
   // крупнейшая компонента — опора (череп), НИКОГДА не рассыпается; мелкие крошки → в опору
@@ -1213,6 +1219,34 @@ function buildNerve(){
   isCut=true; nerveMode=false; $('nerveBtn')?.classList.remove('armed'); nervePts=[];
   $('cutInfo').textContent='Трасса нерва построена (объект «Нижнечелюстной нерв»).';
 }
+// АВТО-трассировка канала нижнечелюстного нерва прямо по КТ
+function buildNerveTube(pts, name, color){
+  const vecs = pts.map(p=>new THREE.Vector3(p.x,p.y,p.z));
+  const curve=new THREE.CatmullRomCurve3(vecs, false, 'catmullrom', 0.5);
+  const geo=new THREE.TubeGeometry(curve, Math.max(24, pts.length*4), Math.max(0.9, modelRadius*0.014), 12, false);
+  const soup=geoToSoup(geo);
+  addFrag(soup, color, new THREE.Vector3(0,0,1), soupCentroid(soup), name);
+}
+function autoNerve(){
+  if(!volume){ alert('Сначала загрузите КТ.'); return; }
+  $('cutInfo').textContent='Трассирую канал нерва по КТ…';
+  setTimeout(()=>{
+    let seg=null; try{ seg=segmentMandible(volume, threshold); }catch(e){ seg=null; }
+    let res=null; try{ res=traceMandibularCanal(volume, threshold, seg); }catch(e){ console.error(e); }
+    if(!res || (!res.left && !res.right)){
+      alert('Не удалось автоматически найти канал: на этом пороге/качестве КТ полость канала не выделяется как замкнутая. Понизь «3D порог» (чтобы кортикал вокруг канала стал сплошным) и повтори, либо обведи канал вручную кнопкой «Нерв: вручную».');
+      $('cutInfo').textContent='Авто-трасса канала не найдена — понизь 3D порог или обведи вручную.';
+      return;
+    }
+    // убрать прежние авто-каналы
+    for(let i=frags.length-1;i>=0;i--) if(/канал нерва/i.test(frags[i].name||'')) removeOneFrag(frags[i]);
+    let made=0;
+    if(res.right && res.right.length>=3){ buildNerveTube(res.right, 'Канал нерва (правый)', 0xff5d6c); made++; }
+    if(res.left  && res.left.length>=3){ buildNerveTube(res.left,  'Канал нерва (левый)',  0xff9f43); made++; }
+    isCut=true; refreshObjPanel();
+    $('cutInfo').textContent = made? `Канал нерва найден автоматически (сторон: ${made}). Проверь ход по MPR; при необходимости обведи вручную.` : 'Канал не найден.';
+  }, 30);
+}
 function exportProtocol(){
   const now=new Date().toLocaleString('ru-RU');
   const meas = $('measVal').style.display!=='none' ? $('measVal').textContent : '—';
@@ -1296,8 +1330,19 @@ function planKDO() {
   // НАПРАВЛЕНИЕ дистракции — строго вдоль тела (рельс от медиальной к дистальной опоре),
   // фрагмент едет прямо, не «криво».
   let dir = P1.clone().sub(P2); if(dir.lengthSq()<1e-6) dir.copy(activeRec().n); dir.normalize();
-  // физиологично: фрагмент едет НАРУЖУ (вперёд-вниз), не внутрь черепа.
-  // Если вектор смотрит в сторону опоры (черепа) — разворачиваем.
+  // --- ФИЗИОЛОГИЧНОЕ НАПРАВЛЕНИЕ: строго в анатомической плоскости ---
+  // Медиолатеральная ось = нормаль срединной (сагиттальной) плоскости.
+  const ml = midNormalPoint().normal.clone().normalize();       // лево-право
+  const vert = new THREE.Vector3(0,0,1);                          // верх-низ (ось срезов)
+  // AP-ось (вперёд-назад) в сагиттальной плоскости
+  let apAxis = new THREE.Vector3().crossVectors(ml, vert); if(apAxis.lengthSq()<1e-6) apAxis.set(0,1,0); apAxis.normalize();
+  const kdoPlane = ($('kdoPlane')&&$('kdoPlane').value) || 'sag';
+  // убираем медиолатеральную составляющую — фрагмент НИКОГДА не идёт «внутрь»/через среднюю линию
+  dir = dir.sub(ml.clone().multiplyScalar(dir.dot(ml)));
+  if(kdoPlane==='vert') dir = vert.clone();                      // только вертикально (удлинение ветви)
+  if(dir.lengthSq()<1e-6) dir = apAxis.clone();
+  dir.normalize();
+  // фрагмент едет НАРУЖУ (от опоры), не внутрь
   if (baseSoup){ const outward=activeRec().centroid.clone().sub(soupCentroid(baseSoup));
     if(dir.dot(outward)<0) dir.negate(); }
   let mm, curveDeg=0;
@@ -1315,19 +1360,25 @@ function planKDO() {
     mm = Math.abs(toMid) > 1 ? Math.abs(toMid) : 12;
   }
   mm = Math.min(mm, 40);
-  // тип аппарата: если поперечная коррекция мала — прямой (180); иначе криволинейный
+  // тип аппарата: прямой (180°) для линейного хода; криволинейный при сочетанной
+  // плоскости или заметной поперечной (вертикальной) коррекции.
   let deg = 180;
-  if (curveDeg > 3){ const need = Math.min(150, 10 + curveDeg*4);
+  const wantCurve = kdoPlane==='combo' || curveDeg > 3;
+  if (wantCurve){ const need = Math.min(150, 10 + Math.max(curveDeg,6)*4);
     let best=DEVICES[0]; for(const d of DEVICES) if(Math.abs(d.deg-(180-need))<Math.abs(best.deg-(180-need))) best=d; deg=best.deg; }
   curDevice = DEVICES.find(d=>d.deg===deg) || DEVICES[DEVICES.length-1];
-  let up=new THREE.Vector3(0,0,1); if(Math.abs(dir.dot(up))>0.9) up=new THREE.Vector3(0,1,0);
-  const perp=new THREE.Vector3().crossVectors(dir,up).normalize();
-  distr = { P0:P1, dir, perp, deg:curDevice.deg, L:mm };
+  // ось изгиба дуги — В САГИТТАЛЬНОЙ ПЛОСКОСТИ (⟂ медиолатеральной оси, ⟂ dir),
+  // направлена вниз-вперёд: криволинейный аппарат ведёт фрагмент сочетанно
+  // сагиттально+вертикально, но НЕ поперёк (не внутрь черепа).
+  let perp=new THREE.Vector3().crossVectors(ml, dir); if(perp.lengthSq()<1e-6) perp.copy(apAxis); perp.normalize();
+  if(perp.dot(vert) > 0) perp.negate();                          // изгиб книзу (физиологично вперёд-вниз)
+  distr = { P0:P1, dir, perp, deg:curDevice.deg, L:mm, ml:ml.clone() };
   mobileMode='arc'; drawArc();
   $('arcDist').max=mm.toFixed(1); $('arcDist').value=mm.toFixed(1); moveAlongArc();
   const rec=activeRec(); rec.planDev=curDevice; rec.planMM=mm;
   const typ = curDevice.deg===180?'Прямой (180°)':curDevice.name;
-  $('kdoInfo').innerHTML = `<b style="color:var(--accent)">${typ}</b> — <b>${mm.toFixed(0)} мм</b> · ${curDevice.deg===180?'линейно вдоль тела':'криволинейно'}`;
+  const plLbl = kdoPlane==='vert'?'вертикально (удлинение ветви)':kdoPlane==='combo'?'сочетанно сагиттально+вертикально':'в сагиттальной плоскости (вперёд-вниз)';
+  $('kdoInfo').innerHTML = `<b style="color:var(--accent)">${typ}</b> — <b>${mm.toFixed(0)} мм</b> · ${plLbl}`;
   $('symInfo').textContent = mode==='uni'?'Цель: симметрия со здоровой стороной. Ползунок «Дистракция» — анимация.':'Цель: смыкание по средней линии. Ползунок «Дистракция» — анимация.';
   lastPlan = { mode, device:typ, mm, deg:curDevice.deg };
 }
@@ -1412,6 +1463,7 @@ function bindOsteotomy() {
   $('screwBtn').onclick = addScrew;
   $('nerveBtn').onclick = ()=> setNerveMode(!nerveMode);
   $('nerveDone').onclick = buildNerve;
+  $('nerveAuto').onclick = autoNerve;
   $('expObjSTL').onclick = exportActiveSTL;
   $('impSTLbtn').onclick = ()=> $('impSTL').click();
   $('impSTL').addEventListener('change', e=> importSTLFiles(e.target.files));

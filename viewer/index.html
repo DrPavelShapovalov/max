@@ -240,7 +240,8 @@
             <select id="screwL"><option>6</option><option selected>8</option><option>10</option><option>12</option><option>14</option></select>
           </div>
           <div class="btns"><button id="screwBtn" class="ghost">🔩 Добавить винт</button></div>
-          <div class="btns"><button id="nerveBtn" class="ghost">🩸 Нерв: точки</button><button id="nerveDone" class="ghost">Готово</button></div>
+          <div class="btns"><button id="nerveAuto" class="act-b" title="Найти ход канала нижнечелюстного нерва автоматически по КТ">🩸 Канал нерва: авто (по КТ)</button></div>
+          <div class="btns"><button id="nerveBtn" class="ghost">Нерв: вручную</button><button id="nerveDone" class="ghost">Готово</button></div>
           <div class="btns"><button id="expObjSTL" class="ghost">⬇ STL объекта</button><button id="impSTLbtn" class="ghost">⬆ Импорт STL</button></div>
           <input type="file" id="impSTL" accept=".stl" multiple style="display:none">
           <div class="info">Примитив/винт → двигай гизмо на место → «STL объекта» для печати. Импорт STL — свой эндопротез.</div>
@@ -262,6 +263,13 @@
             <select id="kdoMode">
               <option value="uni" selected>Односторонний (до симметрии)</option>
               <option value="bi">Двусторонний (до смыкания резцов)</option>
+            </select>
+          </div>
+          <div class="row"><label>Плоскость</label>
+            <select id="kdoPlane" title="Как движется фрагмент: только в сагиттальной, только вертикально, или сочетанно (криволинейный аппарат)">
+              <option value="sag" selected>Сагиттальная (вперёд-вниз)</option>
+              <option value="vert">Вертикальная (удлинение ветви)</option>
+              <option value="combo">Сочетанная (криволинейный)</option>
             </select>
           </div>
           <div class="btns"><button id="devPtBtn" class="ghost">◎ Точки аппарата: дистальная → медиальная</button></div>
