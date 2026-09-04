@@ -135,6 +135,99 @@ function sampleSlice(plane, k, w, h) {
 }
 // ---------- Косой (полуаксиальный / панорамный) реформат ----------
 let oblique = { on:false, angle:0 };
+// Крест-указатель как в Vidar: на каждой плоскости свой угол наклона (превращение
+// в «икс» = косой реформат в плоскости) — тянется мышью за поворотную рукоятку.
+let xhair = { axial:{angle:0}, coronal:{angle:0}, sagittal:{angle:0} };
+function planeBasis(plane){
+  const [nx,ny,nz]=volume.dims, [sx,sy,sz]=volume.spacing;
+  if(plane==='axial')   return { e1:[1,0,0], e2:[0,1,0], e3:[0,0,1], Wmm:nx*sx, Hmm:ny*sy, ax:2, flipY:false };
+  if(plane==='coronal') return { e1:[1,0,0], e2:[0,0,1], e3:[0,1,0], Wmm:nx*sx, Hmm:nz*sz, ax:1, flipY:true };
+  return { e1:[0,1,0], e2:[0,0,1], e3:[1,0,0], Wmm:ny*sy, Hmm:nz*sz, ax:0, flipY:true }; // sagittal
+}
+// косой реформат В ПЛОСКОСТИ на угол xhair[plane].angle (наклон креста → «икс»)
+function renderReslice(plane){
+  const cv=$('cv-'+plane), ctx=cv.getContext('2d');
+  const [nx,ny,nz]=volume.dims, [sx,sy,sz]=volume.spacing;
+  const B=planeBasis(plane);
+  const cxmm=idx[0]*sx, cymm=idx[1]*sy, czmm=idx[2]*sz;
+  const th=(xhair[plane].angle||0)*Math.PI/180, cs=Math.cos(th), sn=Math.sin(th);
+  // повёрнутые оси в плоскости
+  const e1=[B.e1[0]*cs+B.e2[0]*sn, B.e1[1]*cs+B.e2[1]*sn, B.e1[2]*cs+B.e2[2]*sn];
+  const e2=[-B.e1[0]*sn+B.e2[0]*cs, -B.e1[1]*sn+B.e2[1]*cs, -B.e1[2]*sn+B.e2[2]*cs];
+  const nrm=B.e3;
+  const Wmm=B.Wmm, Hmm=B.Hmm, step=Math.min(sx,sy,sz);
+  const outW=Math.min(700,Math.round(Wmm/step)), outH=Math.min(700,Math.round(Hmm/step));
+  const du=Wmm/outW, dv=Hmm/outH;
+  const slabHalf=(slabN>1)?(slabN*Math.min(sx,sy,sz))/2:0;
+  const nsteps=slabHalf>0?Math.max(1,Math.round(slabHalf/step)):0;
+  const lo=win.center-win.width/2, span=win.width||1;
+  const imgc=document.createElement('canvas'); imgc.width=outW; imgc.height=outH;
+  const img=new ImageData(outW,outH); const dta=img.data;
+  for(let v=0;v<outH;v++){ const ev=(v-outH/2)*dv;
+    for(let u=0;u<outW;u++){ const eu=(u-outW/2)*du;
+      const bx=cxmm+eu*e1[0]+ev*e2[0], by=cymm+eu*e1[1]+ev*e2[1], bz=czmm+eu*e1[2]+ev*e2[2];
+      let val;
+      if(nsteps===0) val=sampleVoxelMM(bx,by,bz);
+      else { let s=0,c=0; for(let t=-nsteps;t<=nsteps;t++){ const o=t*step; s+=sampleVoxelMM(bx+o*nrm[0],by+o*nrm[1],bz+o*nrm[2]); c++; } val=s/c; }
+      let g=(val-lo)/span; g=g<0?0:g>1?1:g; g=(g*255)|0;
+      const oo=(v*outW+u)*4; dta[oo]=dta[oo+1]=dta[oo+2]=g; dta[oo+3]=255;
+    } }
+  imgc.getContext('2d').putImageData(img,0,0);
+  const CW=cv.width, CH=cv.height; ctx.fillStyle='#000'; ctx.fillRect(0,0,CW,CH);
+  const ar=Wmm/Hmm; let dw=CW,dh=CW/ar; if(dh>CH){dh=CH;dw=CH*ar;} const ox=(CW-dw)/2,oy=(CH-dh)/2;
+  ctx.imageSmoothingEnabled=true;
+  if(B.flipY){ ctx.save(); ctx.translate(ox,oy+dh); ctx.scale(1,-1); ctx.drawImage(imgc,0,0,outW,outH,0,0,dw,dh); ctx.restore(); }
+  else ctx.drawImage(imgc,0,0,outW,outH,ox,oy,dw,dh);
+  mprLayout[plane]={ ox,oy,dw,dh, flipY:B.flipY, m:{pw:Wmm,ph:Hmm}, k:idx[B.ax] };
+  drawCrosshair(plane, ctx, ox,oy,dw,dh);
+  drawMprMeas(plane, ctx);
+  ctx.fillStyle='rgba(47,228,214,.9)'; ctx.font='11px ui-monospace,monospace';
+  ctx.fillText(`${plane.toUpperCase()} косой ${xhair[plane].angle}°${slabN>1?'  ⊟'+slabN+' срез':''}`, 8, 16);
+}
+// рисуем крест с рукоятками: центр (перенос), толщина (band+handle), поворот (◆)
+function drawCrosshair(plane, ctx, ox,oy,dw,dh){
+  const dims=volume.dims;
+  let u,v;
+  if(plane==='axial'){ u=idx[0]/dims[0]; v=idx[1]/dims[1]; }
+  else if(plane==='coronal'){ u=idx[0]/dims[0]; v=idx[2]/dims[2]; }
+  else { u=idx[1]/dims[1]; v=idx[2]/dims[2]; }
+  const flipY = plane!=='axial';
+  const cx=ox+u*dw, cy=oy+(flipY?(1-v):v)*dh;
+  const th=(xhair[plane].angle||0)*Math.PI/180, cs=Math.cos(th), sn=Math.sin(th);
+  const sy = flipY?-1:1;                          // экран: у флипнутых плоскостей ось v идёт вверх
+  // единичные направления линий креста (на экране; y вниз)
+  const d1={x:cs, y:sy*sn}, d2={x:-sn, y:sy*cs};
+  const L=Math.max(dw,dh);
+  ctx.save();
+  ctx.strokeStyle='rgba(47,228,214,.55)'; ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(cx-d1.x*L, cy-d1.y*L); ctx.lineTo(cx+d1.x*L, cy+d1.y*L);
+  ctx.moveTo(cx-d2.x*L, cy-d2.y*L); ctx.lineTo(cx+d2.x*L, cy+d2.y*L);
+  ctx.stroke();
+  // полоса толщины (slab) вдоль d1, ширина = slab мм в пикселях
+  const L2=mprLayout[plane]; const pxPerMM = L2 ? (L2.dw/L2.m.pw) : 1;
+  const slabMM = slabN>1 ? slabN*Math.min(...volume.spacing) : 0;
+  if(slabMM>0){ const hw=slabMM*pxPerMM/2;
+    ctx.strokeStyle='rgba(255,194,77,.5)'; ctx.setLineDash([4,3]);
+    ctx.beginPath();
+    ctx.moveTo(cx-d2.x*hw-d1.x*L, cy-d2.y*hw-d1.y*L); ctx.lineTo(cx-d2.x*hw+d1.x*L, cy-d2.y*hw+d1.y*L);
+    ctx.moveTo(cx+d2.x*hw-d1.x*L, cy+d2.y*hw-d1.y*L); ctx.lineTo(cx+d2.x*hw+d1.x*L, cy+d2.y*hw+d1.y*L);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  // рукоятки
+  const HD=42;                                   // расстояние рукояток от центра, px
+  // толщина: квадрат на оси d2 (тяни в бок → утолщение)
+  const tH={ x:cx+d2.x*HD, y:cy+d2.y*HD };
+  ctx.fillStyle='rgba(255,194,77,.95)'; ctx.fillRect(tH.x-4,tH.y-4,8,8);
+  // поворот: ромб на оси d1 (тяни → «икс»/косой)
+  const rH={ x:cx+d1.x*HD, y:cy+d1.y*HD };
+  ctx.fillStyle='rgba(47,228,214,.95)'; ctx.save(); ctx.translate(rH.x,rH.y); ctx.rotate(Math.PI/4); ctx.fillRect(-4,-4,8,8); ctx.restore();
+  // центр
+  ctx.fillStyle='rgba(47,228,214,.95)'; ctx.beginPath(); ctx.arc(cx,cy,3.2,0,7); ctx.fill();
+  ctx.restore();
+  xhairScreen[plane]={ cx, cy, d1, d2, HD, tH, rH };
+}
+let xhairScreen={};
 function sampleVoxelMM(wx, wy, wz){          // мм → ближайший воксель
   const [nx,ny,nz]=volume.dims, [sx,sy,sz]=volume.spacing, d=volume.data;
   const a=Math.round(wx/sx), b=Math.round(wy/sy), c=Math.round(wz/sz);
@@ -181,6 +274,7 @@ function renderOblique(){
 }
 function renderMPR(plane) {
   if (plane==='coronal' && oblique.on && volume){ renderOblique(); return; }
+  if (volume && xhair[plane] && xhair[plane].angle){ renderReslice(plane); return; }  // косой в плоскости (крест-«икс»)
   const m = sliceMeta(plane);
   const k = idx[m.axis];
   const px = sampleSlice(plane, k, m.w, m.h);
@@ -209,16 +303,10 @@ function renderMPR(plane) {
   } else {
     ctx.drawImage(off, 0, 0, m.w, m.h, ox, oy, dw, dh);
   }
-  // прицел (позиции других осей)
-  ctx.strokeStyle = 'rgba(47,228,214,.55)'; ctx.lineWidth = 1;
-  let u, v;
-  if (plane === 'axial')   { u = idx[0] / volume.dims[0]; v = idx[1] / volume.dims[1]; }
-  else if (plane === 'coronal') { u = idx[0] / volume.dims[0]; v = idx[2] / volume.dims[2]; }
-  else { u = idx[1] / volume.dims[1]; v = idx[2] / volume.dims[2]; }
-  const lx = ox + u * dw, ly = oy + (flipY ? (1 - v) : v) * dh;
-  ctx.beginPath(); ctx.moveTo(lx, oy); ctx.lineTo(lx, oy + dh); ctx.moveTo(ox, ly); ctx.lineTo(ox + dw, ly); ctx.stroke();
   // сохранить раскладку для перевода клик↔мм
   mprLayout[plane] = { ox, oy, dw, dh, flipY, m, k };
+  // прицел-указатель Vidar (центр/толщина/поворот)
+  drawCrosshair(plane, ctx, ox, oy, dw, dh);
   drawMprMeas(plane, ctx);
   // подпись
   ctx.fillStyle = 'rgba(47,228,214,.9)'; ctx.font = '11px ui-monospace,monospace';
@@ -301,14 +389,38 @@ function setCrosshair(plane, f){        // перетаскиваемый ука
   renderAllMPR();
 }
 function bindMprMeas(){
-  planes.forEach(plane=>{ const cv=$('cv-'+plane); let dragging=false;
-    const toFrac=(ev)=>{ const r=cv.getBoundingClientRect(); return px2frac(plane,(ev.clientX-r.left)*cv.width/r.width,(ev.clientY-r.top)*cv.height/r.height); };
+  planes.forEach(plane=>{ const cv=$('cv-'+plane); let drag=null;   // null|'move'|'rot'|'thick'
+    const toPx=(ev)=>{ const r=cv.getBoundingClientRect(); return { x:(ev.clientX-r.left)*cv.width/r.width, y:(ev.clientY-r.top)*cv.height/r.height }; };
+    const toFrac=(ev)=>{ const p=toPx(ev); return px2frac(plane,p.x,p.y); };
+    const slabMax=()=> +($('slab')?.max||31);
     cv.addEventListener('mousedown',(ev)=>{ if(!volume) return;
       if(mprMode){ ev.preventDefault(); ev.stopPropagation(); onMprClick(plane, toFrac(ev), idx[sliceMeta(plane).axis]); return; }
-      if(plane==='coronal'&&oblique.on) return;      // косой строится наклоном
-      ev.preventDefault(); dragging=true; setCrosshair(plane, toFrac(ev)); }, true);
-    cv.addEventListener('mousemove',(ev)=>{ if(dragging && !mprMode){ setCrosshair(plane, toFrac(ev)); } });
-    window.addEventListener('mouseup',()=>{ dragging=false; });
+      if(plane==='coronal'&&oblique.on) return;      // косой коронар строится отдельным наклоном
+      const p=toPx(ev); const S=xhairScreen[plane];
+      ev.preventDefault();
+      if(S){ const near=(h)=>Math.hypot(p.x-h.x,p.y-h.y)<12;
+        if(near(S.rH)){ drag='rot'; return; }        // ромб → поворот (косой «икс»)
+        if(near(S.tH)){ drag='thick'; return; }      // квадрат → толщина среза
+      }
+      drag='move'; setCrosshair(plane, toFrac(ev)); }, true);
+    cv.addEventListener('mousemove',(ev)=>{ if(!drag||mprMode) return; const p=toPx(ev); const S=xhairScreen[plane];
+      if(drag==='move'){ setCrosshair(plane, toFrac(ev)); return; }
+      if(!S) return;
+      if(drag==='rot'){ const sy=(plane!=='axial')?-1:1;
+        let deg=Math.atan2((p.y-S.cy)*sy, p.x-S.cx)*180/Math.PI;
+        // ограничим до ±80°, округлим до 1°
+        deg=Math.max(-80,Math.min(80,Math.round(deg)));
+        xhair[plane].angle=deg; renderMPR(plane); return; }
+      if(drag==='thick'){ const proj=(p.x-S.cx)*S.d2.x+(p.y-S.cy)*S.d2.y;   // px вдоль d2
+        const L=mprLayout[plane]; const pxPerMM=L?(L.dw/L.m.pw):1;
+        const mm=Math.abs(proj)/pxPerMM; const minsp=Math.min(...volume.spacing);
+        let n=Math.max(1,Math.min(slabMax(), Math.round(mm/minsp)));
+        slabN=n; if($('slab')){ $('slab').value=n; $('slabv').textContent=n; }
+        renderAllMPR(); return; }
+    });
+    window.addEventListener('mouseup',()=>{ drag=null; });
+    cv.addEventListener('dblclick',(ev)=>{ if(!volume||mprMode) return; ev.preventDefault();
+      xhair[plane].angle=0; slabN=1; if($('slab')){ $('slab').value=1; $('slabv').textContent=1; } renderAllMPR(); });
   });
 }
 function resizeMPRCanvases() {
