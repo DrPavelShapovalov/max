@@ -58,7 +58,7 @@ export function traceMandibularCanal(volume, threshold, seg){
       const nb=[[x-1,y,z],[x+1,y,z],[x,y-1,z],[x,y+1,z],[x,y,z-1],[x,y,z+1]];
       for(const [a,b,cc] of nb){ if(a<0||b<0||cc<0||a>=lx||b>=ly||cc>=lz)continue; const j=idx(a,b,cc); if(enc[j]&&comp[j]<0){ comp[j]=nc; st[sp++]=j; } } }
     cells.push(list); nc++; }
-  if(!nc) return null;
+  // (нет замкнутых полостей → cells пуст → сработает запасной путь ниже)
   // центр НЧ по X — делим лево/право
   let mx=0,mn=0; for(let i=0;i<N;i++) if(mand[i]){ const x=i%lx; mx+=x; mn++; } const midX = mn? mx/mn : lx/2;
   // для каждой компоненты — размер, центроид, вытянутость (PCA)
@@ -87,7 +87,27 @@ export function traceMandibularCanal(volume, threshold, seg){
     .filter(o=> o.size>=8 && o.pts.length>=3 && o.span>= 6);   // отсекаем мелкие марровые лакуны
   const pick=(side)=>{ const cand=scored.filter(o=>o.side===side); if(!cand.length) return null;
     cand.sort((a,b)=> (b.span*Math.sqrt(b.size)) - (a.span*Math.sqrt(a.size)) ); return cand[0].pts; };
-  const left=pick('left'), right=pick('right');
+  let left=pick('left'), right=pick('right');
+  if(left || right) return { left, right, approx:false };
+  // ---- ЗАПАСНОЙ путь: приблизительная трасса по геометрии НЧ ----
+  // (если замкнутая полость канала не выделилась на этом пороге/качестве КТ)
+  const approxSide=(sideSel)=>{
+    // собрать воксели НЧ выбранной стороны
+    const bins=new Map();                                   // ключ по y-бину → {sx,sz,zmin,zmax,n}
+    let ymin=ly,ymax=0; const cells2=[];
+    for(let i=0;i<N;i++){ if(!mand[i])continue; const x=i%lx; if(sideSel(x)) { const y=((i/lx)|0)%ly; if(y<ymin)ymin=y; if(y>ymax)ymax=y; cells2.push(i); } }
+    if(cells2.length<30) return null;
+    const NB=16, span=Math.max(1,ymax-ymin);
+    for(const i of cells2){ const x=i%lx, y=((i/lx)|0)%ly, z=(i/(lx*ly))|0;
+      const b=Math.min(NB-1,Math.floor((y-ymin)/span*(NB-1)));
+      let e=bins.get(b); if(!e){ e={sx:0,sz2:0,n:0,zmin:1e9,zmax:-1e9,y}; bins.set(b,e); }
+      e.sx+=x; e.n++; if(z<e.zmin)e.zmin=z; if(z>e.zmax)e.zmax=z; e.by=y; }
+    const pts=[]; for(let b=0;b<NB;b++){ const e=bins.get(b); if(!e||e.n<3)continue;
+      const x=e.sx/e.n, z=e.zmin+0.42*(e.zmax-e.zmin);       // канал ~ на 40% высоты от нижнего края
+      pts.push(toWorld(x, e.by, z)); }
+    return pts.length>=3? pts : null;
+  };
+  left = approxSide(x=>x<midX); right = approxSide(x=>x>=midX);
   if(!left && !right) return null;
-  return { left, right };
+  return { left, right, approx:true };
 }

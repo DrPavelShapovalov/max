@@ -1357,25 +1357,37 @@ function localAABB(soup){ const mn=new THREE.Vector3(1e9,1e9,1e9), mx=new THREE.
   for(let i=0;i<soup.length;i+=3){ const x=soup[i],y=soup[i+1],z=soup[i+2];
     if(x<mn.x)mn.x=x; if(y<mn.y)mn.y=y; if(z<mn.z)mn.z=z; if(x>mx.x)mx.x=x; if(y>mx.y)mx.y=y; if(z>mx.z)mx.z=z; }
   return { mn, mx, size:mx.clone().sub(mn), center:mn.clone().add(mx).multiplyScalar(0.5) }; }
-// сетка-поверхность, конформированная к кости лучами вдоль castDir
+// сетка-поверхность, конформированная к кости лучами вдоль castDir.
+// РОБАСТНО: работаем с ПОЛЕМ ГЛУБИН (скаляр вдоль castDir), а не с сырыми точками —
+// медиана + отсечение выбросов + лапласиан-сглаживание убирают «шипы»/«дичь».
 function conformGrid(C, ua, ub, half_a, half_b, castDir, targets, NA, NB){
   const back=castDir.clone().multiplyScalar(-1);
-  const startD=Math.max(half_a,half_b)+modelRadius*0.6;
-  const pts=[], hitMask=[]; let hitSum=0, hitN=0;
-  for(let i=0;i<=NA;i++){ const ta=(i/NA*2-1)*half_a; pts[i]=[]; hitMask[i]=[];
-    for(let j=0;j<=NB;j++){ const tb=(j/NB*2-1)*half_b;
-      const base=C.clone().add(ua.clone().multiplyScalar(ta)).add(ub.clone().multiplyScalar(tb));
-      const origin=base.clone().add(back.clone().multiplyScalar(startD));
-      const hit=castBone(origin, castDir, targets, startD*2.2);
-      if(hit){ pts[i][j]=hit; hitMask[i][j]=true; hitSum+=hit.clone().sub(base).dot(castDir); hitN++; }
-      else { pts[i][j]=base.clone(); hitMask[i][j]=false; }
-    } }
-  // заполнить промахи средней глубиной попаданий (ровный край плиты)
-  const meanD=hitN?hitSum/hitN:0;
-  for(let i=0;i<=NA;i++)for(let j=0;j<=NB;j++){ if(!hitMask[i][j]){
-    const tb=(j/NB*2-1)*half_b, ta=(i/NA*2-1)*half_a;
-    const base=C.clone().add(ua.clone().multiplyScalar(ta)).add(ub.clone().multiplyScalar(tb));
-    pts[i][j]=base.clone().add(castDir.clone().multiplyScalar(meanD)); } }
+  const startD=Math.max(half_a,half_b)+modelRadius*0.8;
+  const D=[], hit=[]; const dvals=[];
+  const baseAt=(i,j)=>{ const ta=(i/NA*2-1)*half_a, tb=(j/NB*2-1)*half_b;
+    return C.clone().add(ua.clone().multiplyScalar(ta)).add(ub.clone().multiplyScalar(tb)); };
+  for(let i=0;i<=NA;i++){ D[i]=[]; hit[i]=[];
+    for(let j=0;j<=NB;j++){ const base=baseAt(i,j);
+      const p=castBone(base.clone().add(back.clone().multiplyScalar(startD)), castDir, targets, startD*2.2);
+      if(p){ const d=p.clone().sub(base).dot(castDir); D[i][j]=d; hit[i][j]=1; dvals.push(d); }
+      else { D[i][j]=null; hit[i][j]=0; } } }
+  let hitN=dvals.length;
+  if(!hitN){ // ничего не попало — плоская плита у C
+    const pts=[]; for(let i=0;i<=NA;i++){ pts[i]=[]; for(let j=0;j<=NB;j++) pts[i][j]=baseAt(i,j); } return { pts, hitN:0 };
+  }
+  dvals.sort((a,b)=>a-b); const med=dvals[dvals.length>>1];
+  const band=Math.max(6, modelRadius*0.12);                       // допустимый разброс глубины, мм
+  // отсечение выбросов + заполнение промахов медианой
+  for(let i=0;i<=NA;i++)for(let j=0;j<=NB;j++){
+    if(!hit[i][j]) D[i][j]=med;
+    else D[i][j]=Math.max(med-band, Math.min(med+band, D[i][j])); }
+  // лапласиан-сглаживание поля глубин (4 прохода) — гладкая прилежащая поверхность
+  for(let it=0;it<4;it++){ const nd=D.map(r=>r.slice());
+    for(let i=0;i<=NA;i++)for(let j=0;j<=NB;j++){ let s=D[i][j],n=1;
+      if(i>0){s+=D[i-1][j];n++;} if(i<NA){s+=D[i+1][j];n++;} if(j>0){s+=D[i][j-1];n++;} if(j<NB){s+=D[i][j+1];n++;}
+      nd[i][j]=s/n; }
+    for(let i=0;i<=NA;i++)for(let j=0;j<=NB;j++) D[i][j]=nd[i][j]; }
+  const pts=[]; for(let i=0;i<=NA;i++){ pts[i]=[]; for(let j=0;j<=NB;j++) pts[i][j]=baseAt(i,j).add(castDir.clone().multiplyScalar(D[i][j])); }
   return { pts, hitN };
 }
 function pushQuad(arr,a,b,c,d){ arr.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z); arr.push(a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z); }
@@ -1445,9 +1457,8 @@ function buildTMJ(){
     const innerAt=(r,th)=>{ const rad=w.clone().multiplyScalar(Math.cos(th)*r).add(w2.clone().multiplyScalar(Math.sin(th)*r));
       const up=Math.sqrt(Math.max(0,Rcup*Rcup-r*r));       // вогнутая чаша над головкой
       return headCenter.clone().add(rad).add(aLong.clone().multiplyScalar(gap+ (Rcup-up))); };
-    // внешняя поверхность — конформ к черепу (луч вверх), иначе смещение
-    const outerAt=(inner)=>{ const hit=castBone(inner.clone().add(skullDir.clone().multiplyScalar(0.5)), skullDir, targets, headR*3);
-      return hit? hit : inner.clone().add(skullDir.clone().multiplyScalar(thick*1.5)); };
+    // внешняя поверхность — ровное смещение (чистая оболочка, без «шипов»)
+    const outerAt=(inner)=> inner.clone().add(skullDir.clone().multiplyScalar(thick*1.5));
     const IN=[], OUT=[];
     for(let i=0;i<=rings;i++){ const r=Rf*i/rings; IN[i]=[]; OUT[i]=[];
       for(let j=0;j<=seg;j++){ const th=j/seg*2*Math.PI; const ip=innerAt(r,th); IN[i][j]=ip; OUT[i][j]=outerAt(ip); } }
@@ -1504,11 +1515,16 @@ function autoNerve(){
     }
     // убрать прежние авто-каналы
     for(let i=frags.length-1;i>=0;i--) if(/канал нерва/i.test(frags[i].name||'')) removeOneFrag(frags[i]);
+    const suf = res.approx ? ' ≈' : '';
     let made=0;
-    if(res.right && res.right.length>=3){ buildNerveTube(res.right, 'Канал нерва (правый)', 0xff5d6c); made++; }
-    if(res.left  && res.left.length>=3){ buildNerveTube(res.left,  'Канал нерва (левый)',  0xff9f43); made++; }
+    if(res.right && res.right.length>=3){ buildNerveTube(res.right, 'Канал нерва (правый)'+suf, 0xff5d6c); made++; }
+    if(res.left  && res.left.length>=3){ buildNerveTube(res.left,  'Канал нерва (левый)'+suf,  0xff9f43); made++; }
     isCut=true; refreshObjPanel();
-    $('cutInfo').textContent = made? `Канал нерва найден автоматически (сторон: ${made}). Проверь ход по MPR; при необходимости обведи вручную.` : 'Канал не найден.';
+    $('cutInfo').textContent = made
+      ? (res.approx
+          ? `Канал построен ПРИБЛИЗИТЕЛЬНО по геометрии НЧ (сторон: ${made}) — точная полость не выделилась. Понизь «3D порог» для точной трассы или поправь вручную.`
+          : `Канал нерва найден автоматически по КТ (сторон: ${made}). Проверь ход по MPR.`)
+      : 'Канал не найден.';
   }, 30);
 }
 function exportProtocol(){
@@ -1767,8 +1783,9 @@ function bindOsteotomy() {
   ['mvDist','mvX','mvY','mvRot'].forEach(id => $(id).addEventListener('input', ()=>{ mobileMode='sliders'; clearArc(); clearRegen(); applyMobileTransform(); }));
   // гизмо для фрагментов
   $('pickBtn').onclick = ()=> setPickMode(!pickMode);
-  $('gizMove').onclick = ()=> gizmo && gizmo.setMode('translate');
-  $('gizRot').onclick  = ()=> gizmo && gizmo.setMode('rotate');
+  $('gizMove').onclick = ()=>{ if(!gizmo)return; gizmo.setMode('translate'); gizmo.setSpace('local'); const g=activeGroup(); if(g) gizmo.attach(g); };
+  $('gizRot').onclick  = ()=>{ if(!gizmo)return; gizmo.setMode('rotate'); gizmo.setSpace('local'); const g=activeGroup(); if(g) gizmo.attach(g);
+    else { $('cutInfo').textContent='Сначала кликни объект в списке «Объекты», затем «Повернуть».'; } };
   // КДА (авто)
   $('planKDO').onclick = planKDO;
   $('arcDist').addEventListener('input', moveAlongArc);
