@@ -458,9 +458,14 @@ function zoomStep(f){                 // приблизить/отдалить �
 }
 // тест-хук (безвреден в проде): позволяет headless-проверку эндопротеза
 function __ossaTestHook(){ try{ window.__ossa = {
-  buildTMJ, addPrimitive, selectFrag,
-  frags:()=>frags,
+  buildTMJ, addPrimitive, selectFrag, planKDO, addDevPt,
+  frags:()=>frags, plans:()=>plans,
   testBone(){ modelRadius=100; baseSoup=geoToSoup(new THREE.BoxGeometry(50,140,50)); rebuildBaseMesh(); },
+  makeFrag(cx,cy,cz){ const soup=geoToSoup(new THREE.BoxGeometry(20,20,20)); const rec=addFrag(soup,0x66d9e8,new THREE.Vector3(0,0,1),new THREE.Vector3(cx,cy,cz),'НЧ фрагмент'); rec.centroid.set(cx,cy,cz); isCut=true; return frags.indexOf(rec); },
+  setMode(m){ $('kdoMode').value=m; },
+  devPt(x,y,z){ addDevPt(new THREE.Vector3(x,y,z)); },
+  slider(v){ $('arcDist').value=v; moveAlongArc(); },
+  fragPos(i){ const g=frags[i].group.position; return {x:g.x,y:g.y,z:g.z}; },
 }; }catch(e){} }
 function init3D() {
   const cv = $('cv-3d');
@@ -1076,17 +1081,23 @@ function knifeUndo(){
 
 // ---- Точки под аппарат (клик по фрагменту) ----
 let devPtMode = false, devPts = [], devMarkers = [];
+function maxDevPts(){ return ($('kdoMode')&&$('kdoMode').value==='bi') ? 4 : 2; }
 function setDevPtMode(on){ devPtMode=on; $('devPtBtn').classList.toggle('armed', on);
-  if(on){ setPenMode(false); setPickMode(false);
-    $('penInfo').textContent='Кликните 2 точки по кости — начало и конец аппарата вдоль линии распила.'; } }
+  if(on){ setPenMode(false); setPickMode(false); clearDevPts();
+    $('penInfo').textContent = maxDevPts()===4
+      ? 'Двусторонний: поставь 4 точки — 2 на ОДНОЙ ветви (дистальная→медиальная), затем 2 на ДРУГОЙ.'
+      : 'Поставь 2 точки по кости: 1-я — дистальная опора, 2-я — медиальная (вдоль тела/ветви).'; } }
 function clearDevPts(){ devMarkers.forEach(m=>scene.remove(m)); devMarkers=[]; devPts=[]; }
 function addDevPt(pt){
-  if (devPts.length>=2) clearDevPts();
+  const mx=maxDevPts();
+  if (devPts.length>=mx) clearDevPts();
   devPts.push(pt.clone());
   const s=new THREE.Mesh(new THREE.SphereGeometry(Math.max(1.2,modelRadius*0.02),12,12),
-    new THREE.MeshBasicMaterial({color:0xffc24d}));
+    new THREE.MeshBasicMaterial({color: devPts.length<=2?0xffc24d:0x66d9e8}));
   s.position.copy(pt); scene.add(s); devMarkers.push(s);
-  $('penInfo').textContent = devPts.length<2 ? 'Поставьте вторую точку аппарата.' : 'Зона аппарата задана. Нажмите «Спланировать КДО».';
+  const n=devPts.length;
+  if(mx===4) $('penInfo').textContent = n<4 ? `Точка ${n}/4 (${n<=2?'первая ветвь':'вторая ветвь'}). Осталось ${4-n}.` : '4 точки заданы. Нажми «Рассчитать КДО» — обе стороны синхронно.';
+  else $('penInfo').textContent = n<2 ? 'Поставь вторую точку аппарата.' : 'Зона аппарата задана. Нажми «Рассчитать КДО».';
 }
 
 // ---- Симметрия: средняя плоскость по 3 точкам + зеркало + авто-дистракция ----
@@ -1171,7 +1182,8 @@ function planSymmetry(){
   curDevice = best;
   let up=new THREE.Vector3(0,0,1); if(Math.abs(dir.dot(up))>0.9) up=new THREE.Vector3(0,1,0);
   const perp=new THREE.Vector3().crossVectors(dir,up).normalize();
-  distr = { P0: land.clone(), dir, perp, deg: curDevice.deg, L };
+  distr = { rec, P0: land.clone(), dir, perp, deg: curDevice.deg, L, device:curDevice, mm:L };
+  plans = [distr];
   mobileMode='arc'; drawArc();
   $('reqLen').value=Math.min(40,L).toFixed(1); $('reqLenv').textContent=L.toFixed(1)+' мм';
   $('arcDist').max=L.toFixed(1); $('arcDist').value=L.toFixed(1);
@@ -1552,6 +1564,7 @@ function applyMobileTransform() {
 // ---- Планирование КДА по «рельсу» из точек аппарата. 180° = прямой (трансляция),
 //      меньше — дуга (полный поворот Φ = 180−градус за всю длину). ----
 let distr = null;
+let plans = [];              // список планов дистракции (1 — односторонний, 2 — двусторонний)
 function railInfo(){
   const f = activeRec();
   let P0, dir;
@@ -1573,116 +1586,145 @@ function nearestMirrorTarget(P1){
     if(dd<best){ best=dd; T.set(rx,ry,rz); } }
   return T;
 }
-// АВТО-расчёт КДО: врач отметил остеотомию и 2 опоры — программа сама считает мм/угол/аппарат
-function planKDO() {
-  if (!isCut || activeFrag<0) { alert('Сначала распили и кликни подвижный (дистальный) фрагмент.'); return; }
-  if (devPts.length<2) { alert('Поставь 2 точки аппарата: 1-я — дистальная опора, 2-я — медиальная.'); return; }
-  const mode = $('kdoMode').value;
-  const P1 = devPts[0].clone(), P2 = devPts[1].clone();          // 1-я дистальная опора, 2-я медиальная
-  // НАПРАВЛЕНИЕ дистракции — строго вдоль тела (рельс от медиальной к дистальной опоре),
-  // фрагмент едет прямо, не «криво».
-  let dir = P1.clone().sub(P2); if(dir.lengthSq()<1e-6) dir.copy(activeRec().n); dir.normalize();
-  // --- ФИЗИОЛОГИЧНОЕ НАПРАВЛЕНИЕ: строго в анатомической плоскости ---
-  // Медиолатеральная ось = нормаль срединной (сагиттальной) плоскости.
-  const ml = midNormalPoint().normal.clone().normalize();       // лево-право
-  const vert = new THREE.Vector3(0,0,1);                          // верх-низ (ось срезов)
-  // AP-ось (вперёд-назад) в сагиттальной плоскости
-  let apAxis = new THREE.Vector3().crossVectors(ml, vert); if(apAxis.lengthSq()<1e-6) apAxis.set(0,1,0); apAxis.normalize();
+// расчёт плана дистракции ОДНОГО фрагмента (rec) по 2 опорам P1(дистальная)→P2(медиальная)
+function computePlan(rec, P1, P2){
   const kdoPlane = ($('kdoPlane')&&$('kdoPlane').value) || 'sag';
-  // убираем медиолатеральную составляющую — фрагмент НИКОГДА не идёт «внутрь»/через среднюю линию
+  const mode = $('kdoMode').value;
+  let dir = P1.clone().sub(P2); if(dir.lengthSq()<1e-6) dir.copy(rec.n); dir.normalize();
+  const ml = midNormalPoint().normal.clone().normalize();        // лево-право
+  const vert = new THREE.Vector3(0,0,1);
+  let apAxis = new THREE.Vector3().crossVectors(ml, vert); if(apAxis.lengthSq()<1e-6) apAxis.set(0,1,0); apAxis.normalize();
+  // убираем медиолатеральную составляющую — фрагмент не идёт «внутрь»/через среднюю линию
   dir = dir.sub(ml.clone().multiplyScalar(dir.dot(ml)));
-  if(kdoPlane==='vert') dir = vert.clone();                      // только вертикально (удлинение ветви)
+  if(kdoPlane==='vert') dir = vert.clone();
   if(dir.lengthSq()<1e-6) dir = apAxis.clone();
   dir.normalize();
-  // фрагмент едет НАРУЖУ (от опоры), не внутрь
-  if (baseSoup){ const outward=activeRec().centroid.clone().sub(soupCentroid(baseSoup));
-    if(dir.dot(outward)<0) dir.negate(); }
+  if (baseSoup){ const outward=rec.centroid.clone().sub(soupCentroid(baseSoup)); if(dir.dot(outward)<0) dir.negate(); }
   let mm, curveDeg=0;
   if (mode==='uni'){
-    const target = nearestMirrorTarget(P1);                      // зеркало здоровой стороны
-    if (target){
-      const disp = target.clone().sub(P1);
-      mm = disp.dot(dir);                                        // проекция дефицита на ось тела
-      curveDeg = disp.clone().sub(dir.clone().multiplyScalar(mm)).length(); // поперечная составляющая (мм)
-      if (mm < 1) mm = Math.max(2, disp.length());               // если проекция мала — берём модуль
-    } else mm = 12;
-  } else {
-    const {point,normal}=midNormalPoint();
-    const toMid = point.clone().sub(P1).dot(dir);                // сколько пройти вдоль тела до средней
-    mm = Math.abs(toMid) > 1 ? Math.abs(toMid) : 12;
+    const target = nearestMirrorTarget(P1);
+    if (target){ const disp=target.clone().sub(P1); mm=disp.dot(dir);
+      curveDeg=disp.clone().sub(dir.clone().multiplyScalar(mm)).length();
+      if (mm<1) mm=Math.max(2, disp.length()); } else mm=12;
+  } else {                                                        // двусторонний — до средней линии
+    const {point}=midNormalPoint();
+    const toMid = Math.abs(point.clone().sub(P1).dot(dir));
+    mm = toMid>1 ? toMid : 12;
   }
   mm = Math.min(mm, 40);
-  // тип аппарата: прямой (180°) для линейного хода; криволинейный при сочетанной
-  // плоскости или заметной поперечной (вертикальной) коррекции.
-  let deg = 180;
-  const wantCurve = kdoPlane==='combo' || curveDeg > 3;
-  if (wantCurve){ const need = Math.min(150, 10 + Math.max(curveDeg,6)*4);
+  let deg=180; const wantCurve = kdoPlane==='combo' || curveDeg>3;
+  if (wantCurve){ const need=Math.min(150, 10+Math.max(curveDeg,6)*4);
     let best=DEVICES[0]; for(const d of DEVICES) if(Math.abs(d.deg-(180-need))<Math.abs(best.deg-(180-need))) best=d; deg=best.deg; }
-  curDevice = DEVICES.find(d=>d.deg===deg) || DEVICES[DEVICES.length-1];
-  // ось изгиба дуги — В САГИТТАЛЬНОЙ ПЛОСКОСТИ (⟂ медиолатеральной оси, ⟂ dir),
-  // направлена вниз-вперёд: криволинейный аппарат ведёт фрагмент сочетанно
-  // сагиттально+вертикально, но НЕ поперёк (не внутрь черепа).
+  const device = DEVICES.find(d=>d.deg===deg) || DEVICES[DEVICES.length-1];
   let perp=new THREE.Vector3().crossVectors(ml, dir); if(perp.lengthSq()<1e-6) perp.copy(apAxis); perp.normalize();
-  if(perp.dot(vert) > 0) perp.negate();                          // изгиб книзу (физиологично вперёд-вниз)
-  distr = { P0:P1, dir, perp, deg:curDevice.deg, L:mm, ml:ml.clone() };
-  mobileMode='arc'; drawArc();
-  $('arcDist').max=mm.toFixed(1); $('arcDist').value=mm.toFixed(1); moveAlongArc();
-  const rec=activeRec(); rec.planDev=curDevice; rec.planMM=mm;
-  const typ = curDevice.deg===180?'Прямой (180°)':curDevice.name;
-  const plLbl = kdoPlane==='vert'?'вертикально (удлинение ветви)':kdoPlane==='combo'?'сочетанно сагиттально+вертикально':'в сагиттальной плоскости (вперёд-вниз)';
-  $('kdoInfo').innerHTML = `<b style="color:var(--accent)">${typ}</b> — <b>${mm.toFixed(0)} мм</b> · ${plLbl}`;
-  $('symInfo').textContent = mode==='uni'?'Цель: симметрия со здоровой стороной. Ползунок «Дистракция» — анимация.':'Цель: смыкание по средней линии. Ползунок «Дистракция» — анимация.';
-  lastPlan = { mode, device:typ, mm, deg:curDevice.deg };
+  if(perp.dot(vert)>0) perp.negate();
+  rec.planDev=device; rec.planMM=mm;
+  return { rec, P0:P1.clone(), dir, perp, deg:device.deg, L:mm, device, mm };
 }
-// путь дистального ориентира при длине s
-function railPoint(s){
-  const { P0, dir, perp, deg, L } = distr;
+// АВТО-расчёт КДО: односторонний (1 фрагмент, 2 точки) или двусторонний (2 фрагмента, 4 точки синхронно)
+function planKDO() {
+  if (!isCut) { alert('Сначала распили кость.'); return; }
+  const movable = frags.filter(f=>!/эндопротез|ямка|винт|нерв|канал/i.test(f.name||''));
+  const mode = $('kdoMode').value;
+  plans=[];
+  if (mode==='bi'){
+    if (devPts.length<4){ alert('Двусторонний случай: поставь 4 точки аппарата — 2 на одной ветви (дистальная→медиальная) и 2 на другой.'); return; }
+    if (movable.length<2){ alert('Для двустороннего КДО нужно два подвижных фрагмента: распили ОБЕ ветви (или отдели нижнюю челюсть и распили её с двух сторон).'); return; }
+    // две пары точек: [0,1] и [2,3]
+    const pairs=[[devPts[0],devPts[1]],[devPts[2],devPts[3]]];
+    const used=new Set();
+    for(const [a,b] of pairs){
+      const pm=a.clone().add(b).multiplyScalar(0.5);
+      // ближайший ещё не занятый фрагмент к середине пары
+      let best=-1,bd=Infinity; frags.forEach((f,i)=>{ if(used.has(i)||!movable.includes(f))return; const d=f.centroid.distanceTo(pm); if(d<bd){bd=d;best=i;} });
+      if(best<0){ frags.forEach((f,i)=>{ if(used.has(i))return; const d=f.centroid.distanceTo(pm); if(d<bd){bd=d;best=i;} }); }
+      if(best<0) continue; used.add(best);
+      // дистальная=дальняя от средней линии; медиальная=ближняя
+      const mid=midNormalPoint(); const ml=mid.normal;
+      const la=Math.abs(a.clone().sub(mid.point).dot(ml)), lb=Math.abs(b.clone().sub(mid.point).dot(ml));
+      const P1 = la>=lb? a.clone():b.clone(), P2 = la>=lb? b.clone():a.clone();
+      plans.push(computePlan(frags[best], P1, P2));
+    }
+    if(plans.length<2){ alert('Не удалось сопоставить 4 точки двум фрагментам. Ставь по 2 точки рядом с каждой ветвью.'); return; }
+  } else {
+    if (activeFrag<0){ alert('Кликни подвижный (дистальный) фрагмент.'); return; }
+    if (devPts.length<2){ alert('Поставь 2 точки аппарата: 1-я — дистальная опора, 2-я — медиальная.'); return; }
+    plans.push(computePlan(activeRec(), devPts[0], devPts[1]));
+  }
+  distr = plans[0]; curDevice = plans[0].device;
+  mobileMode='arc'; drawArc();
+  const Lmax=Math.max(...plans.map(p=>p.L));
+  $('arcDist').max=Lmax.toFixed(1); $('arcDist').value=Lmax.toFixed(1); moveAlongArc();
+  const kdoPlane=($('kdoPlane')&&$('kdoPlane').value)||'sag';
+  const plLbl = kdoPlane==='vert'?'вертикально':kdoPlane==='combo'?'сочетанно':'сагиттально (вперёд-вниз)';
+  if(plans.length>1){
+    $('kdoInfo').innerHTML = plans.map((p,i)=>{ const t=p.device.deg===180?'Прямой':p.device.name;
+      return `<b>${i===0?'Сторона 1':'Сторона 2'}:</b> ${t} — <b>${p.mm.toFixed(0)} мм</b>`; }).join('<br>') + `<br><span style="opacity:.7">${plLbl}, синхронно</span>`;
+    $('symInfo').textContent='Двусторонний: оба фрагмента едут синхронно ползунком «Дистракция» до смыкания резцов.';
+  } else {
+    const p=plans[0]; const t=p.device.deg===180?'Прямой (180°)':p.device.name;
+    $('kdoInfo').innerHTML = `<b style="color:var(--accent)">${t}</b> — <b>${p.mm.toFixed(0)} мм</b> · ${plLbl}`;
+    $('symInfo').textContent = mode==='uni'?'Цель: симметрия со здоровой стороной. Ползунок «Дистракция» — анимация.':'Ползунок «Дистракция» — анимация.';
+  }
+  lastPlan = { mode, plans: plans.map(p=>({device:p.device.deg===180?'Прямой':p.device.name, mm:p.mm, deg:p.device.deg})) };
+}
+// путь дистального ориентира одного плана при длине s
+function railPointOf(pl, s){
+  const { P0, dir, perp, deg, L } = pl;
   const Phi = (180-deg)*Math.PI/180;
   if (Phi < 1e-4) return P0.clone().add(dir.clone().multiplyScalar(s));
   const R = L / Phi; const C = P0.clone().add(perp.clone().multiplyScalar(R));
   const axis = new THREE.Vector3().crossVectors(dir, perp).normalize();
   return C.clone().add(P0.clone().sub(C).applyAxisAngle(axis, Math.min(s/R, Phi)));
 }
+function railPoint(s){ return railPointOf(distr, s); }       // legacy (planSymmetry)
+function activePlans(){ return plans.length?plans:(distr?[distr]:[]); }
 function drawArc() {
-  clearArc(); if(!distr) return;
-  const pts=[]; const seg=48; for(let i=0;i<=seg;i++) pts.push(railPoint(distr.L*i/seg));
-  const curve=new THREE.CatmullRomCurve3(pts);
-  const geo=new THREE.TubeGeometry(curve, seg, Math.max(0.5, modelRadius*0.01), 8, false);
-  arcMesh=new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color:0x2fe4d6 })); scene.add(arcMesh);
+  clearArc(); const ps=activePlans(); if(!ps.length) return;
+  arcMesh=new THREE.Group();
+  for(const pl of ps){ const pts=[]; const seg=48; for(let i=0;i<=seg;i++) pts.push(railPointOf(pl, pl.L*i/seg));
+    const geo=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), seg, Math.max(0.5, modelRadius*0.01), 8, false);
+    arcMesh.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color:0x2fe4d6 }))); }
+  scene.add(arcMesh);
 }
-function clearArc(){ if (arcMesh){ scene.remove(arcMesh); arcMesh.geometry.dispose(); arcMesh=null; } }
-function clearRegen(){ if(regenMesh){ scene.remove(regenMesh); regenMesh.geometry.dispose(); regenMesh=null; } }
-function drawRegen(s){                 // «регенерат» — растущая перемычка вдоль пройденного пути
-  clearRegen(); if(!distr || s<0.5) return;
-  const seg=Math.max(2, Math.round(s/1.5)); const pts=[];
-  for(let i=0;i<=seg;i++) pts.push(railPoint(s*i/seg));
-  const curve=new THREE.CatmullRomCurve3(pts);
-  const geo=new THREE.TubeGeometry(curve, seg, Math.max(1.2, modelRadius*0.06), 10, false);
-  regenMesh=new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color:0xffc24d, transparent:true, opacity:0.5, roughness:0.8 }));
+function clearArc(){ if (arcMesh){ scene.remove(arcMesh); arcMesh.traverse&&arcMesh.traverse(o=>o.geometry&&o.geometry.dispose()); arcMesh=null; } }
+function clearRegen(){ if(regenMesh){ scene.remove(regenMesh); regenMesh.traverse&&regenMesh.traverse(o=>o.geometry&&o.geometry.dispose()); regenMesh=null; } }
+function drawRegen(sMax){                 // «регенерат» для каждого плана (масштаб по его длине)
+  clearRegen(); const ps=activePlans(); if(!ps.length) return;
+  const Lmax=Math.max(...ps.map(p=>p.L))||1;
+  regenMesh=new THREE.Group();
+  for(const pl of ps){ const s=sMax*(pl.L/Lmax); if(s<0.5) continue;
+    const seg=Math.max(2, Math.round(s/1.5)); const pts=[]; for(let i=0;i<=seg;i++) pts.push(railPointOf(pl, s*i/seg));
+    const geo=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), seg, Math.max(1.2, modelRadius*0.06), 10, false);
+    regenMesh.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color:0xffc24d, transparent:true, opacity:0.5, roughness:0.8 }))); }
   scene.add(regenMesh);
 }
-function moveAlongArc() {
-  const g = activeGroup(); if (mobileMode!=='arc' || !distr || !g) return;
-  const s = +$('arcDist').value;
-  const { P0, dir, perp, deg, L } = distr;
-  const Phi=(180-deg)*Math.PI/180;
+function applyPlanMove(pl, s){
+  const g=pl.rec.group; if(!g) return;
+  const { P0, dir, perp, deg, L } = pl; const Phi=(180-deg)*Math.PI/180;
   if (Phi<1e-4){ g.quaternion.identity(); g.position.copy(dir.clone().multiplyScalar(s)); }
   else { const R=L/Phi; const C=P0.clone().add(perp.clone().multiplyScalar(R));
     const axis=new THREE.Vector3().crossVectors(dir,perp).normalize();
     const quat=new THREE.Quaternion().setFromAxisAngle(axis, Math.min(s/R,Phi));
     setGroupRigid(g, quat, C, null); }
-  drawRegen(s);
-  $('arcDistv').textContent = `${s.toFixed(1)} мм`;
+}
+function moveAlongArc() {
+  const ps=activePlans(); if (mobileMode!=='arc' || !ps.length) return;
+  const sMax = +$('arcDist').value;
+  const Lmax=Math.max(...ps.map(p=>p.L))||1;
+  for(const pl of ps) applyPlanMove(pl, sMax*(pl.L/Lmax));       // синхронно, каждый по своей длине
+  drawRegen(sMax);
+  $('arcDistv').textContent = `${sMax.toFixed(1)} мм`;
 }
 
 function removeFrags(){
   frags.forEach(f=>{ scene.remove(f.group); f.mesh.geometry.dispose(); });
-  frags=[]; activeFrag=-1;
+  frags=[]; activeFrag=-1; plans=[]; distr=null;
   if (baseMesh){ scene.remove(baseMesh); baseMesh.geometry.dispose(); baseMesh=null; }
   baseSoup=null; if(gizmo) gizmo.detach(); refreshObjPanel();
 }
 function resetCut(silent){
-  removeFrags(); clearArc(); clearRegen(); clearDevPts(); clearSym(); lineCut=null; distr=null;
+  removeFrags(); clearArc(); clearRegen(); clearDevPts(); clearSym(); lineCut=null; distr=null; plans=[];
   isCut=false; mobileMode='sliders';
   if (boneMesh) boneMesh.visible = true;
   if (gizmo) gizmo.detach();
