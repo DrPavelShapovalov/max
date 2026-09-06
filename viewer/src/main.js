@@ -464,6 +464,9 @@ function __ossaTestHook(){ try{ window.__ossa = {
   makeFrag(cx,cy,cz){ const soup=geoToSoup(new THREE.BoxGeometry(20,20,20)); const rec=addFrag(soup,0x66d9e8,new THREE.Vector3(0,0,1),new THREE.Vector3(cx,cy,cz),'НЧ фрагмент'); rec.centroid.set(cx,cy,cz); isCut=true; return frags.indexOf(rec); },
   setMode(m){ $('kdoMode').value=m; },
   devPt(x,y,z){ addDevPt(new THREE.Vector3(x,y,z)); },
+  setRod(on){ setRod(on); }, updateRod(){ updateRod(); },
+  dragActive(x,y,z){ const g=activeGroup(); if(g){ g.position.set(x,y,z); updateRod(); } return activeGroup()?.position; },
+  rodInfo(){ return document.getElementById('rodInfo').textContent; },
   slider(v){ $('arcDist').value=v; moveAlongArc(); },
   fragPos(i){ const g=frags[i].group.position; return {x:g.x,y:g.y,z:g.z}; },
 }; }catch(e){} }
@@ -488,6 +491,7 @@ function init3D() {
   // гизмо для ручного перемещения (плоскость / область / фрагменты)
   gizmo = new TransformControls(camera, cv);
   gizmo.addEventListener('dragging-changed', (e) => { controls.enabled = !e.value; });
+  gizmo.addEventListener('objectChange', ()=>{ if(rodOn && rodRec && gizmo.object===rodRec.group) updateRod(); });
   gizmo.setSize(0.8);
   scene.add(gizmo);
 
@@ -1733,6 +1737,84 @@ function moveAlongArc() {
   $('arcDistv').textContent = `${sMax.toFixed(1)} мм`;
 }
 
+// ================= Штанга-рельс (ручной аппарат между фрагментами) =================
+// Жёсткий рельс: медиальный фрагмент двигается ТОЛЬКО по разрешённой траектории
+// (плоскость из #kdoPlane). Считает мм (прямой) или градус дуги + рекомендованный
+// криволинейный КДА (сочетанно). Гизмо-перетаскивание проецируется на траекторию.
+let rodOn=false, rodMesh=null, rodStart=null, rodBase=null, rodMed0=null, rodBasis=null, rodRec=null;
+function clearRod(){ if(rodMesh){ scene.remove(rodMesh); rodMesh.traverse&&rodMesh.traverse(o=>o.geometry&&o.geometry.dispose()); rodMesh=null; } }
+function anatomyBasis(){
+  const ml=midNormalPoint().normal.clone().normalize();
+  const vert=new THREE.Vector3(0,0,1);
+  let ap=new THREE.Vector3().crossVectors(ml,vert); if(ap.lengthSq()<1e-6) ap.set(0,1,0); ap.normalize();
+  // AP наружу (от опоры), чтобы «вперёд» было физиологично
+  if(rodRec&&baseSoup){ const outward=rodRec.centroid.clone().sub(soupCentroid(baseSoup)); if(ap.dot(outward)<0) ap.negate(); }
+  return { ml, vert, ap };
+}
+function setRod(on){
+  rodOn=on; $('kdoRod').checked=on;
+  clearRod();
+  if(!on){ mobileMode='arc'; $('rodInfo').textContent='Штанга выключена. Авто-анимация — ползунком «Дистракция».'; if(plans.length){ moveAlongArc(); } return; }
+  const rec=activeRec();
+  if(!rec){ rodOn=false; $('kdoRod').checked=false; alert('Сначала распили и кликни подвижный (медиальный) фрагмент.'); return; }
+  rodRec=rec;
+  // старт из текущего нуля: сбросим фрагмент к исходному положению
+  rec.group.position.set(0,0,0); rec.group.quaternion.identity();
+  mobileMode='rod';
+  rodStart=rec.group.position.clone();
+  rodBase=(cutP?cutP.clone():soupCentroid(baseSoup||rec.soup));   // фикс. якорь на дистальном/опоре
+  rodMed0=rec.centroid.clone();                                    // якорь на медиальном (t=0)
+  rodBasis=anatomyBasis();
+  if(gizmo){ gizmo.setMode('translate'); gizmo.setSpace('world'); gizmo.attach(rec.group); }
+  updateRod();
+  $('rodInfo').textContent='Тяни медиальный фрагмент гизмо — движение строго по траектории. Значения считаются автоматически.';
+}
+function nearestCurviDevice(turnDeg){
+  const want=180-turnDeg; let best=DEVICES[0];
+  for(const d of DEVICES) if(Math.abs(d.deg-want)<Math.abs(best.deg-want)) best=d;
+  return best;
+}
+function updateRod(){
+  if(!rodOn||!rodRec) return;
+  const g=rodRec.group;
+  const plane=($('kdoPlane')&&$('kdoPlane').value)||'sag';
+  const {ml,vert,ap}=rodBasis;
+  // сырое смещение из гизмо → проекция на разрешённое подпространство
+  let disp=g.position.clone().sub(rodStart);
+  if(plane==='vert') disp=vert.clone().multiplyScalar(disp.dot(vert));
+  else if(plane==='sag') disp=ap.clone().multiplyScalar(disp.dot(ap));
+  else disp=ap.clone().multiplyScalar(disp.dot(ap)).add(vert.clone().multiplyScalar(disp.dot(vert))); // сагиттальная плоскость
+  g.position.copy(rodStart.clone().add(disp));
+  // текущий медиальный якорь
+  const med=rodMed0.clone().add(disp);
+  // рисуем штангу (стержень base→med) + маркеры
+  clearRod(); rodMesh=new THREE.Group();
+  const a=rodBase, b=med; const len=a.distanceTo(b);
+  if(len>0.5){ const cyl=new THREE.CylinderGeometry(Math.max(0.8,modelRadius*0.012),Math.max(0.8,modelRadius*0.012),len,12);
+    const m=new THREE.Mesh(cyl, new THREE.MeshStandardMaterial({color:0xcfd6dd, metalness:0.6, roughness:0.35}));
+    m.position.copy(a.clone().add(b).multiplyScalar(0.5));
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), b.clone().sub(a).normalize());
+    rodMesh.add(m); }
+  [a,b].forEach((p,i)=>{ const s=new THREE.Mesh(new THREE.SphereGeometry(Math.max(1.2,modelRadius*0.02),12,12),
+    new THREE.MeshBasicMaterial({color:i?0x66d9e8:0xffc24d})); s.position.copy(p); rodMesh.add(s); });
+  scene.add(rodMesh);
+  // расчёт значений
+  const h=disp.dot(ap), v=disp.dot(vert), chord=disp.length();
+  if(plane==='combo'){
+    const H=Math.abs(h), V=Math.abs(v);
+    if(chord<0.5){ $('rodInfo').textContent='Сочетанно: тяни фрагмент вперёд-вниз — покажу градус дуги и аппарат.'; return; }
+    const phi=2*Math.atan2(V, H||1e-6);                 // угол поворота дуги, рад
+    const phiDeg=phi*180/Math.PI;
+    const R = phi>1e-3 ? chord/(2*Math.sin(phi/2)) : 1e6;
+    const arcLen = phi>1e-3 ? R*phi : chord;
+    const dev=nearestCurviDevice(phiDeg);
+    $('rodInfo').innerHTML = `Сочетанно: вперёд <b>${H.toFixed(1)}</b> / вниз <b>${V.toFixed(1)}</b> мм · дуга <b>${phiDeg.toFixed(0)}°</b> · R≈<b>${R>9999?'∞':R.toFixed(0)}</b> мм · длина по дуге <b>${arcLen.toFixed(1)} мм</b> → рекоменд. <b style="color:var(--accent)">${dev.name}</b>`;
+  } else {
+    const dirLbl = plane==='vert'?'вертикально (удлинение ветви)':'сагиттально (вперёд-назад)';
+    $('rodInfo').innerHTML = `Прямой КДА · ${dirLbl}: перемещение <b style="color:var(--accent)">${chord.toFixed(1)} мм</b>`;
+  }
+}
+
 function removeFrags(){
   frags.forEach(f=>{ scene.remove(f.group); f.mesh.geometry.dispose(); });
   frags=[]; activeFrag=-1; plans=[]; distr=null;
@@ -1740,7 +1822,7 @@ function removeFrags(){
   baseSoup=null; if(gizmo) gizmo.detach(); refreshObjPanel();
 }
 function resetCut(silent){
-  removeFrags(); clearArc(); clearRegen(); clearDevPts(); clearSym(); lineCut=null; distr=null; plans=[];
+  removeFrags(); clearArc(); clearRegen(); clearDevPts(); clearSym(); clearRod(); rodOn=false; rodRec=null; if($('kdoRod'))$('kdoRod').checked=false; lineCut=null; distr=null; plans=[];
   isCut=false; mobileMode='sliders';
   if (boneMesh) boneMesh.visible = true;
   if (gizmo) gizmo.detach();
@@ -1810,6 +1892,8 @@ function bindOsteotomy() {
   $('zoomOut').onclick = ()=> zoomStep(1.22);
   $('kdoMode').addEventListener('change', ()=>{});
   $('devPtBtn').onclick = ()=> setDevPtMode(!devPtMode);
+  if($('kdoRod')) $('kdoRod').addEventListener('change', e=> setRod(e.target.checked));
+  if($('kdoPlane')) $('kdoPlane').addEventListener('change', ()=>{ if(rodOn) updateRod(); });
   // нож по клавише Delete
   window.addEventListener('keydown', (e)=>{ if((e.key==='Delete'||e.key==='Backspace') && penMode()==='knife' && penPts.length>2){ e.preventDefault(); doKnife(); } });
   // симметрия
