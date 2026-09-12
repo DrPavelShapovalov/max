@@ -6,35 +6,42 @@
 <title>OSSA 3D — Craniofacial Distraction Planner</title>
 <style>
   :root{
-    --void:#070f14; --panel:#0d1c24; --panel2:#122a33; --line:#243d47;
-    --ink:#e4f7f8; --ink-soft:#93b6be; --ink-faint:#5f818b; --accent:#2fe4d6; --accent2:#38a8ff; --warn:#ffc24d; --good:#39d98a;
+    --void:#050b10; --void2:#081319; --panel:#0c1a22; --panel2:#12262f; --line:#20363f; --line2:#2c4854;
+    --ink:#eafcfd; --ink-soft:#9cc0c8; --ink-faint:#5f818b; --accent:#33ecdd; --accent2:#4aa8ff; --violet:#8b7bff; --warn:#ffc24d; --good:#3ee08f; --bad:#ff6b7a;
     --mono:ui-monospace,'Cascadia Code',Consolas,monospace;
-    --glass:rgba(9,20,26,.9);
+    --glass:rgba(10,22,29,.82);
+    --grad-accent:linear-gradient(135deg,#3df0e2,#1fc4d6 55%,#2f9fe0);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:
-      radial-gradient(1200px 700px at 80% -10%, rgba(56,168,255,.06), transparent 60%),
-      radial-gradient(900px 600px at 0% 110%, rgba(47,228,214,.05), transparent 55%),
-      var(--void);
-    color:var(--ink);font-family:system-ui,'Segoe UI',sans-serif;overflow:hidden;display:flex;flex-direction:column}
+      radial-gradient(1300px 800px at 82% -12%, rgba(74,168,255,.09), transparent 58%),
+      radial-gradient(1000px 700px at -5% 112%, rgba(51,236,221,.07), transparent 55%),
+      linear-gradient(180deg,var(--void2),var(--void));
+    color:var(--ink);font-family:system-ui,'Segoe UI',Inter,sans-serif;overflow:hidden;display:flex;flex-direction:column;position:relative}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.35;
+    background-image:linear-gradient(rgba(51,236,221,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(51,236,221,.04) 1px,transparent 1px);
+    background-size:52px 52px;mask:radial-gradient(140% 100% at 50% 0%,#000,transparent 80%);-webkit-mask:radial-gradient(140% 100% at 50% 0%,#000,transparent 80%)}
   /* ── верхняя панель ── */
-  .toolbar{display:flex;align-items:center;gap:14px;padding:9px 16px;
-    background:linear-gradient(180deg,#102630,#0c1d25);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .toolbar{display:flex;align-items:center;gap:13px;padding:10px 18px;position:relative;z-index:2;
+    background:linear-gradient(180deg,rgba(19,42,52,.96),rgba(10,25,32,.96));border-bottom:1px solid var(--line);flex-wrap:wrap;
+    box-shadow:0 10px 30px -18px #000}
+  .toolbar::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.5}
   .brand{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:.02em}
   .brand .mk{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;
     background:linear-gradient(135deg,#153541,#0e2530);border:1px solid var(--line);color:var(--accent);
     box-shadow:0 0 18px -6px var(--accent)}
   .brand small{font-family:var(--mono);font-size:10px;color:var(--ink-faint);font-weight:400;letter-spacing:.12em}
-  button.act{background:linear-gradient(180deg,#37f0e1,#22c9bd);color:#04120f;border:none;border-radius:8px;
-    padding:8px 15px;font-weight:650;cursor:pointer;font-size:13px;box-shadow:0 4px 16px -8px var(--accent)}
-  button.act:hover{filter:brightness(1.07)}
+  button.act{background:var(--grad-accent);color:#03120f;border:none;border-radius:9px;
+    padding:9px 17px;font-weight:700;cursor:pointer;font-size:13px;box-shadow:0 6px 20px -8px var(--accent), inset 0 1px 0 rgba(255,255,255,.25);letter-spacing:.01em}
+  button.act:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  button.act:active{transform:translateY(0)}
   .grp{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
   .grp input[type=range]{width:104px;accent-color:var(--accent)}
-  .chip{background:var(--panel2);border:1px solid var(--line);color:var(--ink-soft);border-radius:6px;
-        padding:4px 9px;font-size:11px;font-family:var(--mono);cursor:pointer}
-  .chip:hover{color:var(--accent);border-color:var(--accent)}
-  .chip.armed{background:var(--accent);color:#04120f;border-color:var(--accent);font-weight:650}
+  .chip{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);color:var(--ink-soft);border-radius:7px;
+        padding:5px 10px;font-size:11px;font-family:var(--mono);cursor:pointer;transition:all .12s}
+  .chip:hover{color:var(--accent);border-color:var(--accent);box-shadow:0 0 12px -4px var(--accent)}
+  .chip.armed{background:var(--grad-accent);color:#04120f;border-color:transparent;font-weight:700;box-shadow:0 0 16px -4px var(--accent)}
   .meta{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);text-align:right;line-height:1.4}
   .tabs{display:flex;gap:2px;background:var(--panel);border-bottom:1px solid var(--line);padding:0 10px}
   .tabs .tab{padding:7px 14px;font-size:12px;font-family:var(--mono);color:var(--ink-soft);cursor:pointer;
@@ -67,14 +74,16 @@
   #dropHint b{color:var(--accent)}
   .status{position:fixed;bottom:10px;left:16px;font-family:var(--mono);font-size:11px;color:var(--accent);z-index:9}
   /* ── блоки-панели инструментов ── */
-  .panel{position:absolute;background:var(--glass);border:1px solid var(--line);border-radius:11px;
-    backdrop-filter:blur(9px);font-size:11px;z-index:6;box-shadow:0 14px 40px -16px #000, inset 0 1px 0 rgba(255,255,255,.03);
-    width:224px;display:flex;flex-direction:column;max-height:calc(100% - 20px)}
+  .panel{position:absolute;background:var(--glass);border:1px solid var(--line2);border-radius:14px;
+    backdrop-filter:blur(14px) saturate(1.2);font-size:11px;z-index:6;
+    box-shadow:0 22px 60px -22px #000, 0 0 0 1px rgba(51,236,221,.05), inset 0 1px 0 rgba(255,255,255,.05);
+    width:230px;display:flex;flex-direction:column;max-height:calc(100% - 20px)}
   #panelCut{top:10px;left:10px}
   #panelPlan{top:10px;right:10px}
   #panelMeas{bottom:10px;left:50%;transform:translateX(-50%);width:auto;max-width:calc(100% - 24px)}
-  .p-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;
-    font-weight:700;color:var(--accent);border-bottom:1px solid var(--line);user-select:none;font-size:12px;letter-spacing:.02em}
+  .p-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 13px;cursor:pointer;
+    font-weight:700;color:var(--accent);border-bottom:1px solid var(--line);user-select:none;font-size:12px;letter-spacing:.03em;
+    background:linear-gradient(180deg,rgba(51,236,221,.08),transparent);border-radius:14px 14px 0 0}
   .p-head .ico{display:flex;align-items:center;gap:7px}
   .p-head .tg{color:var(--ink-faint);font-family:var(--mono);font-size:11px}
   .p-body{padding:10px 12px;display:flex;flex-direction:column;gap:7px;overflow-y:auto}
@@ -88,13 +97,13 @@
   .row select{flex:1;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:3px;font-size:11px}
   .row span.v{width:52px;text-align:right;font-family:var(--mono);font-size:10px;color:var(--ink-faint)}
   .btns{display:flex;gap:7px}
-  .act-b{flex:1;background:linear-gradient(180deg,#37f0e1,#22c9bd);color:#04120f;border:none;border-radius:7px;
-    padding:7px;font-weight:650;cursor:pointer;font-size:11px}
-  .act-b:hover{filter:brightness(1.07)}
-  .ghost{flex:1;background:var(--panel2);color:var(--ink-soft);border:1px solid var(--line);border-radius:7px;
-    padding:7px;cursor:pointer;font-size:11px}
-  .ghost:hover{color:var(--accent);border-color:var(--accent)}
-  .ghost.armed{background:var(--accent);color:#04120f;border-color:var(--accent);font-weight:650}
+  .act-b{flex:1;background:var(--grad-accent);color:#03120f;border:none;border-radius:8px;
+    padding:8px;font-weight:700;cursor:pointer;font-size:11px;box-shadow:0 4px 14px -8px var(--accent), inset 0 1px 0 rgba(255,255,255,.22);transition:all .12s}
+  .act-b:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .ghost{flex:1;background:linear-gradient(180deg,var(--panel2),var(--panel));color:var(--ink-soft);border:1px solid var(--line);border-radius:8px;
+    padding:8px;cursor:pointer;font-size:11px;transition:all .12s}
+  .ghost:hover{color:var(--accent);border-color:var(--accent);box-shadow:0 0 12px -5px var(--accent)}
+  .ghost.armed{background:var(--grad-accent);color:#04120f;border-color:transparent;font-weight:700;box-shadow:0 0 16px -5px var(--accent)}
   .sep{height:1px;background:var(--line);margin:3px 0}
   .objlist{max-height:132px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
   .obj-row{display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:5px;font-size:11px;cursor:default}
@@ -163,7 +172,7 @@
       </div>
       <div class="sp-name">OSSA&nbsp;<span>3D</span></div>
       <div class="sp-sub">CRANIOFACIAL&nbsp;DISTRACTION&nbsp;PLANNER</div>
-      <div class="sp-ver">VERSION&nbsp;3.0</div>
+      <div class="sp-ver">VERSION&nbsp;3.2</div>
       <div class="sp-bar"><i></i></div>
       <div class="sp-note">Инициализация модулей планирования…</div>
     </div>
@@ -177,7 +186,7 @@
           <path d="M16 20v6M12 26h8" opacity=".8"/>
         </svg>
       </span>
-      <div>OSSA&nbsp;3D<span class="vtag">v3.1</span><br><small>CRANIOFACIAL&nbsp;DISTRACTION&nbsp;PLANNER</small></div>
+      <div>OSSA&nbsp;3D<span class="vtag">v3.2</span><br><small>CRANIOFACIAL&nbsp;DISTRACTION&nbsp;PLANNER</small></div>
     </div>
     <button class="act" id="loadBtn">Загрузить DICOM</button>
     <input type="file" id="fileInput" webkitdirectory directory multiple accept=".dcm,application/dicom" style="display:none">
