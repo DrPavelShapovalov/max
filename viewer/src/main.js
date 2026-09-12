@@ -159,6 +159,7 @@ function setSegMode(on){ segMode=on; const b=$('segPaint'); if(b) b.classList.to
     ? 'Крась ЛКМ по срезам (аксиал/коронар/сагиттал), прокручивай срезы ползунком. «Извлечь объект» — построить 3D.'
     : 'Кисть выключена.'; }
 function extractSegObject(){
+  pushUndo();
   if(!segMask){ alert('Маска пуста. Включи «Кисть» и закрась область на срезах.'); return; }
   const d=volume.data; let cnt=0, any=0;
   const md=new Int16Array(d.length);
@@ -529,6 +530,8 @@ function __ossaTestHook(){ try{ window.__ossa = {
   makeMandible(){ modelRadius=100; const s=geoToSoup(new THREE.SphereGeometry(45,64,48)); addFrag(s,0x66d9e8,new THREE.Vector3(0,0,1),soupCentroid(s),'Нижняя челюсть'); isCut=true; },
   projRoundTrip(){ const j=JSON.stringify(buildProjectObj()); applyProjectObj(JSON.parse(j));
     return { bytes:j.length, frags:frags.map(f=>f.name) }; },
+  undo(){ doUndo(); return frags.map(f=>f.name); },
+  redo(){ doRedo(); return frags.map(f=>f.name); },
   cephTest(){ cephLM={ 'Co-R':new THREE.Vector3(-30,0,40),'Go-R':new THREE.Vector3(-35,0,0),
     'Co-L':new THREE.Vector3(30,0,40),'Go-L':new THREE.Vector3(35,0,10),'Me':new THREE.Vector3(3,20,-5) };
     midPlane={point:new THREE.Vector3(0,0,0),normal:new THREE.Vector3(1,0,0)};
@@ -565,7 +568,7 @@ function init3D() {
 
   // гизмо для ручного перемещения (плоскость / область / фрагменты)
   gizmo = new TransformControls(camera, cv);
-  gizmo.addEventListener('dragging-changed', (e) => { controls.enabled = !e.value; });
+  gizmo.addEventListener('dragging-changed', (e) => { controls.enabled = !e.value; if(e.value) pushUndo(); });
   gizmo.addEventListener('objectChange', ()=>{ if(rodOn && rodRec && gizmo.object===rodRec.group) updateRod(); });
   gizmo.setSize(0.8);
   scene.add(gizmo);
@@ -665,6 +668,7 @@ function isolateComponentAt(ray){
   isolateNearestToPoint(hit.point);
 }
 function isolateNearestToPoint(hp){
+  pushUndo();
   ensureBase();
   const soup=baseSoup;                                  // отделяем из опоры (черепа)
   const { comp, ntri }=components(soup);
@@ -1079,6 +1083,7 @@ function replayOps(){
 }
 function doCut() {
   if (!boneSurf || !planeMesh) return;
+  pushUndo();
   planeMesh.updateMatrixWorld(true);
   const n = getPlaneN(), p = getPlaneP();
   const bounded = !(planeFull('cutW') && planeFull('cutL') && planeFull('cutD'));
@@ -1247,6 +1252,7 @@ function doLoopCut(){
   $('cutInfo').textContent = `Контур: фрагмент ${(s.inside.length/9|0).toLocaleString('ru')} треуг.`;
 }
 function penCutDispatch(){
+  pushUndo();
   if (!boneSurf) { alert('Сначала постройте 3D-модель.'); return; }
   if (penPts.length < 3) { alert('Сначала нарисуйте карандашом.'); return; }
   const mode=penMode();
@@ -1513,12 +1519,22 @@ function buildProjectObj(){
     mid: midPlane?{point:midPlane.point.toArray(), normal:midPlane.normal.toArray()}:null,
     cutOps };
 }
+// ---- Undo/Redo: снимок состояния = сериализация проекта ----
+let undoStack=[], redoStack=[], UNDO_MAX=14;
+function pushUndo(){ try{ undoStack.push(JSON.stringify(buildProjectObj())); if(undoStack.length>UNDO_MAX) undoStack.shift(); redoStack.length=0; updateUndoUI(); }catch(e){} }
+function doUndo(){ if(!undoStack.length){ status('Отменять нечего'); setTimeout(()=>status('',null),1200); return; }
+  try{ redoStack.push(JSON.stringify(buildProjectObj())); }catch(e){}
+  applyProjectObj(JSON.parse(undoStack.pop()), true); updateUndoUI(); status('↩ Отменено'); setTimeout(()=>status('',null),1200); }
+function doRedo(){ if(!redoStack.length){ status('Повторять нечего'); setTimeout(()=>status('',null),1200); return; }
+  try{ undoStack.push(JSON.stringify(buildProjectObj())); }catch(e){}
+  applyProjectObj(JSON.parse(redoStack.pop()), true); updateUndoUI(); status('↪ Повторено'); setTimeout(()=>status('',null),1200); }
+function updateUndoUI(){ const u=$('undoBtn'), r=$('redoBtn'); if(u)u.style.opacity=undoStack.length?1:.4; if(r)r.style.opacity=redoStack.length?1:.4; }
 function saveProject(){
   if(!frags.length && !baseSoup){ alert('Нечего сохранять — построй 3D и сделай распил/сегментацию.'); return; }
   downloadBlob(new Blob([JSON.stringify(buildProjectObj())],{type:'application/json'}), `OSSA-plan-${Date.now()}.ossa`);
   status('Проект сохранён (.ossa)'); setTimeout(()=>status('',null),2500);
 }
-function applyProjectObj(proj){
+function applyProjectObj(proj, keepView){
   resetCut(true);
   threshold=proj.threshold||300; if($('thr')){ $('thr').value=threshold; $('thrval').textContent=threshold+' HU'; }
   if(proj.win){ win={...proj.win}; if($('wc')){$('wc').value=win.center;$('wcval').textContent=win.center;} if($('ww')){$('ww').value=win.width;$('wwval').textContent=win.width;} }
@@ -1533,7 +1549,7 @@ function applyProjectObj(proj){
   cutOps=proj.cutOps||[];
   isCut = frags.length>0 || !!baseSoup;
   if(baseMesh){ baseMesh.geometry.computeBoundingSphere(); const r=(baseMesh.geometry.boundingSphere&&baseMesh.geometry.boundingSphere.radius)||modelRadius; modelRadius=r;
-    camera.position.set(0,-r*2.4,r*0.7); if(controls&&controls.target) controls.target.set(0,0,0); }
+    if(!keepView){ camera.position.set(0,-r*2.4,r*0.7); if(controls&&controls.target) controls.target.set(0,0,0); } }
   refreshObjPanel();
   const s=$('splash'); if(s){ s.classList.add('hide'); }
   status(`Проект загружен${proj.patient?' · '+proj.patient:''}`); setTimeout(()=>status('',null),3000);
@@ -1575,6 +1591,7 @@ function placeAtView(rec){ // поставить объект в центр сц
   rec.group.position.copy(t); rec.centroid=t.clone();
 }
 function addPrimitive(kind){
+  pushUndo();
   const s=Math.max(6, modelRadius*0.14);
   let geo, name;
   if(kind==='cyl'){ geo=new THREE.CylinderGeometry(s*0.5,s*0.5,s*2.4,28); name='Цилиндр'; }
@@ -1585,6 +1602,7 @@ function addPrimitive(kind){
   $('cutInfo').textContent=`Примитив «${name}» добавлен. Двигай/вращай гизмо, экспортируй в STL.`;
 }
 function addScrew(){
+  pushUndo();
   const d=+($('screwD')?.value||2.0), L=+($('screwL')?.value||10);
   const geo=new THREE.CylinderGeometry(d/2,d/2,L,20);
   // маленький конус-острие
@@ -1682,6 +1700,7 @@ function geoToWorldSoup2(soup, mat){ const out=new Float32Array(soup.length); co
   for(let i=0;i<soup.length;i+=3){ v.set(soup[i],soup[i+1],soup[i+2]).applyMatrix4(mat); out[i]=v.x;out[i+1]=v.y;out[i+2]=v.z; } return out; }
 // Эндопротез ВНЧС = ЗЕРКАЛО противоположной (здоровой) ветви НЧ в зоне заготовки + винты
 function buildTMJ(){
+  pushUndo();
   const rec=activeRec();
   if(!rec){ alert('Поставь заготовку (Блок/Цилиндр) на зону дефекта ветви так, чтобы она охватывала нужный участок, и выбери её в «Объекты».'); return; }
   const mid=midNormalPoint(); const ml=mid.normal.clone().normalize(); const P0=mid.point.clone();
@@ -1735,6 +1754,7 @@ function setNerveMode(on){ nerveMode=on; $('nerveBtn')?.classList.toggle('armed'
     $('cutInfo').textContent='Нерв: кликай точки вдоль канала (по кости/срезам). «Готово» — построить трассу.'; } }
 function addNervePt(pt){ nervePts.push(pt.clone()); const m=markerMesh(0xff5d6c); m.position.copy(pt); scene.add(m); nerveMarks.push(m); }
 function buildNerve(){
+  pushUndo();
   if(nervePts.length<2){ alert('Нужно ≥2 точек канала.'); return; }
   nerveMarks.forEach(m=>scene.remove(m)); nerveMarks=[];
   const curve=new THREE.CatmullRomCurve3(nervePts.slice());
@@ -1752,6 +1772,7 @@ function buildNerveTube(pts, name, color){
   addFrag(soup, color, new THREE.Vector3(0,0,1), soupCentroid(soup), name);
 }
 function autoNerve(){
+  pushUndo();
   if(!volume){ alert('Сначала загрузите КТ.'); return; }
   $('cutInfo').textContent='Трассирую канал нерва по КТ…';
   setTimeout(()=>{
@@ -2203,7 +2224,7 @@ function bindOsteotomy() {
   $('rotPlane').onclick = ()=>{ if(planeMesh){ if(!$('planeOn').checked){$('planeOn').checked=true; ensurePlaneViz(false);} gizmo.setMode('rotate'); gizmo.attach(planeMesh); } };
   $('cutDo').onclick = ()=>{ if(volume) doCut(); };
   $('cutReset').onclick = ()=>{ resetCut(false); ensurePlaneViz(true); };
-  $('segBtn').onclick = ()=>{ if(boneSurf) autoSegment(false); };
+  $('segBtn').onclick = ()=>{ if(boneSurf){ pushUndo(); autoSegment(false); } };
   if($('isoBtn')) $('isoBtn').onclick = ()=> setIsoMode(!isoMode);
   // сегментация по MPR (Mimics)
   if($('segPaint')) $('segPaint').onclick = ()=> setSegMode(!segMode);
@@ -2260,12 +2281,19 @@ function bindOsteotomy() {
   if($('cephClear')) $('cephClear').onclick = clearCeph;
   if($('cephPick')) $('cephPick').addEventListener('change', ()=>{ if(cephMode && $('cephInfo')) $('cephInfo').textContent='Ставится точка «'+CEPH_LBL[$('cephPick').value]+'».'; });
   if($('kdoPlane')) $('kdoPlane').addEventListener('change', ()=>{ if(rodOn) updateRod(); });
+  // Undo/Redo: Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z)
+  window.addEventListener('keydown', (e)=>{
+    if(!(e.ctrlKey||e.metaKey)) return; const tag=(e.target&&e.target.tagName)||''; if(/INPUT|TEXTAREA/.test(tag)) return;
+    const k=e.key.toLowerCase();
+    if(k==='z' && !e.shiftKey){ e.preventDefault(); doUndo(); }
+    else if((k==='y')||(k==='z'&&e.shiftKey)){ e.preventDefault(); doRedo(); }
+  });
   // клавиша Delete: нож (если рисуется контур ножа) либо удалить активный объект
   window.addEventListener('keydown', (e)=>{
     if(e.key!=='Delete' && e.key!=='Backspace') return;
     const tag=(e.target&&e.target.tagName)||''; if(/INPUT|TEXTAREA|SELECT/.test(tag)) return;
     if(penMode()==='knife' && penPts.length>2){ e.preventDefault(); doKnife(); return; }
-    if(activeFrag>=0 && frags[activeFrag]){ e.preventDefault(); const nm=frags[activeFrag].name; removeOneFrag(frags[activeFrag]);
+    if(activeFrag>=0 && frags[activeFrag]){ e.preventDefault(); pushUndo(); const nm=frags[activeFrag].name; removeOneFrag(frags[activeFrag]);
       $('cutInfo').textContent=`Удалён объект: ${nm}. (Delete — удалить выделенный)`; }
   });
   // симметрия
@@ -2312,6 +2340,8 @@ let thrTimer;
 function bindControls() {
   $('fileInput').addEventListener('change', e => loadFiles(e.target.files));
   $('loadBtn').onclick = () => $('fileInput').click();
+  if($('undoBtn')) $('undoBtn').onclick = doUndo;
+  if($('redoBtn')) $('redoBtn').onclick = doRedo;
   if($('saveProjBtn')) $('saveProjBtn').onclick = saveProject;
   if($('openProjBtn')) $('openProjBtn').onclick = ()=> $('projInput').click();
   if($('projInput')) $('projInput').addEventListener('change', e=>{ if(e.target.files[0]) loadProject(e.target.files[0]); e.target.value=''; });
