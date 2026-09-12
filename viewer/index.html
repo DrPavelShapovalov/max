@@ -228,8 +228,9 @@
           <div class="sep"></div>
           <div class="sect">Сегментация по MPR (Mimics)</div>
           <div class="info">Крась область на срезах (аксиал/коронар/сагиттал), прокручивай срезы — потом «Извлечь объект» построит 3D по маске.</div>
-          <div class="btns"><button id="segPaint" class="ghost">🖌 Кисть</button><button id="segEraseBtn" class="ghost">Стереть</button></div>
+          <div class="btns"><button id="segPaint" class="ghost">🖌 Кисть</button><button id="segWandBtn" class="ghost">🪄 Палочка</button><button id="segEraseBtn" class="ghost">Стереть</button></div>
           <div class="row"><label>Кисть</label><input type="range" id="segBrushR" min="2" max="30" value="9"><span class="v" id="segBrushRv">9 px</span></div>
+          <div class="row"><label>Допуск</label><input type="range" id="segTol" min="50" max="800" step="10" value="250"><span class="v" id="segTolv">250 HU</span></div>
           <div class="row"><label><input type="checkbox" id="segThr" checked style="width:auto"> Только кость (по 3D-порогу)</label></div>
           <div class="btns"><button id="segExtract" class="act-b">⬆ Извлечь объект</button><button id="segClear" class="ghost">Очистить</button></div>
           <div class="info" id="segMprInfo">Кисть выключена.</div>

@@ -152,8 +152,27 @@ function paintSeg(plane,a,b,k){
   }
 }
 function clearSeg(){ if(segMask) segMask.fill(0); if(volume) renderAllMPR(); if($('segMprInfo')) $('segMprInfo').textContent='Маска очищена.'; }
+// «Волшебная палочка»: рост связной области схожей плотности от точки-семени
+let segWand=false, segTol=250;
+function regionGrow(plane,a,b,k){
+  ensureSegMask(); if(!segMask) return;
+  const [nx,ny,nz]=volume.dims, d=volume.data;
+  const seed=segIndex(plane,a,b,k); if(seed<0) return;
+  const sv=d[seed]; const lo=sv-segTol, hi=sv+segTol;
+  const okv=(v)=> v>=lo && v<=hi && (!segThreshOnly || v>=threshold);
+  if(!okv(sv)){ if($('segMprInfo'))$('segMprInfo').textContent='Семя вне диапазона (это не кость по порогу). Кликни по плотной кости.'; return; }
+  const seen=new Uint8Array(nx*ny*nz); const q=new Int32Array(1<<21); let qh=0,qt=0; let cnt=0; const CAP=3000000;
+  q[qt++]=seed; seen[seed]=1;
+  while(qh<qt && cnt<CAP){ const c=q[qh++]; segMask[c]=1; cnt++;
+    const z=(c/(nx*ny))|0, y=((c/nx)|0)%ny, x=c%nx;
+    const nb=[c-1,c+1,c-nx,c+nx,c-nx*ny,c+nx*ny];
+    const okx=[x>0,x<nx-1,y>0,y<ny-1,z>0,z<nz-1];
+    for(let e=0;e<6;e++){ if(!okx[e])continue; const j=nb[e]; if(seen[j])continue; seen[j]=1; if(okv(d[j])){ if(qt<q.length) q[qt++]=j; } } }
+  renderAllMPR();
+  if($('segMprInfo')) $('segMprInfo').textContent=`Палочка: залито ${cnt.toLocaleString('ru')} воксел.${cnt>=CAP?' (лимит — сузь допуск)':''}. «Извлечь объект» — 3D.`;
+}
 function setSegMode(on){ segMode=on; const b=$('segPaint'); if(b) b.classList.toggle('armed',on);
-  if(on){ if(typeof mprMode!=='undefined') mprMode=null; }
+  if(on){ if(typeof mprMode!=='undefined') mprMode=null; segWand=false; $('segWandBtn')&&$('segWandBtn').classList.remove('armed'); }
   if(volume) renderAllMPR();
   if($('segMprInfo')) $('segMprInfo').textContent = on
     ? 'Крась ЛКМ по срезам (аксиал/коронар/сагиттал), прокручивай срезы ползунком. «Извлечь объект» — построить 3D.'
@@ -323,7 +342,7 @@ function renderMPR(plane) {
   const lo = win.center - win.width / 2, span = win.width || 1;
   const img = new ImageData(m.w, m.h);
   const dta = img.data;
-  const showMask = segMask && segMode;
+  const showMask = segMask && (segMode||segWand);
   for (let i = 0; i < px.length; i++) {
     let g = (px[i] - lo) / span; g = g < 0 ? 0 : g > 1 ? 1 : g; g = (g * 255) | 0;
     const o = i * 4;
@@ -441,8 +460,11 @@ function bindMprMeas(){
     const slabMax=()=> +($('slab')?.max||31);
     const paintAt=(ev)=>{ const f=toFrac(ev); const m=sliceMeta(plane);
       const a=Math.round(f.fx*(m.w-1)), b=Math.round(f.fy*(m.h-1)); paintSeg(plane,a,b,idx[m.axis]); renderMPR(plane); };
+    const seedAt=(ev)=>{ const f=toFrac(ev); const m=sliceMeta(plane);
+      const a=Math.round(f.fx*(m.w-1)), b=Math.round(f.fy*(m.h-1)); pushUndo(); regionGrow(plane,a,b,idx[m.axis]); };
     cv.addEventListener('mousedown',(ev)=>{ if(!volume) return;
-      if(segMode){ ev.preventDefault(); ev.stopPropagation(); drag='paint'; paintAt(ev); return; }
+      if(segWand){ ev.preventDefault(); ev.stopPropagation(); seedAt(ev); return; }
+      if(segMode){ ev.preventDefault(); ev.stopPropagation(); pushUndo(); drag='paint'; paintAt(ev); return; }
       if(mprMode){ ev.preventDefault(); ev.stopPropagation(); onMprClick(plane, toFrac(ev), idx[sliceMeta(plane).axis]); return; }
       if(plane==='coronal'&&oblique.on) return;      // косой коронар строится отдельным наклоном
       const p=toPx(ev); const S=xhairScreen[plane];
@@ -530,6 +552,7 @@ function __ossaTestHook(){ try{ window.__ossa = {
   makeMandible(){ modelRadius=100; const s=geoToSoup(new THREE.SphereGeometry(45,64,48)); addFrag(s,0x66d9e8,new THREE.Vector3(0,0,1),soupCentroid(s),'Нижняя челюсть'); isCut=true; },
   projRoundTrip(){ const j=JSON.stringify(buildProjectObj()); applyProjectObj(JSON.parse(j));
     return { bytes:j.length, frags:frags.map(f=>f.name) }; },
+  wandTest(){ regionGrow('axial',(volume.dims[0]/2)|0,(volume.dims[1]/2)|0,idx[2]); let n=0; for(const x of segMask)n+=x; return n; },
   undo(){ doUndo(); return frags.map(f=>f.name); },
   redo(){ doRedo(); return frags.map(f=>f.name); },
   cephTest(){ cephLM={ 'Co-R':new THREE.Vector3(-30,0,40),'Go-R':new THREE.Vector3(-35,0,0),
@@ -2233,6 +2256,8 @@ function bindOsteotomy() {
   if($('segThr')) $('segThr').addEventListener('change', e=>{ segThreshOnly=e.target.checked; });
   if($('segClear')) $('segClear').onclick = clearSeg;
   if($('segExtract')) $('segExtract').onclick = extractSegObject;
+  if($('segWandBtn')) $('segWandBtn').onclick = ()=>{ segWand=!segWand; $('segWandBtn').classList.toggle('armed',segWand); if(segWand){ segMode=false; $('segPaint')&&$('segPaint').classList.remove('armed'); if($('segMprInfo'))$('segMprInfo').textContent='Палочка: кликни по кости на срезе — зальётся связная область схожей плотности.'; } if(volume) renderAllMPR(); };
+  if($('segTol')) $('segTol').addEventListener('input', e=>{ segTol=+e.target.value; $('segTolv').textContent=segTol+' HU'; });
   // импланты / ориентиры
   $('primCyl').onclick = ()=> addPrimitive('cyl');
   $('primBox').onclick = ()=> addPrimitive('box');
