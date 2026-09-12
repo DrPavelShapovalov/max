@@ -553,6 +553,12 @@ function __ossaTestHook(){ try{ window.__ossa = {
   projRoundTrip(){ const j=JSON.stringify(buildProjectObj()); applyProjectObj(JSON.parse(j));
     return { bytes:j.length, frags:frags.map(f=>f.name) }; },
   wandTest(){ regionGrow('axial',(volume.dims[0]/2)|0,(volume.dims[1]/2)|0,idx[2]); let n=0; for(const x of segMask)n+=x; return n; },
+  distractorTest(){ devPts=[new THREE.Vector3(-20,0,20), new THREE.Vector3(-25,0,-20)]; modelRadius=100; addDistractor(); return frags.map(f=>f.name); },
+  plateTest(){ modelRadius=100; platePts=[new THREE.Vector3(-30,0,0),new THREE.Vector3(-10,10,0),new THREE.Vector3(10,10,0),new THREE.Vector3(30,0,0)]; buildPlate(); const f=frags.find(x=>/пластина/i.test(x.name)); return { name:f&&f.name, tris:f?(f.soup.length/9|0):0 }; },
+  proxTest(){ modelRadius=100;
+    const nerve=geoToSoup(new THREE.CylinderGeometry(1,1,40,8)); addFrag(nerve,0xff5d6c,new THREE.Vector3(0,0,1),soupCentroid(nerve),'Канал нерва (правый)');
+    const imp=geoToSoup(new THREE.BoxGeometry(10,10,10)); const r=addFrag(imp,0xd9a066,new THREE.Vector3(0,0,1),soupCentroid(imp),'Эндопротез'); selectFrag(frags.indexOf(r));
+    nerveProximity(); const hasColor=!!r.mesh.geometry.attributes.color; return { hasColor, vc:r.mesh.material.vertexColors }; },
   undo(){ doUndo(); return frags.map(f=>f.name); },
   redo(){ doRedo(); return frags.map(f=>f.name); },
   cephTest(){ cephLM={ 'Co-R':new THREE.Vector3(-30,0,40),'Go-R':new THREE.Vector3(-35,0,0),
@@ -602,7 +608,7 @@ function init3D() {
     const r = cv.getBoundingClientRect();
     m.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
     m.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
-    if (devPtMode || symTgtMode || midMode || measMode || nerveMode || cephMode) {
+    if (devPtMode || symTgtMode || midMode || measMode || nerveMode || cephMode || plateMode) {
       ray.setFromCamera(m, camera);
       const tgts = [boneMesh, baseMesh, ...frags.map(f=>f.mesh)].filter(o=>o && o.visible);
       const hit = ray.intersectObjects(tgts, false)[0];
@@ -612,6 +618,7 @@ function init3D() {
         else if (symTgtMode) setSymTarget(hit.point);
         else if (nerveMode) addNervePt(hit.point);
         else if (cephMode) addCephPt(hit.point);
+        else if (plateMode) addPlatePt(hit.point);
         else addDevPt(hit.point);
       }
       return;
@@ -1632,6 +1639,60 @@ function addScrew(){
   const rec=addFrag(geoToSoup(geo), 0xcfd6dd, new THREE.Vector3(0,0,1), new THREE.Vector3(), `Винт Ø${d}×${L}`);
   placeAtView(rec); isCut=true; selectFrag(frags.indexOf(rec)); if(gizmo){gizmo.setMode('translate');gizmo.attach(rec.group);}
 }
+// ---- Библиотека дистракторов КДА: реалистичная модель по 2 точкам опор ----
+function orientSoup(geo, center, yTo){ const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), yTo.clone().normalize());
+  return geoToWorldSoup(geo, new THREE.Matrix4().compose(center.clone(), q, new THREE.Vector3(1,1,1))); }
+function addDistractor(){
+  if(devPts.length<2){ alert('Отметь 2 точки аппарата (кнопка «Точки аппарата»): это опоры дистрактора.'); return; }
+  pushUndo();
+  const P1=devPts[0].clone(), P2=devPts[1].clone();
+  const dir=P2.clone().sub(P1); const L=dir.length(); if(L<2){ alert('Точки слишком близко.'); return; } dir.normalize();
+  let up=new THREE.Vector3(0,0,1); if(Math.abs(dir.dot(up))>0.9) up=new THREE.Vector3(0,1,0);
+  const side=new THREE.Vector3().crossVectors(dir,up).normalize(); const nrm=new THREE.Vector3().crossVectors(side,dir).normalize();
+  const mid=P1.clone().add(P2).multiplyScalar(0.5);
+  const soups=[];
+  soups.push(orientSoup(new THREE.CylinderGeometry(1.3,1.3,L*1.05,16), mid, dir));                 // резьбовой стержень
+  soups.push(orientSoup(new THREE.CylinderGeometry(2.6,2.6,3.4,6), mid.clone().add(nrm.clone().multiplyScalar(1.5)), dir)); // активатор-гайка
+  [P1,P2].forEach(P=>{ // опорная площадка (footplate) + 2 отверстия-винта
+    const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), nrm);
+    soups.push(geoToWorldSoup(new THREE.BoxGeometry(11,1.6,7), new THREE.Matrix4().compose(P.clone(), q, new THREE.Vector3(1,1,1))));
+    soups.push(orientSoup(new THREE.CylinderGeometry(1.1,1.1,3.4,12), P.clone().add(side.clone().multiplyScalar(3.2)), nrm));
+    soups.push(orientSoup(new THREE.CylinderGeometry(1.1,1.1,3.4,12), P.clone().add(side.clone().multiplyScalar(-3.2)), nrm));
+  });
+  const soup=concatSoups(soups);
+  const model=$('distModel')?$('distModel').value:'КДА-180';
+  const rec=addFrag(soup, 0xbfc7cf, dir, soupCentroid(soup), 'Дистрактор '+model);
+  isCut=true; selectFrag(frags.indexOf(rec)); if(gizmo){gizmo.setMode('translate');gizmo.attach(rec.group);} refreshObjPanel();
+  status('Дистрактор '+model+' установлен'); setTimeout(()=>status('',null),2200);
+}
+// ---- Авто-изгиб реконструктивной пластины по отмеченным точкам вдоль кости ----
+let plateMode=false, platePts=[], plateMarks=[];
+function setPlateMode(on){ plateMode=on; $('plateBtn')&&$('plateBtn').classList.toggle('armed',on);
+  if(on){ setPenMode(false); setDevPtMode(false); setIsoMode&&setIsoMode(false); setCephMode&&setCephMode(false);
+    platePts=[]; plateMarks.forEach(m=>scene.remove(m)); plateMarks=[];
+    $('cutInfo')&&($('cutInfo').textContent='Пластина: кликай точки вдоль края кости (≥2), потом «Изогнуть пластину».'); } }
+function addPlatePt(pt){ platePts.push(pt.clone()); const m=markerMesh(0xd9a066); m.position.copy(pt); scene.add(m); plateMarks.push(m);
+  $('cutInfo')&&($('cutInfo').textContent=`Пластина: точек ${platePts.length}. «Изогнуть пластину» — построить.`); }
+function buildPlate(){
+  if(platePts.length<2){ alert('Отметь ≥2 точки вдоль кости («Пластина: точки»).'); return; }
+  pushUndo();
+  const curve=new THREE.CatmullRomCurve3(platePts.slice()); const N=Math.max(16, platePts.length*12);
+  const width=+($('plateW')?.value||6), thick=+($('plateT')?.value||1.4); const up=new THREE.Vector3(0,0,1);
+  const A=[]; const push=(a,b,c,d)=>{ A.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z, a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z); };
+  const F=[]; for(let i=0;i<=N;i++){ const p=curve.getPointAt(i/N); const t=curve.getTangentAt(i/N).normalize();
+    let u=up.clone(); if(Math.abs(t.dot(u))>0.9)u.set(0,1,0); const s=new THREE.Vector3().crossVectors(t,u).normalize(); const n=new THREE.Vector3().crossVectors(s,t).normalize(); F.push({p,s,n}); }
+  for(let i=0;i<F.length-1;i++){ const f=F[i],g=F[i+1];
+    const fl=f.p.clone().add(f.s.clone().multiplyScalar(-width/2)), fr=f.p.clone().add(f.s.clone().multiplyScalar(width/2));
+    const gl=g.p.clone().add(g.s.clone().multiplyScalar(-width/2)), gr=g.p.clone().add(g.s.clone().multiplyScalar(width/2));
+    const flo=fl.clone().add(f.n.clone().multiplyScalar(-thick)), fro=fr.clone().add(f.n.clone().multiplyScalar(-thick));
+    const glo=gl.clone().add(g.n.clone().multiplyScalar(-thick)), gro=gr.clone().add(g.n.clone().multiplyScalar(-thick));
+    push(fl,fr,gr,gl); push(glo,gro,fro,flo); push(fl,gl,glo,flo); push(fr,fro,gro,gr); }
+  const soup=new Float32Array(A);
+  const rec=addFrag(soup, 0xd9a066, up, soupCentroid(soup), 'Реконструктивная пластина');
+  platePts=[]; plateMarks.forEach(m=>scene.remove(m)); plateMarks=[]; plateMode=false; $('plateBtn')&&$('plateBtn').classList.remove('armed');
+  isCut=true; selectFrag(frags.indexOf(rec)); if(gizmo){gizmo.setMode('translate');gizmo.attach(rec.group);} refreshObjPanel();
+  status('Пластина изогнута по точкам'); setTimeout(()=>status('',null),2200);
+}
 // ================= Эндопротез ВНЧС (как в BonaByte) =================
 // Заготовку-примитив ставят на ветвь у мыщелка; по нажатию формируется
 // мыщелково-ветвевой эндопротез, ПРИЛЕЖАЩАЯ поверхность которого повторяет
@@ -1785,6 +1846,30 @@ function buildNerve(){
   const rec=addFrag(geoToSoup(geo), 0xff5d6c, new THREE.Vector3(0,0,1), soupCentroid(geoToSoup(geo)), 'Нижнечелюстной нерв');
   isCut=true; nerveMode=false; $('nerveBtn')?.classList.remove('armed'); nervePts=[];
   $('cutInfo').textContent='Трасса нерва построена (объект «Нижнечелюстной нерв»).';
+}
+// ---- Карта близости к нерву: раскраска активного объекта по расстоянию до канала ----
+function nerveCloud(){
+  const pts=[]; const v=new THREE.Vector3();
+  frags.forEach(f=>{ if(!/нерв|канал/i.test(f.name||'')) return; f.mesh.updateMatrixWorld(true); const M=f.mesh.matrixWorld; const s=f.soup;
+    for(let i=0;i<s.length;i+=9){ v.set(s[i],s[i+1],s[i+2]).applyMatrix4(M); pts.push(v.x,v.y,v.z); } });   // 1 вершина на треугольник — достаточно
+  return pts;
+}
+function nerveProximity(){
+  const rec=activeRec(); if(!rec){ alert('Выбери объект (эндопротез/винт/фрагмент) в списке «Объекты».'); return; }
+  const cloud=nerveCloud(); if(cloud.length<3){ alert('Сначала построй канал нерва («Канал нерва: авто» или вручную).'); return; }
+  rec.mesh.updateMatrixWorld(true); const M=rec.mesh.matrixWorld;
+  const pos=rec.mesh.geometry.attributes.position.array; const nV=pos.length/3;
+  const col=new Float32Array(nV*3); const p=new THREE.Vector3(); let minD=Infinity;
+  for(let i=0;i<nV;i++){ p.set(pos[i*3],pos[i*3+1],pos[i*3+2]).applyMatrix4(M);
+    let best=Infinity; for(let j=0;j<cloud.length;j+=3){ const dx=p.x-cloud[j],dy=p.y-cloud[j+1],dz=p.z-cloud[j+2]; const d=dx*dx+dy*dy+dz*dz; if(d<best)best=d; }
+    const dist=Math.sqrt(best); if(dist<minD)minD=dist;
+    let r,g,bl; if(dist<2){ r=1; g=0.15; bl=0.15; } else if(dist<4){ r=1; g=0.78; bl=0.2; } else if(dist<6){ r=0.95; g=0.95; bl=0.3; } else { r=0.25; g=0.85; bl=0.45; }
+    col[i*3]=r; col[i*3+1]=g; col[i*3+2]=bl; }
+  rec.mesh.geometry.setAttribute('color', new THREE.BufferAttribute(col,3));
+  rec.mesh.material.vertexColors=true; rec.mesh.material.color.setHex(0xffffff); rec.mesh.material.needsUpdate=true;
+  const warn = minD<2;
+  $('tmjInfo') && ($('tmjInfo').innerHTML = `Близость к нерву: мин. <b style="color:${warn?'#ff5d6c':'var(--good)'}">${minD.toFixed(1)} мм</b> · <span style="color:#ff5d6c">&lt;2</span>/<span style="color:#ffc24d">2–4</span>/<span style="color:#39d98a">&gt;6</span> мм${warn?' — ⚠ РИСК повреждения нерва!':''}`);
+  status(warn?`⚠ Минимум до нерва ${minD.toFixed(1)} мм`:`Мин. до нерва ${minD.toFixed(1)} мм`); setTimeout(()=>status('',null),3500);
 }
 // АВТО-трассировка канала нижнечелюстного нерва прямо по КТ
 function buildNerveTube(pts, name, color){
@@ -2263,11 +2348,17 @@ function bindOsteotomy() {
   $('primBox').onclick = ()=> addPrimitive('box');
   $('primSph').onclick = ()=> addPrimitive('sph');
   $('screwBtn').onclick = addScrew;
+  if($('distAddBtn')) $('distAddBtn').onclick = addDistractor;
+  if($('plateBtn')) $('plateBtn').onclick = ()=> setPlateMode(!plateMode);
+  if($('plateDone')) $('plateDone').onclick = buildPlate;
+  if($('plateW')) $('plateW').addEventListener('input', e=> $('plateWv').textContent=e.target.value+' мм');
+  if($('plateT')) $('plateT').addEventListener('input', e=> $('plateTv').textContent=e.target.value+' мм');
   $('tmjBtn').onclick = buildTMJ;
   ['tmjHead','tmjThick','tmjGap'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('input',()=>{ $(id+'v').textContent = el.value+' мм'; }); });
   $('nerveBtn').onclick = ()=> setNerveMode(!nerveMode);
   $('nerveDone').onclick = buildNerve;
   $('nerveAuto').onclick = autoNerve;
+  if($('nerveProx')) $('nerveProx').onclick = nerveProximity;
   $('expObjSTL').onclick = exportActiveSTL;
   $('impSTLbtn').onclick = ()=> $('impSTL').click();
   $('impSTL').addEventListener('change', e=> importSTLFiles(e.target.files));
