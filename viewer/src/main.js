@@ -468,6 +468,10 @@ function __ossaTestHook(){ try{ window.__ossa = {
   dragActive(x,y,z){ const g=activeGroup(); if(g){ g.position.set(x,y,z); updateRod(); } return activeGroup()?.position; },
   rodInfo(){ return document.getElementById('rodInfo').textContent; },
   ops(){ return cutOps.length; },
+  twoBlobBone(){ modelRadius=100; const a=geoToSoup(new THREE.SphereGeometry(20,24,16)); const bs=geoToSoup(new THREE.SphereGeometry(20,24,16));
+    const shift=(s,dx)=>{ const o=s.slice(); for(let i=0;i<o.length;i+=3)o[i]+=dx; return o; };
+    baseSoup=concatSoups([shift(a,-40), shift(bs,40)]); rebuildBaseMesh(); },
+  isoAt(x,y,z){ isolateNearestToPoint(new THREE.Vector3(x,y,z)); return { frags:frags.length, baseTris: baseSoup?baseSoup.length/9|0:0 }; },
   sawFull(nx,ny,nz,px,py,pz){ recordOp({kind:'saw',n:[nx,ny,nz],p:[px,py,pz],box:null}); return sawCut(new THREE.Vector3(nx,ny,nz), new THREE.Vector3(px,py,pz), ()=>true, 'test'); },
   testBoneDense(){ modelRadius=300; baseSoup=geoToSoup(new THREE.SphereGeometry(50,96,64)); rebuildBaseMesh(); },
   simThresholdRebuild(){ // имитируем rebuild3D: свежая база + реплей
@@ -520,6 +524,7 @@ function init3D() {
       }
       return;
     }
+    if (isoMode){ ray.setFromCamera(m,camera); isolateComponentAt(ray); return; }   // отделить деталь кликом
     if (!isCut || !frags.length) return;      // клик по фрагменту — выбрать/тащить
     ray.setFromCamera(m, camera);
     const hit = ray.intersectObjects(frags.map(f=>f.mesh), false)[0];
@@ -580,6 +585,37 @@ function segmentComponents(surf){
   });
   comps.sort((a,b)=>b.n-a.n);
   return comps;
+}
+// ---- Сегментация КЛИКОМ: отделяем связную деталь под курсором из опоры ----
+let isoMode=false;
+function setIsoMode(on){ isoMode=on; const b=$('isoBtn'); if(b) b.classList.toggle('armed',on);
+  if(on){ setPenMode(false); setDevPtMode&&setDevPtMode(false); setPickMode(false);
+    $('cutInfo').textContent='Отделить кликом: кликни по кости — связная деталь под курсором станет отдельным подвижным объектом. (Сросшееся сначала распили.)'; } }
+function isolateComponentAt(ray){
+  ensureBase();
+  const meshes=[]; if(baseMesh&&baseMesh.visible) meshes.push(baseMesh); if(boneMesh&&boneMesh.visible) meshes.push(boneMesh);
+  const hit=ray.intersectObjects(meshes.filter(Boolean),false)[0];
+  if(!hit){ $('cutInfo').textContent='Мимо кости — наведи точнее и кликни.'; return; }
+  isolateNearestToPoint(hit.point);
+}
+function isolateNearestToPoint(hp){
+  ensureBase();
+  const soup=baseSoup;                                  // отделяем из опоры (черепа)
+  const { comp, ntri }=components(soup);
+  let bt=-1,bd=Infinity;
+  for(let t=0;t<ntri;t++){ const cx=(soup[t*9]+soup[t*9+3]+soup[t*9+6])/3, cy=(soup[t*9+1]+soup[t*9+4]+soup[t*9+7])/3, cz=(soup[t*9+2]+soup[t*9+5]+soup[t*9+8])/3;
+    const d=(cx-hp.x)**2+(cy-hp.y)**2+(cz-hp.z)**2; if(d<bd){ bd=d; bt=t; } }
+  if(bt<0) return;
+  const target=comp[bt]; const A=[],B=[];
+  for(let t=0;t<ntri;t++){ const dst=(comp[t]===target)?A:B; const o=t*9; for(let k=0;k<9;k++) dst.push(soup[o+k]); }
+  if(A.length<27){ $('cutInfo').textContent='Слишком маленькая деталь.'; return; }
+  if(B.length<27){ alert('Эта деталь — единое целое с опорой (одна связная поверхность). Распили перемычки (мыщелок/сращения) рамкой или карандашом, затем отдели кликом.'); return; }
+  const aSoup=new Float32Array(A);
+  baseSoup=new Float32Array(B); rebuildBaseMesh();
+  const rec=addFrag(aSoup, 0x66d9e8, new THREE.Vector3(0,0,1), soupCentroid(aSoup), 'Деталь (отделена)');
+  isCut=true; selectFrag(frags.indexOf(rec)); if(gizmo){ gizmo.setMode('translate'); gizmo.attach(rec.group); }
+  setIsoMode(false); refreshObjPanel();
+  $('cutInfo').textContent=`Отделено: ${(aSoup.length/9|0).toLocaleString('ru')} треуг. Двигай/вращай/планируй. (Delete — удалить, если лишнее.)`;
 }
 // авто-сегментация: череп = самая большая деталь (опора), остальные крупные —
 // подвижные (нижняя челюсть отделяется сама, если не сращена на пороге)
@@ -1950,6 +1986,7 @@ function bindOsteotomy() {
   $('cutDo').onclick = ()=>{ if(volume) doCut(); };
   $('cutReset').onclick = ()=>{ resetCut(false); ensurePlaneViz(true); };
   $('segBtn').onclick = ()=>{ if(boneSurf) autoSegment(false); };
+  if($('isoBtn')) $('isoBtn').onclick = ()=> setIsoMode(!isoMode);
   // импланты / ориентиры
   $('primCyl').onclick = ()=> addPrimitive('cyl');
   $('primBox').onclick = ()=> addPrimitive('box');
