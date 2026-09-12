@@ -219,6 +219,14 @@
           <div class="btns"><button id="isoBtn" class="act-b" title="Кликни по кости — связная деталь под курсором станет отдельным подвижным объектом">✂ Отделить деталь кликом</button></div>
           <div class="info" style="font-size:11px;opacity:.7">Отделяет связную деталь под курсором. Delete — удалить выделенный объект.</div>
           <div class="sep"></div>
+          <div class="sect">Сегментация по MPR (Mimics)</div>
+          <div class="info">Крась область на срезах (аксиал/коронар/сагиттал), прокручивай срезы — потом «Извлечь объект» построит 3D по маске.</div>
+          <div class="btns"><button id="segPaint" class="ghost">🖌 Кисть</button><button id="segEraseBtn" class="ghost">Стереть</button></div>
+          <div class="row"><label>Кисть</label><input type="range" id="segBrushR" min="2" max="30" value="9"><span class="v" id="segBrushRv">9 px</span></div>
+          <div class="row"><label><input type="checkbox" id="segThr" checked style="width:auto"> Только кость (по 3D-порогу)</label></div>
+          <div class="btns"><button id="segExtract" class="act-b">⬆ Извлечь объект</button><button id="segClear" class="ghost">Очистить</button></div>
+          <div class="info" id="segMprInfo">Кисть выключена.</div>
+          <div class="sep"></div>
           <div class="sect">Карандаш — от руки</div>
           <div class="row"><label>Режим</label>
             <select id="penMode">
@@ -267,7 +275,7 @@
 
           <div class="sep"></div>
           <div class="sect">Эндопротез ВНЧС (зеркало ветви)</div>
-          <div class="info">1) Задай «Среднюю линию» (3 точки) в блоке Симметрия. 2) Поставь заготовку (Блок) гизмо на зону дефекта поражённой ветви — чтобы она охватывала нужный участок. 3) «Сформировать эндопротез» — построится ЗЕРКАЛО здоровой ветви + винты (Ø/длина из блока «Импланты»).</div>
+          <div class="info">1) Выдели НИЖНЮЮ ЧЕЛЮСТЬ отдельным объектом («Отделить деталь кликом»). 2) Задай «Среднюю линию» (3 точки). 3) Поставь заготовку-Блок на зону дефекта поражённой ветви и выбери его. 4) «Сформировать эндопротез» — зеркалится ТОЛЬКО челюсть (не череп) + винты.</div>
           <div class="btns"><button id="tmjBtn" class="act-b">🦴 Сформировать эндопротез (зеркало)</button></div>
           <div class="info" id="tmjInfo">Эндопротез повторяет форму противоположной ветви. Компоненты и винты — подвижные объекты, экспортируются в STL.</div>
 

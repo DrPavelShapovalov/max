@@ -133,6 +133,47 @@ function sampleSlice(plane, k, w, h) {
   }
   return out;
 }
+// ---------- Ручная сегментация по MPR (как в Mimics): маска-воксели ----------
+let segMask=null, segMode=false, segErase=false, segBrush=9, segThreshOnly=true;
+function ensureSegMask(){ if(!segMask && volume){ const [nx,ny,nz]=volume.dims; segMask=new Uint8Array(nx*ny*nz); } return segMask; }
+function segIndex(plane,a,b,k){                          // (столбец a, строка b, срез k) → индекс в объёме
+  const [nx,ny,nz]=volume.dims;
+  if(plane==='axial'){ if(a<0||a>=nx||b<0||b>=ny||k<0||k>=nz)return -1; return k*nx*ny + b*nx + a; }
+  if(plane==='coronal'){ if(a<0||a>=nx||b<0||b>=nz||k<0||k>=ny)return -1; return b*nx*ny + k*nx + a; }
+  if(a<0||a>=ny||b<0||b>=nz||k<0||k>=nx)return -1; return b*nx*ny + k + a*nx;   // sagittal
+}
+function paintSeg(plane,a,b,k){
+  ensureSegMask(); if(!segMask) return;
+  const r=Math.max(1,segBrush), r2=r*r; const d=volume.data;
+  for(let db=-r;db<=r;db++)for(let da=-r;da<=r;da++){ if(da*da+db*db>r2) continue;
+    const i=segIndex(plane,a+da,b+db,k); if(i<0) continue;
+    if(segErase) segMask[i]=0;
+    else if(!segThreshOnly || d[i]>=threshold) segMask[i]=1;
+  }
+}
+function clearSeg(){ if(segMask) segMask.fill(0); if(volume) renderAllMPR(); if($('segMprInfo')) $('segMprInfo').textContent='Маска очищена.'; }
+function setSegMode(on){ segMode=on; const b=$('segPaint'); if(b) b.classList.toggle('armed',on);
+  if(on){ if(typeof mprMode!=='undefined') mprMode=null; }
+  if(volume) renderAllMPR();
+  if($('segMprInfo')) $('segMprInfo').textContent = on
+    ? 'Крась ЛКМ по срезам (аксиал/коронар/сагиттал), прокручивай срезы ползунком. «Извлечь объект» — построить 3D.'
+    : 'Кисть выключена.'; }
+function extractSegObject(){
+  if(!segMask){ alert('Маска пуста. Включи «Кисть» и закрась область на срезах.'); return; }
+  const d=volume.data; let cnt=0, any=0;
+  const md=new Int16Array(d.length);
+  for(let i=0;i<d.length;i++){ if(segMask[i]){ any++; md[i]=d[i]; if(d[i]>=threshold)cnt++; } else md[i]=-1000; }
+  if(any<20){ alert('Почти ничего не закрашено.'); return; }
+  if(cnt<40){ alert('В закрашенной области мало кости (по текущему порогу). Понизь «3D порог» или закрась плотнее.'); return; }
+  const mv={ dims:volume.dims, spacing:volume.spacing, data:md, min:-1000, max:volume.max };
+  let surf=null; try{ surf=extractSurface(mv, threshold, 220); }catch(e){ console.error(e); }
+  if(!surf || !surf.positions || surf.positions.length<9){ alert('Не удалось построить поверхность сегмента — закрась область плотнее/на большем числе срезов.'); return; }
+  const soup=expandIndexed(surf); if(!soup||soup.length<27){ alert('Сегмент пуст.'); return; }
+  ensureBase();
+  const rec=addFrag(new Float32Array(soup), 0x66d9e8, new THREE.Vector3(0,0,1), soupCentroid(soup), 'Сегмент (MPR)');
+  isCut=true; selectFrag(frags.indexOf(rec)); if(gizmo){gizmo.setMode('translate');gizmo.attach(rec.group);} refreshObjPanel();
+  if($('segMprInfo')) $('segMprInfo').textContent=`Объект «Сегмент (MPR)» создан (${(soup.length/9|0).toLocaleString('ru')} треуг.). Двигай/удали/планируй. Маска сохранена — можно докрасить и извлечь ещё.`;
+}
 // ---------- Косой (полуаксиальный / панорамный) реформат ----------
 let oblique = { on:false, angle:0 };
 // Крест-указатель как в Vidar: на каждой плоскости свой угол наклона (превращение
@@ -281,9 +322,13 @@ function renderMPR(plane) {
   const lo = win.center - win.width / 2, span = win.width || 1;
   const img = new ImageData(m.w, m.h);
   const dta = img.data;
+  const showMask = segMask && segMode;
   for (let i = 0; i < px.length; i++) {
     let g = (px[i] - lo) / span; g = g < 0 ? 0 : g > 1 ? 1 : g; g = (g * 255) | 0;
-    const o = i * 4; dta[o] = dta[o + 1] = dta[o + 2] = g; dta[o + 3] = 255;
+    const o = i * 4;
+    if (showMask){ const a=i%m.w, b=(i/m.w)|0; const si=segIndex(plane,a,b,k);
+      if(si>=0 && segMask[si]){ dta[o]=(g*0.35)|0; dta[o+1]=(g*0.3+150)|0; dta[o+2]=(g*0.3+160)|0; dta[o+3]=255; continue; } }
+    dta[o] = dta[o + 1] = dta[o + 2] = g; dta[o + 3] = 255;
   }
   const off = document.createElement('canvas'); off.width = m.w; off.height = m.h;
   off.getContext('2d').putImageData(img, 0, 0);
@@ -393,7 +438,10 @@ function bindMprMeas(){
     const toPx=(ev)=>{ const r=cv.getBoundingClientRect(); return { x:(ev.clientX-r.left)*cv.width/r.width, y:(ev.clientY-r.top)*cv.height/r.height }; };
     const toFrac=(ev)=>{ const p=toPx(ev); return px2frac(plane,p.x,p.y); };
     const slabMax=()=> +($('slab')?.max||31);
+    const paintAt=(ev)=>{ const f=toFrac(ev); const m=sliceMeta(plane);
+      const a=Math.round(f.fx*(m.w-1)), b=Math.round(f.fy*(m.h-1)); paintSeg(plane,a,b,idx[m.axis]); renderMPR(plane); };
     cv.addEventListener('mousedown',(ev)=>{ if(!volume) return;
+      if(segMode){ ev.preventDefault(); ev.stopPropagation(); drag='paint'; paintAt(ev); return; }
       if(mprMode){ ev.preventDefault(); ev.stopPropagation(); onMprClick(plane, toFrac(ev), idx[sliceMeta(plane).axis]); return; }
       if(plane==='coronal'&&oblique.on) return;      // косой коронар строится отдельным наклоном
       const p=toPx(ev); const S=xhairScreen[plane];
@@ -403,7 +451,9 @@ function bindMprMeas(){
         if(near(S.tH)){ drag='thick'; return; }      // квадрат → толщина среза
       }
       drag='move'; setCrosshair(plane, toFrac(ev)); }, true);
-    cv.addEventListener('mousemove',(ev)=>{ if(!drag||mprMode) return; const p=toPx(ev); const S=xhairScreen[plane];
+    cv.addEventListener('mousemove',(ev)=>{ if(!drag||mprMode) return;
+      if(drag==='paint'){ paintAt(ev); return; }
+      const p=toPx(ev); const S=xhairScreen[plane];
       if(drag==='move'){ setCrosshair(plane, toFrac(ev)); return; }
       if(!S) return;
       if(drag==='rot'){ const sy=(plane!=='axial')?-1:1;
@@ -468,6 +518,15 @@ function __ossaTestHook(){ try{ window.__ossa = {
   dragActive(x,y,z){ const g=activeGroup(); if(g){ g.position.set(x,y,z); updateRod(); } return activeGroup()?.position; },
   rodInfo(){ return document.getElementById('rodInfo').textContent; },
   ops(){ return cutOps.length; },
+  loadTestVolume(){ const nx=48,ny=48,nz=40; const d=new Int16Array(nx*ny*nz).fill(-1000);
+    for(let z=8;z<32;z++)for(let y=14;y<34;y++)for(let x=14;x<34;x++) d[z*nx*ny+y*nx+x]=1200;   // bone cube
+    volume={dims:[nx,ny,nz],spacing:[1,1,1],data:d,min:-1000,max:1200,window:{center:300,width:1500}};
+    idx=[nx>>1,ny>>1,nz>>1]; win={center:300,width:1500}; threshold=300; renderAllMPR(); return true; },
+  paintBox(plane){ ensureSegMask(); const m=sliceMeta(plane); segMode=true; segThreshOnly=true; segBrush=12;
+    for(let k=10;k<32;k++) paintSeg(plane, (m.w/2)|0, (m.h/2)|0, k);   // красим много срезов → объём
+    let n=0; for(const b of segMask) n+=b; return n; },
+  extractSeg(){ extractSegObject(); return frags.map(f=>f.name); },
+  makeMandible(){ modelRadius=100; const s=geoToSoup(new THREE.SphereGeometry(45,64,48)); addFrag(s,0x66d9e8,new THREE.Vector3(0,0,1),soupCentroid(s),'Нижняя челюсть'); isCut=true; },
   twoBlobBone(){ modelRadius=100; const a=geoToSoup(new THREE.SphereGeometry(20,24,16)); const bs=geoToSoup(new THREE.SphereGeometry(20,24,16));
     const shift=(s,dx)=>{ const o=s.slice(); for(let i=0;i<o.length;i+=3)o[i]+=dx; return o; };
     baseSoup=concatSoups([shift(a,-40), shift(bs,40)]); rebuildBaseMesh(); },
@@ -811,7 +870,7 @@ function splitInside(pos, test){
   }
   return { inside:new Float32Array(inA), outside:new Float32Array(outA) };
 }
-function ensureBase(){ if(!baseSoup) baseSoup = expandIndexed(boneSurf); }
+function ensureBase(){ if(!baseSoup && boneSurf) baseSoup = expandIndexed(boneSurf); }
 function rebuildBaseMesh(){
   if (baseMesh){ scene.remove(baseMesh); baseMesh.geometry.dispose(); }
   baseMesh = makeMesh(baseSoup, 0xe6ddc9); baseMesh.name='base'; scene.add(baseMesh);
@@ -1582,10 +1641,11 @@ function buildTMJ(){
   const invRot=q.clone().invert();
   const inOBB=(p)=>{ const l=p.clone().sub(C).applyQuaternion(invRot); return Math.abs(l.x)<=halfs.x&&Math.abs(l.y)<=halfs.y&&Math.abs(l.z)<=halfs.z; };
   const defectSide=Math.sign(C.clone().sub(P0).dot(ml))||1;
-  // источник геометрии кости: череп-опора + костные фрагменты (без имплантов/нерва/самой заготовки)
-  const src=[]; if(baseSoup) src.push({soup:baseSoup, mat:null});
+  // ИСТОЧНИК = ТОЛЬКО нижняя челюсть (отдельные костные фрагменты), НЕ череп/лицо.
+  // Череп-опора (baseSoup) НЕ зеркалим — иначе выходит зеркало лицевого отдела.
+  const src=[];
   frags.forEach(f=>{ if(f===rec) return; if(/эндопротез|ямка|винт|нерв|канал/i.test(f.name||'')) return; f.mesh.updateMatrixWorld(true); src.push({soup:f.soup, mat:f.mesh.matrixWorld}); });
-  if(!src.length){ alert('Нет костной модели. Построй 3D-кость.'); return; }
+  if(!src.length){ alert('Сначала выдели НИЖНЮЮ ЧЕЛЮСТЬ как отдельный объект (кнопка «Отделить деталь кликом» или «Отделить нижнюю челюсть»), затем поставь блок на зону дефекта её ветви. Череп зеркалить нельзя.'); return; }
   const out=[]; const v=new THREE.Vector3();
   for(const {soup,mat} of src){
     for(let t=0;t<soup.length;t+=9){
@@ -1987,6 +2047,13 @@ function bindOsteotomy() {
   $('cutReset').onclick = ()=>{ resetCut(false); ensurePlaneViz(true); };
   $('segBtn').onclick = ()=>{ if(boneSurf) autoSegment(false); };
   if($('isoBtn')) $('isoBtn').onclick = ()=> setIsoMode(!isoMode);
+  // сегментация по MPR (Mimics)
+  if($('segPaint')) $('segPaint').onclick = ()=> setSegMode(!segMode);
+  if($('segEraseBtn')) $('segEraseBtn').onclick = ()=>{ segErase=!segErase; $('segEraseBtn').classList.toggle('armed',segErase); if(!segMode) setSegMode(true); };
+  if($('segBrushR')) $('segBrushR').addEventListener('input', e=>{ segBrush=+e.target.value; $('segBrushRv').textContent=segBrush+' px'; });
+  if($('segThr')) $('segThr').addEventListener('change', e=>{ segThreshOnly=e.target.checked; });
+  if($('segClear')) $('segClear').onclick = clearSeg;
+  if($('segExtract')) $('segExtract').onclick = extractSegObject;
   // импланты / ориентиры
   $('primCyl').onclick = ()=> addPrimitive('cyl');
   $('primBox').onclick = ()=> addPrimitive('box');
