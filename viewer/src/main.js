@@ -1514,78 +1514,68 @@ function plateSoup(inner, outer, NA, NB){
     pushQuad(A, inner[NA][j],outer[NA][j],outer[NA][j+1],inner[NA][j+1]); }
   return new Float32Array(A);
 }
+// реалистичный винт: стержень + шляпка со шлицем + конический кончик (локально вдоль Y)
+function makeScrewSoup(d, L){
+  const parts=[];
+  parts.push(geoToWorldSoup(new THREE.CylinderGeometry(d/2, d/2, L, 18), new THREE.Matrix4().setPosition(0,0,0)));
+  parts.push(geoToWorldSoup(new THREE.CylinderGeometry(d*0.85, d*0.62, d*0.75, 18), new THREE.Matrix4().setPosition(0, L/2+d*0.32, 0)));  // шляпка
+  const tip=new THREE.ConeGeometry(d/2, d*1.3, 18);
+  const tq=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), Math.PI);   // остриё вниз (−Y)
+  parts.push(geoToWorldSoup(tip, new THREE.Matrix4().compose(new THREE.Vector3(0,-L/2-d*0.5,0), tq, new THREE.Vector3(1,1,1))));
+  return concatSoups(parts);
+}
+function addScrewAt(P, dir, d, L, name){
+  const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+  const m=new THREE.Matrix4().compose(P.clone(), q, new THREE.Vector3(1,1,1));
+  const soup=geoToWorldSoup2(makeScrewSoup(d,L), m);
+  return addFrag(soup, 0xcfd6dd, dir.clone(), soupCentroid(soup), name);
+}
+function geoToWorldSoup2(soup, mat){ const out=new Float32Array(soup.length); const v=new THREE.Vector3();
+  for(let i=0;i<soup.length;i+=3){ v.set(soup[i],soup[i+1],soup[i+2]).applyMatrix4(mat); out[i]=v.x;out[i+1]=v.y;out[i+2]=v.z; } return out; }
+// Эндопротез ВНЧС = ЗЕРКАЛО противоположной (здоровой) ветви НЧ в зоне заготовки + винты
 function buildTMJ(){
   const rec=activeRec();
-  if(!rec){ alert('Сначала добавь заготовку (Блок/Цилиндр), поставь гизмо на ветвь у мыщелка так, чтобы одна грань смотрела на кость, и выбери её в «Объекты».'); return; }
-  const targets=boneTargets(rec);
-  if(!targets.length){ alert('Нет костной поверхности для конформирования. Построй 3D-кость.'); return; }
+  if(!rec){ alert('Поставь заготовку (Блок/Цилиндр) на зону дефекта ветви так, чтобы она охватывала нужный участок, и выбери её в «Объекты».'); return; }
+  const mid=midNormalPoint(); const ml=mid.normal.clone().normalize(); const P0=mid.point.clone();
+  const mirror=(p)=>{ const dd=p.clone().sub(P0).dot(ml); return p.clone().sub(ml.clone().multiplyScalar(2*dd)); };
   rec.group.updateMatrixWorld(true); const M=rec.group.matrixWorld;
   const bb=localAABB(rec.soup);
+  const pos=new THREE.Vector3(), q=new THREE.Quaternion(), scl=new THREE.Vector3(); M.decompose(pos,q,scl);
   const C=bb.center.clone().applyMatrix4(M);
-  // мировые оси примитива и полуразмеры
-  const q=new THREE.Quaternion(); const pos=new THREE.Vector3(); const scl=new THREE.Vector3(); M.decompose(pos,q,scl);
-  const axes=[ new THREE.Vector3(1,0,0).applyQuaternion(q), new THREE.Vector3(0,1,0).applyQuaternion(q), new THREE.Vector3(0,0,1).applyQuaternion(q) ];
-  const halfs=[ bb.size.x/2*scl.x, bb.size.y/2*scl.y, bb.size.z/2*scl.z ];
-  // прилежащая нормаль: направление, где ближе всего кость
-  let nIn=null, best=1e9, inAxis=-1;
-  for(let a=0;a<3;a++){ for(const s of [1,-1]){ const dir=axes[a].clone().multiplyScalar(s);
-    const hit=castBone(C.clone().add(dir.clone().multiplyScalar(halfs[a]*0.2)), dir, targets, modelRadius*2);
-    if(hit){ const d=hit.distanceTo(C); if(d<best){ best=d; nIn=dir.clone(); inAxis=a; } } } }
-  if(!nIn){ alert('Заготовка не обращена к кости: подведи её грань к ветви (кости) гизмо и повтори.'); return; }
-  // из оставшихся осей: длинная = ветвь (aLong), другая = ширина (w)
-  const rest=[0,1,2].filter(a=>a!==inAxis);
-  let la=rest[0], wa=rest[1]; if(halfs[la]<halfs[wa]){ const t=la; la=wa; wa=t; }
-  let aLong=axes[la].clone(), w=axes[wa].clone();
-  // верх ветви = где выше по Z (краниально) → там мыщелок
-  if(C.clone().add(aLong.clone().multiplyScalar(halfs[la])).z < C.clone().add(aLong.clone().multiplyScalar(-halfs[la])).z) aLong.negate();
-  const nOut=nIn.clone().negate();
-  const headR=(+($('tmjHead')?.value||16))/2, thick=+($('tmjThick')?.value||2), gap=+($('tmjGap')?.value||1);
-  const NA=24, NB=12, hu=halfs[la], hw=halfs[wa];
-  // ---- плита-фиксатор, прилежащая поверхность по кости ----
-  const g=conformGrid(C, aLong, w, hu, hw, nIn, targets, NA, NB);
-  const inner=g.pts; const outer=inner.map(row=>row.map(p=>p.clone().add(nOut.clone().multiplyScalar(thick))));
-  const soups=[ plateSoup(inner,outer,NA,NB) ];
-  // ---- шейка + мыщелковая головка на краниальном конце ----
-  const topCenter=C.clone().add(aLong.clone().multiplyScalar(hu)).add(nOut.clone().multiplyScalar(thick*0.5));
-  const neckLen=headR*1.1, headCenter=topCenter.clone().add(aLong.clone().multiplyScalar(neckLen+headR*0.6));
-  const orient=(geo, axisDir, center)=>{ const m=new THREE.Matrix4();
-    const quat=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), axisDir.clone().normalize());
-    m.compose(center, quat, new THREE.Vector3(1,1,1)); return geoToWorldSoup(geo, m); };
-  soups.push( orient(new THREE.CylinderGeometry(headR*0.5, headR*0.62, neckLen, 20), aLong, topCenter.clone().add(aLong.clone().multiplyScalar(neckLen/2))) );
-  soups.push( geoToWorldSoup(new THREE.SphereGeometry(headR,28,20), new THREE.Matrix4().setPosition(headCenter)) );
-  const prosSoup=concatSoups(soups);
-  const pr=addFrag(prosSoup, 0xd9a066, aLong.clone(), soupCentroid(prosSoup), 'Эндопротез ВНЧС (мыщелок+ветвь)');
-  // ---- суставная ямка (fossa): внутренняя вогнутая по головке, внешняя по черепу ----
-  let fInfo='';
-  if($('tmjFossa') && $('tmjFossa').checked){
-    const Rcup=headR+gap;                                   // вогнутость по головке+зазор
-    const Rf=headR*1.35;                                    // радиус блюдца
-    const rings=14, seg=26; const FA=[];
-    // ось ямки = aLong (краниально), плоскость диска ⟂ aLong (базис w, w2)
-    const w2=new THREE.Vector3().crossVectors(aLong,w).normalize();
-    const skullDir=aLong.clone();                          // наружу к черепу
-    const innerAt=(r,th)=>{ const rad=w.clone().multiplyScalar(Math.cos(th)*r).add(w2.clone().multiplyScalar(Math.sin(th)*r));
-      const up=Math.sqrt(Math.max(0,Rcup*Rcup-r*r));       // вогнутая чаша над головкой
-      return headCenter.clone().add(rad).add(aLong.clone().multiplyScalar(gap+ (Rcup-up))); };
-    // внешняя поверхность — ровное смещение (чистая оболочка, без «шипов»)
-    const outerAt=(inner)=> inner.clone().add(skullDir.clone().multiplyScalar(thick*1.5));
-    const IN=[], OUT=[];
-    for(let i=0;i<=rings;i++){ const r=Rf*i/rings; IN[i]=[]; OUT[i]=[];
-      for(let j=0;j<=seg;j++){ const th=j/seg*2*Math.PI; const ip=innerAt(r,th); IN[i][j]=ip; OUT[i][j]=outerAt(ip); } }
-    for(let i=0;i<rings;i++)for(let j=0;j<seg;j++){
-      pushQuad(FA, IN[i][j],IN[i][j+1],IN[i+1][j+1],IN[i+1][j]);            // вогнутая (к головке)
-      pushQuad(FA, OUT[i+1][j],OUT[i+1][j+1],OUT[i][j+1],OUT[i][j]);        // к черепу
+  const halfs=new THREE.Vector3(bb.size.x/2*scl.x*1.15, bb.size.y/2*scl.y*1.15, bb.size.z/2*scl.z*1.15);
+  const invRot=q.clone().invert();
+  const inOBB=(p)=>{ const l=p.clone().sub(C).applyQuaternion(invRot); return Math.abs(l.x)<=halfs.x&&Math.abs(l.y)<=halfs.y&&Math.abs(l.z)<=halfs.z; };
+  const defectSide=Math.sign(C.clone().sub(P0).dot(ml))||1;
+  // источник геометрии кости: череп-опора + костные фрагменты (без имплантов/нерва/самой заготовки)
+  const src=[]; if(baseSoup) src.push({soup:baseSoup, mat:null});
+  frags.forEach(f=>{ if(f===rec) return; if(/эндопротез|ямка|винт|нерв|канал/i.test(f.name||'')) return; f.mesh.updateMatrixWorld(true); src.push({soup:f.soup, mat:f.mesh.matrixWorld}); });
+  if(!src.length){ alert('Нет костной модели. Построй 3D-кость.'); return; }
+  const out=[]; const v=new THREE.Vector3();
+  for(const {soup,mat} of src){
+    for(let t=0;t<soup.length;t+=9){
+      const w=[]; for(let k=0;k<3;k++){ v.set(soup[t+k*3],soup[t+k*3+1],soup[t+k*3+2]); if(mat) v.applyMatrix4(mat); w.push(v.clone()); }
+      const c=w[0].clone().add(w[1]).add(w[2]).multiplyScalar(1/3);
+      if(Math.sign(c.clone().sub(P0).dot(ml))===defectSide) continue;     // берём ЗДОРОВУЮ (противоположную) сторону
+      if(!inOBB(mirror(c))) continue;                                      // после отражения попадает в зону дефекта
+      for(const p of w){ const mp=mirror(p); out.push(mp.x,mp.y,mp.z); }
     }
-    for(let j=0;j<seg;j++) pushQuad(FA, IN[rings][j],IN[rings][j+1],OUT[rings][j+1],OUT[rings][j]); // борт
-    const fossaSoup=new Float32Array(FA);
-    addFrag(fossaSoup, 0x9ec7e2, aLong.clone(), soupCentroid(fossaSoup), 'Суставная ямка (fossa)');
-    fInfo=' + суставная ямка';
   }
-  removeOneFrag(rec);                            // заготовка «поглощена» — как в BonaByte
+  if(out.length<270){ alert('Мало геометрии для зеркала ветви. Проверь: задана средняя линия (3 точки), здоровая сторона построена, заготовка накрывает зону дефекта на поражённой стороне.'); return; }
+  const implSoup=new Float32Array(out);
+  removeOneFrag(rec);
+  const pr=addFrag(implSoup, 0xd9a066, ml.clone(), soupCentroid(implSoup), 'Эндопротез ВНЧС (зеркало ветви)');
+  // ---- винты: 3 шт. вдоль тела импланта, ось — медиолатерально в кость ----
+  const cen=soupCentroid(implSoup); const ibb=localAABB(implSoup);
+  const upAxis=new THREE.Vector3(0,0,1);                          // вдоль ветви (кранио-каудально)
+  let screwDir=ml.clone(); if(cen.clone().sub(P0).dot(ml)>0) screwDir.negate(); // снаружи (латерально) внутрь
+  const d=+($('screwD')?.value||2.0), L=+($('screwL')?.value||10);
+  const step=ibb.size.z*0.3;
+  let ns=0; for(let i=-1;i<=1;i++){ const P=cen.clone().add(upAxis.clone().multiplyScalar(i*step)).add(screwDir.clone().multiplyScalar(-L*0.3));
+    addScrewAt(P, screwDir, d, L, `Винт ${++ns} (Ø${d}×${L})`); }
   isCut=true; selectFrag(frags.indexOf(pr)); if(gizmo){ gizmo.setMode('translate'); gizmo.attach(pr.group); }
   refreshObjPanel();
-  $('tmjInfo').textContent = `Эндопротез ВНЧС сформирован${fInfo}. Прилежащая поверхность повторяет кость (попаданий: ${g.hitN}). Двигай/вращай гизмо, добавь винты, экспортируй в STL.`;
-  $('cutInfo').textContent = 'Эндопротез ВНЧС готов — компоненты в списке «Объекты».';
+  $('tmjInfo').textContent = `Эндопротез = зеркало противоположной ветви (${implSoup.length/9|0} треуг.) + ${ns} винта. Двигай/вращай гизмо; винты — отдельные объекты; экспорт в STL.`;
+  $('cutInfo').textContent = 'Эндопротез ВНЧС (зеркало ветви) готов — в списке «Объекты».';
 }
 
 // ---- Нерв: трасса нижнечелюстного канала по точкам ----
