@@ -681,10 +681,64 @@ function ensurePlaneViz(fromSliders) {
     planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), n);
     planeMesh.position.copy(n.multiplyScalar(+$('cutOff').value));
   }
-  planeMesh.visible = $('planeOn').checked && !isCut && !penOn;
+  // видимость больше НЕ зависит от isCut → плоскостью можно резать повторно
+  planeMesh.visible = $('planeOn').checked && !penOn;
+  updatePlaneHandles(W, L);
 }
 // слайдер на максимуме = «вся» (без ограничения)
 function planeFull(id){ const el=$(id); return +el.value >= +el.max; }
+// ---- Стрелки-ручки прямо на плоскости (как в BonaByte): тяни за них — меняется
+//      длина/ширина рамки распила. 4 конуса по краям (±ширина, ±высота). ----
+let planeHandles=null, planeDrag=null;
+function updatePlaneHandles(W, L){
+  if(!planeHandles){
+    planeHandles=new THREE.Group(); planeHandles.name='planeHandles'; scene.add(planeHandles);
+    const mk=(color)=>{ const m=new THREE.Mesh(new THREE.ConeGeometry(1,1,16),
+      new THREE.MeshBasicMaterial({color, depthTest:false, transparent:true, opacity:0.95})); m.renderOrder=1000; return m; };
+    // 0,1 = ширина (±X локально), 2,3 = высота (±Y локально)
+    planeHandles.userData.h=[ {m:mk(0x2fe4d6),ax:'W',s:1}, {m:mk(0x2fe4d6),ax:'W',s:-1},
+                              {m:mk(0xffc24d),ax:'L',s:1}, {m:mk(0xffc24d),ax:'L',s:-1} ];
+    planeHandles.userData.h.forEach(h=>{ h.m.userData.handle=h; planeHandles.add(h.m); });
+  }
+  const vis = planeMesh && planeMesh.visible && !planeFull('cutW') || (planeMesh&&planeMesh.visible);
+  planeHandles.visible = !!(planeMesh && planeMesh.visible);
+  if(!planeHandles.visible) return;
+  const q=planeMesh.quaternion, c=planeMesh.position;
+  const lx=new THREE.Vector3(1,0,0).applyQuaternion(q), ly=new THREE.Vector3(0,1,0).applyQuaternion(q);
+  const sz=Math.max(3, modelRadius*0.05);
+  const place=(h)=>{ const along = h.ax==='W'?lx:ly; const half=(h.ax==='W'?W:L)/2;
+    h.m.position.copy(c).add(along.clone().multiplyScalar(h.s*(half+sz*0.6)));
+    h.m.scale.set(sz,sz*1.6,sz);
+    // ориентируем конус наружу (ось конуса +Y → вдоль along*s)
+    h.m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), along.clone().multiplyScalar(h.s).normalize()); };
+  planeHandles.userData.h.forEach(place);
+}
+function planeAxisWorld(ax){ const q=planeMesh.quaternion; return (ax==='W'?new THREE.Vector3(1,0,0):new THREE.Vector3(0,1,0)).applyQuaternion(q); }
+function tryPlaneHandleDown(ev){
+  if(!planeHandles || !planeHandles.visible) return false;
+  const cv=$('cv-3d'), r=cv.getBoundingClientRect();
+  const ray=new THREE.Raycaster();
+  ray.setFromCamera(new THREE.Vector2(((ev.clientX-r.left)/r.width)*2-1, -((ev.clientY-r.top)/r.height)*2+1), camera);
+  const hit=ray.intersectObjects(planeHandles.userData.h.map(h=>h.m),false)[0];
+  if(!hit) return false;
+  const h=hit.object.userData.handle;
+  planeDrag={ ax:h.ax, id:(h.ax==='W'?'cutW':'cutL') };
+  controls.enabled=false;
+  return true;
+}
+function planeHandleMove(ev){
+  if(!planeDrag||!planeMesh) return;
+  const cv=$('cv-3d'), r=cv.getBoundingClientRect();
+  const ray=new THREE.Raycaster();
+  ray.setFromCamera(new THREE.Vector2(((ev.clientX-r.left)/r.width)*2-1, -((ev.clientY-r.top)/r.height)*2+1), camera);
+  const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(getPlaneN(), planeMesh.position);
+  const pt=new THREE.Vector3(); if(!ray.ray.intersectPlane(plane, pt)) return;
+  const along=planeAxisWorld(planeDrag.ax);
+  const half=Math.abs(pt.clone().sub(planeMesh.position).dot(along));
+  const el=$(planeDrag.id); const val=Math.max(+el.min, Math.min(+el.max, Math.round(half*2)));
+  el.value=val; $(planeDrag.id+'v').textContent = planeFull(planeDrag.id)?'вся':(val+' мм');
+  ensurePlaneViz(false);
+}
 
 // разделение triangle-soup ОРИЕНТИРОВАННЫМ боксом плоскости (ширина×высота×толщина, мм).
 // Внутри бокса → inside; вне → outside (кость остаётся целой). Толщина ограничивает
@@ -1890,12 +1944,17 @@ function bindOsteotomy() {
   const upd = () => {
     $('cutTiltXv').textContent = $('cutTiltX').value+'°'; $('cutTiltYv').textContent = $('cutTiltY').value+'°';
     $('cutOffv').textContent = $('cutOff').value+' мм';
-    if (!isCut){ ensurePlaneViz(true); }
+    ensurePlaneViz(true);
   };
   ['cutOrient','cutTiltX','cutTiltY','cutOff'].forEach(id => $(id).addEventListener('input', upd));
   const dimLbl = (id)=> $(id+'v').textContent = planeFull(id) ? 'вся' : ($(id).value+' мм');
-  ['cutW','cutL','cutD'].forEach(id => $(id).addEventListener('input', ()=>{ dimLbl(id); if(!isCut) ensurePlaneViz(false); }));
-  $('planeOn').addEventListener('change', ()=>{ if(!isCut) ensurePlaneViz(false); });
+  ['cutW','cutL','cutD'].forEach(id => $(id).addEventListener('input', ()=>{ dimLbl(id); ensurePlaneViz(false); }));
+  $('planeOn').addEventListener('change', ()=> ensurePlaneViz(false));
+  // перетаскивание стрелок-ручек на плоскости (изменение ширины/высоты рамки)
+  const cv3=$('cv-3d');
+  cv3.addEventListener('pointerdown', (ev)=>{ if(tryPlaneHandleDown(ev)){ ev.stopPropagation(); ev.preventDefault(); } }, true);
+  window.addEventListener('pointermove', (ev)=>{ if(planeDrag) planeHandleMove(ev); });
+  window.addEventListener('pointerup', ()=>{ if(planeDrag){ planeDrag=null; controls.enabled=true; } });
   $('movePlane').onclick = ()=>{ if(planeMesh){ if(!$('planeOn').checked){$('planeOn').checked=true; ensurePlaneViz(false);} gizmo.setMode('translate'); gizmo.attach(planeMesh); } };
   $('rotPlane').onclick = ()=>{ if(planeMesh){ if(!$('planeOn').checked){$('planeOn').checked=true; ensurePlaneViz(false);} gizmo.setMode('rotate'); gizmo.attach(planeMesh); } };
   $('cutDo').onclick = ()=>{ if(volume) doCut(); };
