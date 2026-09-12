@@ -527,6 +527,8 @@ function __ossaTestHook(){ try{ window.__ossa = {
     let n=0; for(const b of segMask) n+=b; return n; },
   extractSeg(){ extractSegObject(); return frags.map(f=>f.name); },
   makeMandible(){ modelRadius=100; const s=geoToSoup(new THREE.SphereGeometry(45,64,48)); addFrag(s,0x66d9e8,new THREE.Vector3(0,0,1),soupCentroid(s),'Нижняя челюсть'); isCut=true; },
+  projRoundTrip(){ const j=JSON.stringify(buildProjectObj()); applyProjectObj(JSON.parse(j));
+    return { bytes:j.length, frags:frags.map(f=>f.name) }; },
   twoBlobBone(){ modelRadius=100; const a=geoToSoup(new THREE.SphereGeometry(20,24,16)); const bs=geoToSoup(new THREE.SphereGeometry(20,24,16));
     const shift=(s,dx)=>{ const o=s.slice(); for(let i=0;i<o.length;i+=3)o[i]+=dx; return o; };
     baseSoup=concatSoups([shift(a,-40), shift(bs,40)]); rebuildBaseMesh(); },
@@ -1491,6 +1493,52 @@ function soupToSTL(P){
     for(const p of[a,b,c]){dv.setFloat32(off,p.x,true);dv.setFloat32(off+4,p.y,true);dv.setFloat32(off+8,p.z,true);off+=12;} dv.setUint16(off,0,true);off+=2; }
   return buf;
 }
+// ---- Проект .ossa: сохранить/загрузить весь план ----
+function f32ToB64(arr){ const a=arr.buffer?arr:new Float32Array(arr); const bytes=new Uint8Array(a.buffer,a.byteOffset,a.byteLength);
+  let bin=''; const ch=0x8000; for(let i=0;i<bytes.length;i+=ch) bin+=String.fromCharCode.apply(null, bytes.subarray(i,i+ch)); return btoa(bin); }
+function b64ToF32(s){ const bin=atob(s); const bytes=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i); return new Float32Array(bytes.buffer); }
+function buildProjectObj(){
+  return { app:'OSSA', v:'3.1', date:new Date().toISOString(), patient:($('patName')&&$('patName').value)||'',
+    threshold, win:{...win}, idx:idx.slice(), modelRadius,
+    base: baseSoup? f32ToB64(baseSoup):null,
+    frags: frags.map(f=>({ name:f.name, color:f.color, soup:f32ToB64(f.soup),
+      pos:f.group.position.toArray(), quat:f.group.quaternion.toArray(),
+      n:f.n.toArray(), planMM:f.planMM||0 })),
+    devPts: devPts.map(p=>p.toArray()),
+    mid: midPlane?{point:midPlane.point.toArray(), normal:midPlane.normal.toArray()}:null,
+    cutOps };
+}
+function saveProject(){
+  if(!frags.length && !baseSoup){ alert('Нечего сохранять — построй 3D и сделай распил/сегментацию.'); return; }
+  downloadBlob(new Blob([JSON.stringify(buildProjectObj())],{type:'application/json'}), `OSSA-plan-${Date.now()}.ossa`);
+  status('Проект сохранён (.ossa)'); setTimeout(()=>status('',null),2500);
+}
+function applyProjectObj(proj){
+  resetCut(true);
+  threshold=proj.threshold||300; if($('thr')){ $('thr').value=threshold; $('thrval').textContent=threshold+' HU'; }
+  if(proj.win){ win={...proj.win}; if($('wc')){$('wc').value=win.center;$('wcval').textContent=win.center;} if($('ww')){$('ww').value=win.width;$('wwval').textContent=win.width;} }
+  modelRadius=proj.modelRadius||150;
+  if(proj.base){ baseSoup=b64ToF32(proj.base); rebuildBaseMesh(); }
+  (proj.frags||[]).forEach(f=>{ const soup=b64ToF32(f.soup);
+    const rec=addFrag(soup, f.color, new THREE.Vector3().fromArray(f.n||[0,0,1]), soupCentroid(soup), f.name);
+    if(f.pos) rec.group.position.fromArray(f.pos); if(f.quat) rec.group.quaternion.fromArray(f.quat);
+    if(f.planMM) rec.planMM=f.planMM; });
+  clearDevPts(); (proj.devPts||[]).forEach(p=> addDevPt(new THREE.Vector3().fromArray(p)));
+  if(proj.mid){ midPlane={ point:new THREE.Vector3().fromArray(proj.mid.point), normal:new THREE.Vector3().fromArray(proj.mid.normal) }; }
+  cutOps=proj.cutOps||[];
+  isCut = frags.length>0 || !!baseSoup;
+  if(baseMesh){ baseMesh.geometry.computeBoundingSphere(); const r=(baseMesh.geometry.boundingSphere&&baseMesh.geometry.boundingSphere.radius)||modelRadius; modelRadius=r;
+    camera.position.set(0,-r*2.4,r*0.7); if(controls&&controls.target) controls.target.set(0,0,0); }
+  refreshObjPanel();
+  const s=$('splash'); if(s){ s.classList.add('hide'); }
+  status(`Проект загружен${proj.patient?' · '+proj.patient:''}`); setTimeout(()=>status('',null),3000);
+  $('cutInfo') && ($('cutInfo').textContent='Проект восстановлен. КТ/MPR не входят в .ossa — при необходимости открой DICOM отдельно.');
+}
+async function loadProject(file){
+  let proj; try{ proj=JSON.parse(await file.text()); }catch(e){ alert('Не удалось прочитать файл .ossa'); return; }
+  if(!proj || proj.app!=='OSSA'){ alert('Это не проект OSSA (.ossa).'); return; }
+  applyProjectObj(proj);
+}
 function objWorldTris(rec){ rec.mesh.updateMatrixWorld(true); return meshWorldTris(rec.mesh, rec.mesh.matrixWorld); }
 function exportActiveSTL(){ const r=activeRec(); if(!r){ alert('Выбери объект в списке «Объекты».'); return; }
   downloadBlob(new Blob([soupToSTL(objWorldTris(r))],{type:'application/sla'}), (r.name||'object').replace(/\s+/g,'_')+'.stl');
@@ -2148,6 +2196,9 @@ let thrTimer;
 function bindControls() {
   $('fileInput').addEventListener('change', e => loadFiles(e.target.files));
   $('loadBtn').onclick = () => $('fileInput').click();
+  if($('saveProjBtn')) $('saveProjBtn').onclick = saveProject;
+  if($('openProjBtn')) $('openProjBtn').onclick = ()=> $('projInput').click();
+  if($('projInput')) $('projInput').addEventListener('change', e=>{ if(e.target.files[0]) loadProject(e.target.files[0]); e.target.value=''; });
   $('slab').addEventListener('input', e=>{ slabN=+e.target.value; $('slabv').textContent=slabN; if(volume) renderAllMPR(); });
   $('obl').onclick = ()=>{ oblique.on=!oblique.on; $('obl').classList.toggle('armed',oblique.on); if(volume) renderMPR('coronal'); };
   $('oblA').addEventListener('input', e=>{ oblique.angle=+e.target.value; $('oblAv').textContent=oblique.angle+'°'; if(volume&&oblique.on) renderMPR('coronal'); });
