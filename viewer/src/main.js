@@ -467,6 +467,12 @@ function __ossaTestHook(){ try{ window.__ossa = {
   setRod(on){ setRod(on); }, updateRod(){ updateRod(); },
   dragActive(x,y,z){ const g=activeGroup(); if(g){ g.position.set(x,y,z); updateRod(); } return activeGroup()?.position; },
   rodInfo(){ return document.getElementById('rodInfo').textContent; },
+  ops(){ return cutOps.length; },
+  sawFull(nx,ny,nz,px,py,pz){ recordOp({kind:'saw',n:[nx,ny,nz],p:[px,py,pz],box:null}); return sawCut(new THREE.Vector3(nx,ny,nz), new THREE.Vector3(px,py,pz), ()=>true, 'test'); },
+  testBoneDense(){ modelRadius=300; baseSoup=geoToSoup(new THREE.SphereGeometry(50,96,64)); rebuildBaseMesh(); },
+  simThresholdRebuild(){ // имитируем rebuild3D: свежая база + реплей
+    const saved=cutOps.slice(); removeFrags(); baseSoup=geoToSoup(new THREE.SphereGeometry(50,96,64)); rebuildBaseMesh();
+    cutOps=saved; replayOps(); return frags.length; },
   slider(v){ $('arcDist').value=v; moveAlongArc(); },
   fragPos(i){ const g=frags[i].group.position; return {x:g.x,y:g.y,z:g.z}; },
 }; }catch(e){} }
@@ -544,14 +550,18 @@ async function rebuild3D() {
   const mat = new THREE.MeshStandardMaterial({ color: 0xe6ddc9, roughness: 0.62, metalness: 0.05, flatShading: false, side: THREE.DoubleSide });
   boneMesh = new THREE.Mesh(geo, mat); scene.add(boneMesh);
   boneSurf = surf;                 // сохраняем для распила
-  resetCut(true);                  // сброс остеотомии при пересборке модели
+  const savedOps = cutOps.slice(); // СОХРАНЯЕМ распилы/нож, чтобы не потерять работу при смене порога
+  resetCut(true);                  // сброс сцены (очистит cutOps)
   // подогнать камеру
   geo.computeBoundingSphere();
   const rr = geo.boundingSphere.radius || 150;
   modelRadius = rr;
   camera.position.set(0, -rr * 2.4, rr * 0.7); controls.target.set(0, 0, 0);
   $('info3d').textContent = `${surf.triCount.toLocaleString('ru')} треуг. · ${(performance.now() - t0 | 0)} мс · шаг ×${surf.step}`;
-  if ($('autoSeg') && $('autoSeg').checked) autoSegment(true);
+  if (savedOps.length){                          // была проделана работа — ВОССТАНАВЛИВАЕМ её
+    cutOps = savedOps; replayOps();
+    $('cutInfo').textContent = `3D-порог изменён — распилы/обрезки восстановлены (${cutOps.length} оп.).`;
+  } else if ($('autoSeg') && $('autoSeg').checked) autoSegment(true);
 }
 // связные детали кости (по индексному мешу) — сортированы по размеру
 function segmentComponents(surf){
@@ -625,6 +635,10 @@ function autoSegment(silent){
 }
 
 // ---------- Остеотомия / дистракторы (мультифрагментная модель) ----------
+// Журнал разрушающих операций (распилы/нож) — чтобы ПОВТОРИТЬ их после смены
+// 3D-порога и НЕ терять проделанную работу.
+let cutOps = [], replaying = false;
+function recordOp(op){ if(!replaying) cutOps.push(op); }
 let boneSurf = null, modelRadius = 150;
 let planeMesh = null;
 let baseSoup = null;            // triangle-soup нераспиленной кости (мировые коорд.)
@@ -882,21 +896,49 @@ function sawCut(n, p, test, label){
   return true;
 }
 
+// повтор всех записанных распилов/ножа на СВЕЖЕЙ геометрии (после смены 3D-порога)
+function replayOps(){
+  if(!cutOps.length) return 0;
+  replaying=true; let done=0;
+  try{
+    for(const op of cutOps){
+      if(op.kind==='saw'){
+        const n=new THREE.Vector3().fromArray(op.n), p=new THREE.Vector3().fromArray(op.p);
+        let test;
+        if(op.box){ const inv=new THREE.Matrix4().compose(new THREE.Vector3().fromArray(op.box.pos), new THREE.Quaternion().fromArray(op.box.quat), new THREE.Vector3(1,1,1)).invert();
+          const h=op.box.h, v=new THREE.Vector3();
+          test=(cx,cy,cz)=>{ v.set(cx,cy,cz).applyMatrix4(inv); return Math.abs(v.x)<=h[0]&&Math.abs(v.y)<=h[1]&&Math.abs(v.z)<=h[2]; }; }
+        else if(op.pencil){ const c=p, u=new THREE.Vector3().fromArray(op.pencil.u), vd=new THREE.Vector3().fromArray(op.pencil.viewDir), w=new THREE.Vector3().crossVectors(u,vd).normalize();
+          const {halfU,halfDepth,halfHeight}=op.pencil;
+          test=(cx,cy,cz)=>{ const dx=cx-c.x,dy=cy-c.y,dz=cz-c.z; return Math.abs(dx*u.x+dy*u.y+dz*u.z)<=halfU && Math.abs(dx*vd.x+dy*vd.y+dz*vd.z)<=halfDepth && Math.abs(dx*w.x+dy*w.y+dz*w.z)<=halfHeight; }; }
+        else test=()=>true;
+        if(sawCut(n,p,test,'реплей')) done++;
+      } else if(op.kind==='knife'){
+        const camMat=new THREE.Matrix4().fromArray(op.cam);
+        applyKnife(op.poly, camMat, op.w, op.h); done++;
+      }
+    }
+  } finally { replaying=false; }
+  return done;
+}
 function doCut() {
   if (!boneSurf || !planeMesh) return;
   planeMesh.updateMatrixWorld(true);
   const n = getPlaneN(), p = getPlaneP();
   const bounded = !(planeFull('cutW') && planeFull('cutL') && planeFull('cutD'));
   let test;
+  let box=null;
   if (bounded){
     const full=modelRadius*2.4;
     const hx=(planeFull('cutW')?full:+$('cutW').value)/2, hy=(planeFull('cutL')?full:+$('cutL').value)/2, hz=(planeFull('cutD')?full:+$('cutD').value)/2;
+    box={ pos:planeMesh.position.toArray(), quat:planeMesh.quaternion.toArray(), h:[hx,hy,hz] };
     const inv=new THREE.Matrix4().compose(planeMesh.position, planeMesh.quaternion, new THREE.Vector3(1,1,1)).invert();
     const v=new THREE.Vector3();
     test=(cx,cy,cz)=>{ v.set(cx,cy,cz).applyMatrix4(inv); return Math.abs(v.x)<=hx&&Math.abs(v.y)<=hy&&Math.abs(v.z)<=hz; };
   } else test=()=>true;
   // если выбран отдельный объект — режем только его (плоскостью)
   if (activeFrag>=0 && frags[activeFrag]){ splitFragByPlane(frags[activeFrag], n, p, 'плоскостью'); return; }
+  recordOp({ kind:'saw', n:n.toArray(), p:p.toArray(), box });
   sawCut(n, p, test, bounded?'рамкой':'плоскостью');
 }
 
@@ -1022,6 +1064,7 @@ function buildLineFrag(){
   const w = new THREE.Vector3().crossVectors(u, viewDir).normalize();
   const test=(cx,cy,cz)=>{ const dx=cx-center.x,dy=cy-center.y,dz=cz-center.z;
     return Math.abs(dx*u.x+dy*u.y+dz*u.z)<=halfU && Math.abs(dx*viewDir.x+dy*viewDir.y+dz*viewDir.z)<=halfDepth && Math.abs(dx*w.x+dy*w.y+dz*w.z)<=halfHeight; };
+  recordOp({ kind:'saw', n:n.toArray(), p:center.toArray(), pencil:{ u:u.toArray(), viewDir:viewDir.toArray(), halfU, halfDepth, halfHeight } });
   sawCut(n, center, test, 'линия');
   setPenMode(false); penPts=[]; drawPen();
   $('penInfo').textContent = 'Локальная остеотомия опоры. Поставь 2 точки аппарата и «Спланировать КДО».';
@@ -1055,23 +1098,32 @@ function penCutDispatch(){
 }
 // ---- Нож: обрезать нарисованную область (base + фрагменты); «Вернуть» откатывает ----
 let knifeStack = [];
-function doKnife(){
+function applyKnife(poly, camMat, W, H){
   ensureBase();
-  const rw=penCanvas().getBoundingClientRect(); const poly=penPts.map(p=>({x:p.x,y:p.y}));
   const v=new THREE.Vector3();
-  const inLoop=(cx,cy,cz,mat)=>{ v.set(cx,cy,cz); if(mat) v.applyMatrix4(mat); v.project(camera);
-    return pointInPoly((v.x+1)/2*rw.width,(1-(v.y+1)/2)*rw.height, poly); };
+  const inLoop=(cx,cy,cz,mat)=>{ v.set(cx,cy,cz); if(mat) v.applyMatrix4(mat); v.applyMatrix4(camMat);
+    return pointInPoly((v.x+1)/2*W,(1-(v.y+1)/2)*H, poly); };
   const trim=(soup,mat)=>{ const out=[]; let rem=0;
     for(let t=0;t<soup.length;t+=9){ const cx=(soup[t]+soup[t+3]+soup[t+6])/3,cy=(soup[t+1]+soup[t+4]+soup[t+7])/3,cz=(soup[t+2]+soup[t+5]+soup[t+8])/3;
       if(inLoop(cx,cy,cz,mat)){ rem++; continue; } for(let k=0;k<9;k++) out.push(soup[t+k]); }
     return { kept:new Float32Array(out), rem }; };
-  knifeStack.push({ base: baseSoup, frags: frags.map(f=>f.soup) });   // снимок для отката
   let removed=0;
   const tb=trim(baseSoup,null); removed+=tb.rem; baseSoup=tb.kept; rebuildBaseMesh();
   frags.forEach(f=>{ f.mesh.updateMatrixWorld(true); const tf=trim(f.soup, f.mesh.matrixWorld); removed+=tf.rem;
     f.soup=tf.kept; f.mesh.geometry.dispose();
     const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(f.soup,3)); g.computeVertexNormals();
     f.mesh.geometry=g; });
+  return removed;
+}
+function doKnife(){
+  ensureBase();
+  const rw=penCanvas().getBoundingClientRect(); const poly=penPts.map(p=>({x:p.x,y:p.y}));
+  camera.updateMatrixWorld(true);
+  const camMat=new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  knifeStack.push({ base: baseSoup, frags: frags.map(f=>f.soup) });   // снимок для отката
+  const removed=applyKnife(poly, camMat, rw.width, rw.height);
+  recordOp({ kind:'knife', poly, cam:camMat.toArray(), w:rw.width, h:rw.height });
+  isCut=true;
   setPenMode(false); penPts=[]; drawPen();
   $('penInfo').textContent = `Обрезано ${(removed).toLocaleString('ru')} треуг. «↩ Вернуть» — откат.`;
 }
@@ -1822,7 +1874,7 @@ function removeFrags(){
   baseSoup=null; if(gizmo) gizmo.detach(); refreshObjPanel();
 }
 function resetCut(silent){
-  removeFrags(); clearArc(); clearRegen(); clearDevPts(); clearSym(); clearRod(); rodOn=false; rodRec=null; if($('kdoRod'))$('kdoRod').checked=false; lineCut=null; distr=null; plans=[];
+  removeFrags(); clearArc(); clearRegen(); clearDevPts(); clearSym(); clearRod(); rodOn=false; rodRec=null; if($('kdoRod'))$('kdoRod').checked=false; lineCut=null; distr=null; plans=[]; cutOps=[]; knifeStack=[];
   isCut=false; mobileMode='sliders';
   if (boneMesh) boneMesh.visible = true;
   if (gizmo) gizmo.detach();
@@ -1894,8 +1946,14 @@ function bindOsteotomy() {
   $('devPtBtn').onclick = ()=> setDevPtMode(!devPtMode);
   if($('kdoRod')) $('kdoRod').addEventListener('change', e=> setRod(e.target.checked));
   if($('kdoPlane')) $('kdoPlane').addEventListener('change', ()=>{ if(rodOn) updateRod(); });
-  // нож по клавише Delete
-  window.addEventListener('keydown', (e)=>{ if((e.key==='Delete'||e.key==='Backspace') && penMode()==='knife' && penPts.length>2){ e.preventDefault(); doKnife(); } });
+  // клавиша Delete: нож (если рисуется контур ножа) либо удалить активный объект
+  window.addEventListener('keydown', (e)=>{
+    if(e.key!=='Delete' && e.key!=='Backspace') return;
+    const tag=(e.target&&e.target.tagName)||''; if(/INPUT|TEXTAREA|SELECT/.test(tag)) return;
+    if(penMode()==='knife' && penPts.length>2){ e.preventDefault(); doKnife(); return; }
+    if(activeFrag>=0 && frags[activeFrag]){ e.preventDefault(); const nm=frags[activeFrag].name; removeOneFrag(frags[activeFrag]);
+      $('cutInfo').textContent=`Удалён объект: ${nm}. (Delete — удалить выделенный)`; }
+  });
   // симметрия
   $('midSetBtn').onclick = ()=> setMidMode(!midMode);
   $('midAdj').addEventListener('input', ()=>{ $('midAdjv').textContent=$('midAdj').value+' мм';
