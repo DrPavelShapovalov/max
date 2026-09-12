@@ -9,10 +9,13 @@ function createWindow() {
     icon: path.join(__dirname, 'build', 'icon.ico'),
     backgroundColor: '#081116',
     autoHideMenuBar: true,
+    show: false,                                  // покажем развёрнутым, когда готово
     webPreferences: { contextIsolation: true, nodeIntegration: false, spellcheck: false },
   });
   Menu.setApplicationMenu(null);
   win.loadFile(path.join(__dirname, 'dist', 'index.html'));
+  // окно сразу на весь экран (развёрнуто) после загрузки — как просили
+  win.once('ready-to-show', () => { win.maximize(); win.show(); });
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
 }
 
