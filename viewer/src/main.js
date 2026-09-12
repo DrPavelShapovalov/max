@@ -529,6 +529,10 @@ function __ossaTestHook(){ try{ window.__ossa = {
   makeMandible(){ modelRadius=100; const s=geoToSoup(new THREE.SphereGeometry(45,64,48)); addFrag(s,0x66d9e8,new THREE.Vector3(0,0,1),soupCentroid(s),'Нижняя челюсть'); isCut=true; },
   projRoundTrip(){ const j=JSON.stringify(buildProjectObj()); applyProjectObj(JSON.parse(j));
     return { bytes:j.length, frags:frags.map(f=>f.name) }; },
+  cephTest(){ cephLM={ 'Co-R':new THREE.Vector3(-30,0,40),'Go-R':new THREE.Vector3(-35,0,0),
+    'Co-L':new THREE.Vector3(30,0,40),'Go-L':new THREE.Vector3(35,0,10),'Me':new THREE.Vector3(3,20,-5) };
+    midPlane={point:new THREE.Vector3(0,0,0),normal:new THREE.Vector3(1,0,0)};
+    const c=computeCeph(); return { ramusDiff:+c.ramusDiff.toFixed(1), chinDev:+c.chinDev.toFixed(1), report: cephReport().length>50 }; },
   twoBlobBone(){ modelRadius=100; const a=geoToSoup(new THREE.SphereGeometry(20,24,16)); const bs=geoToSoup(new THREE.SphereGeometry(20,24,16));
     const shift=(s,dx)=>{ const o=s.slice(); for(let i=0;i<o.length;i+=3)o[i]+=dx; return o; };
     baseSoup=concatSoups([shift(a,-40), shift(bs,40)]); rebuildBaseMesh(); },
@@ -543,7 +547,7 @@ function __ossaTestHook(){ try{ window.__ossa = {
 }; }catch(e){} }
 function init3D() {
   const cv = $('cv-3d');
-  renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+  renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   scene = new THREE.Scene(); scene.background = new THREE.Color(0x0a1418);
   camera = new THREE.PerspectiveCamera(45, 1, 1, 5000);
@@ -572,7 +576,7 @@ function init3D() {
     const r = cv.getBoundingClientRect();
     m.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
     m.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
-    if (devPtMode || symTgtMode || midMode || measMode || nerveMode) {
+    if (devPtMode || symTgtMode || midMode || measMode || nerveMode || cephMode) {
       ray.setFromCamera(m, camera);
       const tgts = [boneMesh, baseMesh, ...frags.map(f=>f.mesh)].filter(o=>o && o.visible);
       const hit = ray.intersectObjects(tgts, false)[0];
@@ -581,6 +585,7 @@ function init3D() {
         else if (midMode) addMidPt(hit.point);
         else if (symTgtMode) setSymTarget(hit.point);
         else if (nerveMode) addNervePt(hit.point);
+        else if (cephMode) addCephPt(hit.point);
         else addDevPt(hit.point);
       }
       return;
@@ -1771,34 +1776,139 @@ function autoNerve(){
       : 'Канал не найден.';
   }, 30);
 }
+// ---- Анимация дистракции + запись видео + «до/после» ----
+let animRAF=null, mediaRec=null, recChunks=[];
+function cancelAnim(){ if(animRAF){ cancelAnimationFrame(animRAF); animRAF=null; } }
+function animateDistraction(loop){
+  const ps=activePlans(); if(!ps.length){ alert('Сначала рассчитай КДО (или включи объекты плана).'); return false; }
+  const el=$('arcDist'); const max=+el.max; if(!(max>0)) return false;
+  cancelAnim(); const dur=4200, t0=performance.now();
+  const step=(t)=>{ let k=Math.min(1,(t-t0)/dur); el.value=(max*k).toFixed(1); moveAlongArc();
+    if(k<1) animRAF=requestAnimationFrame(step);
+    else { animRAF=null; if(loop){ el.value=0; moveAlongArc(); animateDistraction(loop);} } };
+  animRAF=requestAnimationFrame(step); return true;
+}
+function beforeAfter(){ const el=$('arcDist'); const max=+el.max; if(!(max>0)){ alert('Сначала рассчитай КДО.'); return; }
+  cancelAnim(); el.value = (+el.value < max*0.5)? max : 0; moveAlongArc();
+  status(+el.value>0?'После (план)':'До (исходное)'); setTimeout(()=>status('',null),1500); }
+function toggleRecord(){
+  const btn=$('recBtn');
+  if(mediaRec){ mediaRec.stop(); return; }
+  const cv=$('cv-3d'); if(!cv.captureStream){ alert('Запись видео не поддерживается в этой среде.'); return; }
+  let stream; try{ stream=cv.captureStream(30); }catch(e){ alert('Не удалось начать запись.'); return; }
+  const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')?'video/webm;codecs=vp9':'video/webm';
+  recChunks=[]; try{ mediaRec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8e6}); }catch(e){ alert('MediaRecorder недоступен.'); return; }
+  mediaRec.ondataavailable=e=>{ if(e.data&&e.data.size) recChunks.push(e.data); };
+  mediaRec.onstop=()=>{ const blob=new Blob(recChunks,{type:'video/webm'}); downloadBlob(blob,`OSSA-distraction-${Date.now()}.webm`);
+    mediaRec=null; btn&&btn.classList.remove('armed'); status('Видео сохранено (.webm)'); setTimeout(()=>status('',null),2500); };
+  mediaRec.start(); btn&&btn.classList.add('armed'); status('⏺ Запись… анимация пошла, нажми ещё раз для остановки');
+  const el=$('arcDist'); if(el){ el.value=0; moveAlongArc(); }
+  if(!animateDistraction(false)){ mediaRec.stop(); }
+  else setTimeout(()=>{ if(mediaRec) mediaRec.stop(); }, 5200);   // авто-стоп после анимации
+}
+// ---- Цефалометрия / асимметрия по 3D-точкам ----
+let cephMode=false, cephLM={}, cephMarks=[];
+const CEPH_ORDER=['Co-R','Go-R','Co-L','Go-L','Me'];
+const CEPH_LBL={'Co-R':'Мыщелок R','Go-R':'Угол (гонион) R','Co-L':'Мыщелок L','Go-L':'Угол (гонион) L','Me':'Ментон (подбородок)'};
+function setCephMode(on){ cephMode=on; $('cephBtn')&&$('cephBtn').classList.toggle('armed',on);
+  if(on){ setPenMode(false); setDevPtMode(false); setIsoMode&&setIsoMode(false); setSegMode&&setSegMode(false);
+    const nx=CEPH_ORDER.find(n=>!cephLM[n])||CEPH_ORDER[0]; if($('cephPick'))$('cephPick').value=nx;
+    if($('cephInfo')) $('cephInfo').textContent='Кликни по 3D-кости: ставится точка «'+CEPH_LBL[nx]+'».'; } }
+function addCephPt(pt){ const sel=$('cephPick'); const name=sel?sel.value:CEPH_ORDER.find(n=>!cephLM[n]); if(!name) return;
+  if(cephLM[name]){ const old=cephMarks.find(m=>m.userData.ceph===name); if(old){ scene.remove(old); cephMarks=cephMarks.filter(m=>m!==old); } }
+  cephLM[name]=pt.clone(); const m=markerMesh(0x39d98a); m.position.copy(pt); m.userData.ceph=name; scene.add(m); cephMarks.push(m);
+  const nx=CEPH_ORDER.find(n=>!cephLM[n]); if(nx&&sel) sel.value=nx;
+  if(Object.keys(cephLM).length>=CEPH_ORDER.length){ setCephMode(false); }
+  computeCephUI();
+}
+function clearCeph(){ cephMarks.forEach(m=>scene.remove(m)); cephMarks=[]; cephLM={}; if($('cephPick'))$('cephPick').value=CEPH_ORDER[0]; if($('cephInfo'))$('cephInfo').textContent='Точки очищены.'; }
+function computeCeph(){ const g=cephLM, o={};
+  const ang=(a,b,c)=>{ const v1=a.clone().sub(b), v2=c.clone().sub(b); return Math.acos(v1.dot(v2)/((v1.length()*v2.length())||1))*180/Math.PI; };
+  if(g['Co-R']&&g['Go-R']) o.ramusR=g['Co-R'].distanceTo(g['Go-R']);
+  if(g['Co-L']&&g['Go-L']) o.ramusL=g['Co-L'].distanceTo(g['Go-L']);
+  if(o.ramusR!=null&&o.ramusL!=null) o.ramusDiff=Math.abs(o.ramusR-o.ramusL);
+  if(g['Go-R']&&g['Me']) o.bodyR=g['Go-R'].distanceTo(g['Me']);
+  if(g['Go-L']&&g['Me']) o.bodyL=g['Go-L'].distanceTo(g['Me']);
+  if(o.bodyR!=null&&o.bodyL!=null) o.bodyDiff=Math.abs(o.bodyR-o.bodyL);
+  if(g['Me']){ const mid=midNormalPoint(); o.chinDev=Math.abs(g['Me'].clone().sub(mid.point).dot(mid.normal.clone().normalize())); }
+  if(g['Co-R']&&g['Go-R']&&g['Me']) o.gonialR=ang(g['Co-R'],g['Go-R'],g['Me']);
+  if(g['Co-L']&&g['Go-L']&&g['Me']) o.gonialL=ang(g['Co-L'],g['Go-L'],g['Me']);
+  return o;
+}
+function fmt1(x){ return x==null?'—':x.toFixed(1); }
+function computeCephUI(){ if(!$('cephInfo')) return; const c=computeCeph();
+  const n=Object.keys(cephLM).length;
+  if(n<CEPH_ORDER.length){ $('cephInfo').textContent=`Точек: ${n}/${CEPH_ORDER.length}. Дальше: ${CEPH_LBL[($('cephPick')&&$('cephPick').value)]||''}`; return; }
+  $('cephInfo').innerHTML=`Асимм. ветвей: <b style="color:var(--accent)">${fmt1(c.ramusDiff)} мм</b> · тела: <b>${fmt1(c.bodyDiff)} мм</b> · девиация Me: <b style="color:var(--warn)">${fmt1(c.chinDev)} мм</b>`; }
+function cephReport(){ if(!Object.keys(cephLM).length) return '';
+  const c=computeCeph();
+  return `<table>
+   <tr><td class="k">Высота ветви справа (Co–Go)</td><td>${fmt1(c.ramusR)} мм</td></tr>
+   <tr><td class="k">Высота ветви слева (Co–Go)</td><td>${fmt1(c.ramusL)} мм</td></tr>
+   <tr><td class="k"><b>Асимметрия ветвей</b></td><td><b>${fmt1(c.ramusDiff)} мм</b></td></tr>
+   <tr><td class="k">Длина тела справа (Go–Me)</td><td>${fmt1(c.bodyR)} мм</td></tr>
+   <tr><td class="k">Длина тела слева (Go–Me)</td><td>${fmt1(c.bodyL)} мм</td></tr>
+   <tr><td class="k"><b>Асимметрия тела</b></td><td><b>${fmt1(c.bodyDiff)} мм</b></td></tr>
+   <tr><td class="k"><b>Девиация подбородка от средней линии</b></td><td><b>${fmt1(c.chinDev)} мм</b></td></tr>
+   <tr><td class="k">Гониальный угол справа</td><td>${fmt1(c.gonialR)}°</td></tr>
+   <tr><td class="k">Гониальный угол слева</td><td>${fmt1(c.gonialL)}°</td></tr></table>`;
+}
+function snapCanvas(id, maxW){ const c=$(id); if(!c) return null; try{
+    const s=Math.min(1, maxW/c.width); const t=document.createElement('canvas'); t.width=Math.round(c.width*s); t.height=Math.round(c.height*s);
+    t.getContext('2d').drawImage(c,0,0,t.width,t.height); return t.toDataURL('image/jpeg',0.82);
+  }catch(e){ return null; } }
 function exportProtocol(){
+  if(volume) renderer.render(scene, camera);            // свежий кадр для скриншота
   const now=new Date().toLocaleString('ru-RU');
-  const meas = $('measVal').style.display!=='none' ? $('measVal').textContent : '—';
+  const patient=($('patName')&&$('patName').value)||'—';
+  const meas = ($('measVal')&&$('measVal').style.display!=='none') ? $('measVal').textContent : '—';
   const planned = frags.filter(f=>f.planMM);
   let plan;
   if (planned.length){
-    plan = '<b>Результат планирования:</b><br>' + planned.map((f,i)=>{
-      const typ = f.planDev.deg===180?'Прямой':f.planDev.name;
-      return `${planned.length>1?(i===0?'Справа':'Слева')+' — ':''}<b>${typ} — ${f.planMM.toFixed(0)} мм</b>`;
-    }).join('<br>');
-  } else plan = lastPlan ? `Аппарат <b>${lastPlan.device}</b> — <b>${lastPlan.mm.toFixed(0)} мм</b>.` : 'Планирование КДО не выполнено.';
-  const html=`<!doctype html><meta charset="utf-8"><title>Протокол планирования КДО</title>
-<style>body{font-family:system-ui,Segoe UI,sans-serif;max-width:720px;margin:32px auto;color:#132;line-height:1.5;padding:0 18px}
-h1{font-size:20px;border-bottom:2px solid #22c9bd;padding-bottom:8px}h2{font-size:14px;color:#0a8;margin-top:22px}
-.k{color:#567;font-size:13px}.v{font-weight:600}table{border-collapse:collapse;width:100%;font-size:13px;margin-top:6px}
-td{border:1px solid #dce;padding:6px 9px}</style>
-<h1>Протокол виртуального планирования дистракционного остеогенеза</h1>
-<p class="k">Сформировано: ${now} · КДО-Планировщик 3D (прототип, не медизделие)</p>
-<h2>Исходные данные</h2>
-<table><tr><td class="k">Серия</td><td>${($('meta').textContent||'—')}</td></tr>
-<tr><td class="k">Порог кости (3D)</td><td>${threshold} HU</td></tr></table>
-<h2>Остеотомия</h2><table><tr><td class="k">Статус</td><td>${isCut?'выполнена':'не выполнена'}</td></tr>
-<tr><td class="k">Комментарий</td><td>${($('cutInfo').textContent||'').replace(/</g,'')}</td></tr></table>
-<h2>Дистракция</h2><p>${plan}</p>
+    plan = planned.map((f,i)=>{ const typ = f.planDev?(f.planDev.deg===180?'Прямой (180°)':f.planDev.name):'—';
+      return `<tr><td>${planned.length>1?(i===0?'Сторона 1':'Сторона 2'):'КДА'}</td><td><b>${typ}</b></td><td><b>${f.planMM.toFixed(0)} мм</b></td></tr>`; }).join('');
+    plan = `<table><tr><td class="k">Зона</td><td class="k">Аппарат</td><td class="k">Дистракция</td></tr>${plan}</table>`;
+  } else plan = lastPlan && lastPlan.plans ? `<table>${lastPlan.plans.map((p,i)=>`<tr><td>${i+1}</td><td><b>${p.device}</b></td><td><b>${p.mm.toFixed(0)} мм</b></td></tr>`).join('')}</table>`
+      : (lastPlan?`Аппарат <b>${lastPlan.device||''}</b>.`:'Планирование КДО не выполнено.');
+  const ceph = cephReport();                             // цефалометрия/асимметрия (если есть точки)
+  const img3d=snapCanvas('cv-3d',760);
+  const imgs=['axial','coronal','sagittal'].map(p=>snapCanvas('cv-'+p,250)).filter(Boolean);
+  const objs = frags.map(f=>`<li>${f.name} — ${(f.soup.length/9|0).toLocaleString('ru')} треуг.</li>`).join('')||'<li>—</li>';
+  const html=`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Протокол КДО — ${patient}</title>
+<style>
+  @page{margin:16mm}
+  body{font-family:system-ui,'Segoe UI',sans-serif;color:#0c1a1e;line-height:1.5;max-width:840px;margin:0 auto;padding:10px 18px}
+  .hd{display:flex;align-items:center;gap:12px;border-bottom:3px solid #22c9bd;padding-bottom:10px}
+  .hd .logo{width:40px;height:40px;border-radius:9px;background:linear-gradient(135deg,#0e2530,#153541);display:grid;place-items:center;color:#2fe4d6;font-weight:800}
+  h1{font-size:19px;margin:0}.sub{color:#5a7178;font-size:12px}
+  h2{font-size:13px;color:#0a8f83;margin:20px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:4px}
+  td{border:1px solid #d7e3e5;padding:6px 9px}.k{color:#5a7178}
+  .imgrow{display:flex;gap:8px;margin-top:8px}.imgrow img{width:32%;border:1px solid #cdd;border-radius:6px}
+  .big{width:100%;border:1px solid #cdd;border-radius:8px;margin-top:8px}
+  .foot{margin-top:22px;font-size:11px;color:#7a8f95;border-top:1px solid #e3ecee;padding-top:8px}
+  @media print{.noprint{display:none}}
+</style></head><body>
+<div class="hd"><div class="logo">Ω</div><div><h1>Протокол виртуального планирования КДО / реконструкции</h1>
+  <div class="sub">OSSA 3D · Craniofacial Distraction Planner · ${now}</div></div></div>
+<h2>Пациент</h2><table><tr><td class="k" style="width:180px">ФИО / № КТ</td><td><b>${patient}</b></td></tr>
+  <tr><td class="k">Серия КТ</td><td>${($('meta')&&$('meta').textContent||'—').replace(/</g,'')}</td></tr>
+  <tr><td class="k">Порог кости (3D)</td><td>${threshold} HU</td></tr></table>
+${img3d?`<h2>3D-модель плана</h2><img class="big" src="${img3d}">`:''}
+${imgs.length?`<h2>Мультипланарные срезы</h2><div class="imgrow">${imgs.map(s=>`<img src="${s}">`).join('')}</div>`:''}
+<h2>Остеотомия</h2><table><tr><td class="k" style="width:180px">Статус</td><td>${isCut?'выполнена':'не выполнена'}</td></tr>
+  <tr><td class="k">Объекты плана</td><td><ul style="margin:4px 0;padding-left:18px">${objs}</ul></td></tr></table>
+<h2>Дистракция</h2>${plan}
+${ceph?`<h2>Цефалометрия / асимметрия</h2>${ceph}`:''}
 <h2>Измерения</h2><p>${meas}</p>
-<h2>Заключение</h2><p>План носит предварительный характер и требует верификации врачом. Аппарат КДА подобран по угловой кривизне дуги (линейка 30/50/70/100/180°).</p>`;
-  downloadBlob(new Blob([html],{type:'text/html'}), `KDO-protocol-${Date.now()}.html`);
-  status('Протокол сохранён'); setTimeout(()=>status('',null),2500);
+<h2>Заключение</h2><p>План носит предварительный характер и требует верификации врачом. Аппарат КДА подобран по угловой кривизне дуги (линейка 30/50/70/100/180°). Не является медицинским изделием.</p>
+<div class="foot">Сформировано OSSA 3D. Подпись врача: ____________________  Дата: __________</div>
+<script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script>
+</body></html>`;
+  const w=window.open('','_blank');
+  if(w){ w.document.open(); w.document.write(html); w.document.close(); status('Протокол открыт — «Сохранить как PDF»'); }
+  else { downloadBlob(new Blob([html],{type:'text/html'}), `OSSA-protocol-${Date.now()}.html`); status('Протокол сохранён (HTML)'); }
+  setTimeout(()=>status('',null),3000);
 }
 
 function setGroupRigid(group, quat, center, extraT) {
@@ -2146,6 +2256,9 @@ function bindOsteotomy() {
   $('kdoMode').addEventListener('change', ()=>{});
   $('devPtBtn').onclick = ()=> setDevPtMode(!devPtMode);
   if($('kdoRod')) $('kdoRod').addEventListener('change', e=> setRod(e.target.checked));
+  if($('cephBtn')) $('cephBtn').onclick = ()=> setCephMode(!cephMode);
+  if($('cephClear')) $('cephClear').onclick = clearCeph;
+  if($('cephPick')) $('cephPick').addEventListener('change', ()=>{ if(cephMode && $('cephInfo')) $('cephInfo').textContent='Ставится точка «'+CEPH_LBL[$('cephPick').value]+'».'; });
   if($('kdoPlane')) $('kdoPlane').addEventListener('change', ()=>{ if(rodOn) updateRod(); });
   // клавиша Delete: нож (если рисуется контур ножа) либо удалить активный объект
   window.addEventListener('keydown', (e)=>{
@@ -2167,6 +2280,9 @@ function bindOsteotomy() {
   $('measClear').onclick = clearMeas;
   $('exportSTL').onclick = exportSTL;
   $('exportProto').onclick = exportProtocol;
+  if($('animBtn')) $('animBtn').onclick = ()=> animateDistraction(false);
+  if($('baBtn')) $('baBtn').onclick = beforeAfter;
+  if($('recBtn')) $('recBtn').onclick = toggleRecord;
 }
 
 // ---------- UI ----------

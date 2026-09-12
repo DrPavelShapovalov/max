@@ -331,6 +331,18 @@
           <div class="sep"></div>
           <div class="row"><label title="Жёсткий рельс аппарата между дистальным и медиальным фрагментами: перемещай медиальный вручную гизмо — движение строго по траектории (без отклонений вбок). Плоскость движения — из списка «Плоскость» выше."><input type="checkbox" id="kdoRod" style="width:auto"> 🔩 Штанга-рельс (ручное перемещение)</label></div>
           <div class="info" id="rodInfo">Выбери подвижный (медиальный) фрагмент, включи «Штанга-рельс» и тяни его гизмо: сагиттально/вертикально — считаются мм; сочетанно — градус дуги и рекомендованный криволинейный КДА. Выключи — вернётся авто-анимация ползунком.</div>
+
+          <div class="sep"></div>
+          <div class="sect">Цефалометрия / асимметрия</div>
+          <div class="row"><label>Точка</label>
+            <select id="cephPick">
+              <option value="Co-R">Мыщелок R</option><option value="Go-R">Угол (гонион) R</option>
+              <option value="Co-L">Мыщелок L</option><option value="Go-L">Угол (гонион) L</option>
+              <option value="Me">Ментон (подбородок)</option>
+            </select>
+          </div>
+          <div class="btns"><button id="cephBtn" class="ghost">◎ Ставить точки</button><button id="cephClear" class="ghost">Очистить</button></div>
+          <div class="info" id="cephInfo">Задай «Среднюю линию», расставь 5 точек — программа посчитает асимметрию ветвей/тела, девиацию подбородка и гониальные углы (в протокол PDF).</div>
         </div>
       </div>
 
@@ -345,8 +357,12 @@
           <span class="info" id="measInfo">Длина — 2 точки, угол — 3 точки прямо на кости.</span>
           <span class="vbadge" id="measVal" style="display:none"></span>
           <span style="width:1px;height:22px;background:var(--line)"></span>
+          <button id="animBtn" class="ghost" style="flex:0 0 auto" title="Проиграть дистракцию 0→план">▶ Анимация</button>
+          <button id="baBtn" class="ghost" style="flex:0 0 auto" title="Переключить до/после">⇄ До/После</button>
+          <button id="recBtn" class="ghost" style="flex:0 0 auto" title="Записать видео дистракции (.webm)">⏺ Видео</button>
+          <span style="width:1px;height:22px;background:var(--line)"></span>
           <button id="exportSTL" class="act-b" style="flex:0 0 auto">⬇ STL (для печати)</button>
-          <button id="exportProto" class="ghost" style="flex:0 0 auto">⬇ Протокол</button>
+          <button id="exportProto" class="act-b" style="flex:0 0 auto">⬇ Протокол PDF</button>
         </div>
       </div>
 
