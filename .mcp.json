@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "magic": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/home/user/max/.magic-mcp/dist/index.js"]
+    }
+  }
+}
