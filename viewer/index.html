@@ -54,6 +54,12 @@
   .vp .tag{position:absolute;top:6px;right:8px;font-family:var(--mono);font-size:10px;color:var(--ink-faint);
            background:rgba(8,17,22,.6);padding:2px 6px;border-radius:4px;pointer-events:none}
   .vp.threeD{background:radial-gradient(120% 120% at 50% 0%,#0e2029,#070f14)}
+  .vp.threeD::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.5;
+    background-image:linear-gradient(rgba(47,228,214,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(47,228,214,.04) 1px,transparent 1px);
+    background-size:38px 38px;mask:radial-gradient(circle at 50% 60%,#000,transparent 78%);-webkit-mask:radial-gradient(circle at 50% 60%,#000,transparent 78%)}
+  .vp.threeD canvas{position:relative;z-index:1}
+  .brand .vtag{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:#04120f;background:linear-gradient(180deg,#37f0e1,#22c9bd);
+    padding:1px 6px;border-radius:10px;font-weight:700;margin-left:6px;vertical-align:middle;box-shadow:0 0 12px -3px var(--accent)}
   .drawlayer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
   .drawlayer.on{pointer-events:auto;cursor:crosshair}
   #dropHint{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--ink-faint);
@@ -106,36 +112,56 @@
   #panelMeas .info{max-width:340px}
   .vbadge{font-family:var(--mono);font-size:11px;color:var(--good);background:rgba(57,217,138,.08);
     border:1px solid rgba(57,217,138,.3);border-radius:6px;padding:5px 9px}
-  /* ── сплэш ── */
-  #splash{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
-    background:radial-gradient(1000px 600px at 50% 30%,#0e2530,#060d11);transition:opacity .6s ease}
+  /* ── сплэш (футуристичная плашка запуска) ── */
+  #splash{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+    background:radial-gradient(1200px 800px at 50% 26%,#0f2b36,#060d11 70%);overflow:hidden;transition:opacity .7s ease}
   #splash.hide{opacity:0;pointer-events:none}
-  .sp-mark{filter:drop-shadow(0 0 26px rgba(47,228,214,.35));animation:spin 6s linear infinite}
+  #splash::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+    background-image:linear-gradient(rgba(47,228,214,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(47,228,214,.05) 1px,transparent 1px);
+    background-size:44px 44px;mask:radial-gradient(circle at 50% 42%,#000,transparent 72%);-webkit-mask:radial-gradient(circle at 50% 42%,#000,transparent 72%)}
+  #splash::after{content:"";position:absolute;left:50%;top:42%;width:680px;height:680px;transform:translate(-50%,-50%);pointer-events:none;
+    background:conic-gradient(from 0deg,transparent 0deg,rgba(47,228,214,.14) 22deg,transparent 60deg);border-radius:50%;
+    animation:sweep 4.2s linear infinite;mask:radial-gradient(circle,transparent 40%,#000 41%,#000 49%,transparent 50%);
+    -webkit-mask:radial-gradient(circle,transparent 40%,#000 41%,#000 49%,transparent 50%)}
+  @keyframes sweep{to{transform:translate(-50%,-50%) rotate(360deg)}}
+  .sp-reticle{position:relative;width:150px;height:150px;display:grid;place-items:center;filter:drop-shadow(0 0 30px rgba(47,228,214,.4))}
+  .sp-reticle .ring{position:absolute;border-radius:50%;border:1px solid rgba(47,228,214,.35)}
+  .sp-reticle .r1{inset:0;border-top-color:var(--accent);border-right-color:var(--accent);animation:spin 3.2s linear infinite}
+  .sp-reticle .r2{inset:18px;border-bottom-color:var(--accent2);border-left-color:var(--accent2);animation:spin 2.4s linear infinite reverse}
+  .sp-reticle .r3{inset:34px;border-style:dashed;border-color:rgba(147,182,190,.25);animation:spin 9s linear infinite}
+  .sp-reticle .core{animation:pulse 2.2s ease-in-out infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .sp-name{font-size:40px;font-weight:800;letter-spacing:.06em;color:var(--ink)}
-  .sp-name span{color:var(--accent)}
-  .sp-sub{font-family:var(--mono);font-size:11px;letter-spacing:.34em;color:var(--ink-faint)}
-  .sp-bar{width:240px;height:3px;background:#12303a;border-radius:3px;overflow:hidden;margin-top:8px}
+  @keyframes pulse{0%,100%{opacity:.7;transform:scale(.96)}50%{opacity:1;transform:scale(1.04)}}
+  .sp-name{position:relative;font-size:52px;font-weight:800;letter-spacing:.08em;
+    background:linear-gradient(180deg,#eafeff,#9fe9e3 60%,#2fe4d6);-webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 40px rgba(47,228,214,.25)}
+  .sp-name span{-webkit-text-fill-color:var(--accent);color:var(--accent)}
+  .sp-sub{font-family:var(--mono);font-size:11px;letter-spacing:.42em;color:var(--ink-soft);text-indent:.42em}
+  .sp-ver{font-family:var(--mono);font-size:10px;letter-spacing:.28em;color:#04120f;background:linear-gradient(180deg,#37f0e1,#22c9bd);
+    padding:3px 10px;border-radius:20px;font-weight:700;box-shadow:0 0 20px -4px var(--accent)}
+  .sp-bar{width:260px;height:3px;background:#12303a;border-radius:3px;overflow:hidden;margin-top:6px}
   .sp-bar i{display:block;height:100%;width:40%;background:linear-gradient(90deg,transparent,var(--accent),transparent);
-    animation:load 1.1s ease-in-out infinite}
+    animation:load 1.15s ease-in-out infinite}
   @keyframes load{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}
-  .sp-note{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-top:2px}
+  .sp-note{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-top:2px;letter-spacing:.06em}
 </style>
 </head>
 <body>
   <div id="splash">
-    <div class="sp-mark">
-      <svg width="86" height="86" viewBox="0 0 32 32" fill="none" stroke="#2fe4d6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="16" cy="16" r="15" stroke="#1c3a44"/>
+    <div class="sp-reticle">
+      <span class="ring r1"></span><span class="ring r2"></span><span class="ring r3"></span>
+      <svg class="core" width="72" height="72" viewBox="0 0 32 32" fill="none" stroke="#2fe4d6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M6 20a10 8 0 0 1 20 0" opacity=".5"/>
         <path d="M9 20c2.5 3 11.5 3 14 0"/>
-        <path d="M16 20v6M12 26h8" opacity=".85"/>
+        <path d="M16 20v6M12 26h8" opacity=".9"/>
+        <circle cx="16" cy="14" r="1.3" fill="#2fe4d6" stroke="none"/>
       </svg>
     </div>
     <div class="sp-name">OSSA&nbsp;<span>3D</span></div>
-    <div class="sp-sub">CRANIOFACIAL DISTRACTION PLANNER</div>
+    <div class="sp-sub">CRANIOFACIAL&nbsp;DISTRACTION&nbsp;PLANNER</div>
+    <div class="sp-ver">VERSION&nbsp;3.0</div>
     <div class="sp-bar"><i></i></div>
-    <div class="sp-note">Загрузка модулей планирования…</div>
+    <div class="sp-note">Инициализация модулей планирования…</div>
   </div>
   <div class="toolbar">
     <div class="brand">
@@ -146,7 +172,7 @@
           <path d="M16 20v6M12 26h8" opacity=".8"/>
         </svg>
       </span>
-      <div>OSSA&nbsp;3D<br><small>CRANIOFACIAL&nbsp;DISTRACTION&nbsp;PLANNER</small></div>
+      <div>OSSA&nbsp;3D<span class="vtag">v3.0</span><br><small>CRANIOFACIAL&nbsp;DISTRACTION&nbsp;PLANNER</small></div>
     </div>
     <button class="act" id="loadBtn">Загрузить DICOM</button>
     <input type="file" id="fileInput" webkitdirectory directory multiple accept=".dcm,application/dicom" style="display:none">
