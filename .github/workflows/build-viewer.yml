@@ -1,0 +1,42 @@
+name: Build 3D Viewer (Windows)
+
+# Собирает Windows-установщик КДО-Планировщика 3D (DICOM/MPR/3D).
+# Готовый .exe — во вкладке Actions → запуск → Artifacts.
+
+on:
+  push:
+    branches:
+      - main
+      - claude/amazing-bell-gvc4xo
+    paths:
+      - 'viewer/**'
+      - '.github/workflows/build-viewer.yml'
+  workflow_dispatch: {}
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: viewer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install
+      - name: Build web bundle
+        run: npm run build
+      - name: Build Windows installer
+        run: npx electron-builder --win --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KDO-Planner-3D-Windows-Installer
+          path: viewer/release/*.exe
+          if-no-files-found: error

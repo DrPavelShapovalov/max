@@ -1,0 +1,59 @@
+{
+  "name": "kdo-planner-3d",
+  "version": "3.2.0",
+  "private": true,
+  "type": "module",
+  "description": "OSSA 3D — Craniofacial Distraction Planner",
+  "author": "Шаповалов П.И.",
+  "main": "electron-main.cjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DrPavelShapovalov/max.git"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "electron": "electron .",
+    "dist": "vite build && electron-builder --win --publish never"
+  },
+  "dependencies": {
+    "@cornerstonejs/codec-charls": "^1.2.6",
+    "@cornerstonejs/codec-openjpeg": "^1.3.3",
+    "dicom-parser": "^1.8.21",
+    "isosurface": "^1.0.0",
+    "jpeg-js": "^0.4.4",
+    "jpeg-lossless-decoder-js": "^2.1.2",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "electron": "^31.7.6",
+    "electron-builder": "^24.13.3",
+    "vite": "^5.4.0"
+  },
+  "build": {
+    "appId": "ru.cniis.kdoplanner3d",
+    "productName": "OSSA 3D",
+    "artifactName": "OSSA-3D-Setup-${version}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron-main.cjs",
+      "dist/**"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OSSA 3D"
+    }
+  }
+}
