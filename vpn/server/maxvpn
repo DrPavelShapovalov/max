@@ -1,0 +1,252 @@
+#!/usr/bin/env bash
+# MaxVPN — управление устройствами (пирами) на сервере.
+#
+#   maxvpn info                                     параметры сервера в JSON
+#   maxvpn add <имя> [--pubkey KEY] [--psk KEY]     добавить устройство
+#   maxvpn list                                     список устройств в JSON
+#   maxvpn remove <имя>                             удалить устройство
+#   maxvpn conf <имя>                               показать конфиг (если ключ делал сервер)
+#   maxvpn qr <имя>                                 QR-код конфига для телефона
+#   maxvpn rebuild                                  пересобрать конфиг интерфейса
+#
+# Если --pubkey не задан, пара ключей генерируется на сервере, приватный ключ
+# выводится один раз и НЕ сохраняется на диск.
+
+set -euo pipefail
+
+STATE_DIR="/etc/maxvpn"
+PARAMS="$STATE_DIR/params.env"
+PEERS="$STATE_DIR/peers.tsv"
+
+die() { echo "ОШИБКА: $*" >&2; exit 1; }
+
+[[ -f "$PARAMS" ]] || die "сервер не настроен, сначала выполните install-server.sh"
+# shellcheck disable=SC1090
+. "$PARAMS"
+
+MODE="$SAVED_MODE"
+IFACE="$SAVED_IFACE"
+CONF_FILE="$SAVED_CONF_FILE"
+QUICK="$SAVED_QUICK"
+WGBIN="$SAVED_WGBIN"
+SUBNET="$SAVED_SUBNET"
+PORT="$SAVED_PORT"
+ENDPOINT="$SAVED_ENDPOINT"
+DNS="$SAVED_DNS"
+SERVER_PUB="$SAVED_SERVER_PUB"
+SERVER_IP="$SAVED_SERVER_IP"
+
+json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+
+iface_is_up() { ip link show "$IFACE" >/dev/null 2>&1; }
+
+# ----------------------------------------------------------------- пересборка
+
+rebuild() {
+  local tmp
+  tmp="$(mktemp)"
+  chmod 600 "$tmp"
+  cat "$STATE_DIR/interface.base" > "$tmp"
+
+  local name pubkey psk ip created
+  while IFS=$'\t' read -r name pubkey psk ip created; do
+    [[ -z "${name:-}" ]] && continue
+    {
+      echo ""
+      echo "# $name ($created)"
+      echo "[Peer]"
+      echo "PublicKey = $pubkey"
+      [[ -n "${psk:-}" && "$psk" != "-" ]] && echo "PresharedKey = $psk"
+      echo "AllowedIPs = $ip/32"
+    } >> "$tmp"
+  done < "$PEERS"
+
+  mkdir -p "$(dirname "$CONF_FILE")"
+  mv "$tmp" "$CONF_FILE"
+  chmod 600 "$CONF_FILE"
+
+  # Живая синхронизация без разрыва уже подключённых устройств.
+  if iface_is_up; then
+    "$WGBIN" syncconf "$IFACE" <("$QUICK" strip "$IFACE")
+  fi
+}
+
+# ------------------------------------------------------------ выдача адресов
+
+next_free_ip() {
+  python3 - "$SUBNET" "$SERVER_IP" "$PEERS" <<'PY'
+import ipaddress, sys, os
+net = ipaddress.ip_network(sys.argv[1], strict=False)
+used = {ipaddress.ip_address(sys.argv[2])}
+path = sys.argv[3]
+if os.path.exists(path):
+    with open(path) as fh:
+        for line in fh:
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) >= 4 and parts[3]:
+                used.add(ipaddress.ip_address(parts[3]))
+for host in net.hosts():
+    if host not in used:
+        print(host)
+        break
+else:
+    sys.exit("в подсети не осталось свободных адресов")
+PY
+}
+
+peer_line() {
+  local name="$1"
+  awk -F'\t' -v n="$name" '$1 == n {print; exit}' "$PEERS"
+}
+
+# --------------------------------------------------------------- клиентский конфиг
+
+# Собирает текст .conf для клиента. Приватный ключ передаётся аргументом и
+# нигде не сохраняется.
+client_conf() {
+  local priv="$1" ip="$2" psk="$3"
+  echo "[Interface]"
+  echo "PrivateKey = $priv"
+  echo "Address = $ip/32"
+  echo "DNS = ${DNS//,/, }"
+  if [[ "$MODE" == "awg" ]]; then
+    echo "Jc = $SAVED_JC"
+    echo "Jmin = $SAVED_JMIN"
+    echo "Jmax = $SAVED_JMAX"
+    echo "S1 = $SAVED_S1"
+    echo "S2 = $SAVED_S2"
+    echo "H1 = $SAVED_H1"
+    echo "H2 = $SAVED_H2"
+    echo "H3 = $SAVED_H3"
+    echo "H4 = $SAVED_H4"
+  fi
+  echo ""
+  echo "[Peer]"
+  echo "PublicKey = $SERVER_PUB"
+  [[ -n "$psk" && "$psk" != "-" ]] && echo "PresharedKey = $psk"
+  echo "AllowedIPs = 0.0.0.0/0, ::/0"
+  echo "Endpoint = $ENDPOINT:$PORT"
+  echo "PersistentKeepalive = 25"
+}
+
+# ------------------------------------------------------------------- команды
+
+cmd_info() {
+  printf '{'
+  printf '"mode":"%s",' "$(json_escape "$MODE")"
+  printf '"endpoint":"%s",' "$(json_escape "$ENDPOINT")"
+  printf '"port":%s,' "$PORT"
+  printf '"subnet":"%s",' "$(json_escape "$SUBNET")"
+  printf '"dns":"%s",' "$(json_escape "$DNS")"
+  printf '"interface":"%s",' "$(json_escape "$IFACE")"
+  printf '"serverPublicKey":"%s"' "$(json_escape "$SERVER_PUB")"
+  if [[ "$MODE" == "awg" ]]; then
+    printf ',"awg":{"Jc":%s,"Jmin":%s,"Jmax":%s,"S1":%s,"S2":%s,"H1":%s,"H2":%s,"H3":%s,"H4":%s}' \
+      "$SAVED_JC" "$SAVED_JMIN" "$SAVED_JMAX" "$SAVED_S1" "$SAVED_S2" \
+      "$SAVED_H1" "$SAVED_H2" "$SAVED_H3" "$SAVED_H4"
+  fi
+  printf '}\n'
+}
+
+cmd_add() {
+  local name="${1:-}"; shift || true
+  [[ -n "$name" ]] || die "укажите имя устройства: maxvpn add <имя>"
+  [[ "$name" =~ ^[A-Za-z0-9_.-]{1,32}$ ]] || die "имя: латиница, цифры, . _ - (до 32 символов)"
+  [[ -z "$(peer_line "$name")" ]] || die "устройство «$name» уже существует"
+
+  local pubkey="" psk="" priv=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --pubkey) pubkey="${2:-}"; shift 2 ;;
+      --psk)    psk="${2:-}"; shift 2 ;;
+      *) die "неизвестный аргумент: $1" ;;
+    esac
+  done
+
+  if [[ -z "$pubkey" ]]; then
+    # Ключ генерируем на сервере — режим для телефонов и QR-кода.
+    priv="$("$WGBIN" genkey)"
+    pubkey="$(printf '%s' "$priv" | "$WGBIN" pubkey)"
+  fi
+  [[ -z "$psk" ]] && psk="$("$WGBIN" genpsk)"
+
+  local ip created
+  ip="$(next_free_ip)"
+  created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$pubkey" "$psk" "$ip" "$created" >> "$PEERS"
+  chmod 600 "$PEERS"
+  rebuild
+
+  if [[ -n "$priv" ]]; then
+    # Конфиг с приватным ключом кладём под 600, чтобы его можно было забрать
+    # командой `maxvpn conf` или показать QR-кодом.
+    client_conf "$priv" "$ip" "$psk" > "$STATE_DIR/$name.conf"
+    chmod 600 "$STATE_DIR/$name.conf"
+  fi
+
+  printf '{"name":"%s","address":"%s","publicKey":"%s","presharedKey":"%s","serverGeneratedKey":%s}\n' \
+    "$(json_escape "$name")" "$ip" "$(json_escape "$pubkey")" "$(json_escape "$psk")" \
+    "$([[ -n "$priv" ]] && echo true || echo false)"
+}
+
+cmd_list() {
+  local first=1
+  printf '['
+  local name pubkey psk ip created
+  while IFS=$'\t' read -r name pubkey psk ip created; do
+    [[ -z "${name:-}" ]] && continue
+    [[ $first -eq 0 ]] && printf ','
+    first=0
+    local handshake="0"
+    if iface_is_up; then
+      handshake="$("$WGBIN" show "$IFACE" latest-handshakes 2>/dev/null \
+        | awk -v k="$pubkey" -F'\t' '$1 == k {print $2; exit}')"
+      [[ -z "$handshake" ]] && handshake="0"
+    fi
+    printf '{"name":"%s","address":"%s","publicKey":"%s","created":"%s","latestHandshake":%s}' \
+      "$(json_escape "$name")" "$ip" "$(json_escape "$pubkey")" "$created" "$handshake"
+  done < "$PEERS"
+  printf ']\n'
+}
+
+cmd_remove() {
+  local name="${1:-}"
+  [[ -n "$name" ]] || die "укажите имя устройства: maxvpn remove <имя>"
+  [[ -n "$(peer_line "$name")" ]] || die "устройство «$name» не найдено"
+  local tmp
+  tmp="$(mktemp)"
+  awk -F'\t' -v n="$name" '$1 != n' "$PEERS" > "$tmp"
+  mv "$tmp" "$PEERS"
+  chmod 600 "$PEERS"
+  rm -f "$STATE_DIR/$name.conf"
+  rebuild
+  echo "устройство «$name» удалено"
+}
+
+cmd_conf() {
+  local name="${1:-}"
+  [[ -n "$name" ]] || die "укажите имя устройства"
+  [[ -f "$STATE_DIR/$name.conf" ]] \
+    || die "конфиг для «$name» недоступен: приватный ключ создавался на клиенте и на сервере не хранится"
+  cat "$STATE_DIR/$name.conf"
+}
+
+cmd_qr() {
+  local name="${1:-}"
+  command -v qrencode >/dev/null 2>&1 || die "не установлен qrencode: apt-get install -y qrencode"
+  cmd_conf "$name" | qrencode -t ansiutf8
+}
+
+case "${1:-}" in
+  info)    shift; cmd_info "$@" ;;
+  add)     shift; cmd_add "$@" ;;
+  list)    shift; cmd_list "$@" ;;
+  remove)  shift; cmd_remove "$@" ;;
+  conf)    shift; cmd_conf "$@" ;;
+  qr)      shift; cmd_qr "$@" ;;
+  rebuild) shift; rebuild ;;
+  *)
+    sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+    exit 1
+    ;;
+esac

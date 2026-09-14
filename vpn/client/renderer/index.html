@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self';" />
+  <title>MaxVPN</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="dot" id="statusDot"></span>
+      <h1>MaxVPN</h1>
+    </div>
+    <div class="status" id="statusText">Проверяю состояние…</div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>Сервер</h2>
+      <p class="hint">
+        Данные доступа по SSH к вашему VPS. Пароль никуда не сохраняется — он
+        используется только на время операции.
+      </p>
+
+      <div class="grid">
+        <label>Адрес сервера
+          <input id="host" type="text" placeholder="203.0.113.10" autocomplete="off" />
+        </label>
+        <label>Порт SSH
+          <input id="sshPort" type="number" value="22" min="1" max="65535" />
+        </label>
+        <label>Пользователь
+          <input id="username" type="text" value="root" autocomplete="off" />
+        </label>
+        <label>Способ входа
+          <select id="authMethod">
+            <option value="password">Пароль</option>
+            <option value="key">Приватный ключ SSH</option>
+          </select>
+        </label>
+        <label id="passwordField">Пароль
+          <input id="password" type="password" autocomplete="off" />
+        </label>
+        <label id="keyField" class="hidden">Путь к ключу
+          <input id="privateKeyPath" type="text" placeholder="/home/user/.ssh/id_ed25519" />
+        </label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Параметры VPN</h2>
+      <div class="grid">
+        <label>Протокол
+          <select id="mode">
+            <option value="awg">AmneziaWG — с обфускацией</option>
+            <option value="wg">WireGuard — обычный</option>
+          </select>
+        </label>
+        <label>UDP-порт
+          <input id="vpnPort" type="number" placeholder="случайный" min="1" max="65535" />
+        </label>
+        <label>Имя этого устройства
+          <input id="deviceName" type="text" value="desktop" />
+        </label>
+        <label>DNS для клиентов
+          <input id="dns" type="text" value="1.1.1.1,1.0.0.1" />
+        </label>
+      </div>
+      <p class="hint" id="modeHint"></p>
+
+      <div class="actions">
+        <button id="deployBtn" class="primary">Установить и настроить сервер</button>
+        <button id="connectBtn">Подключиться</button>
+        <button id="disconnectBtn">Отключиться</button>
+        <button id="exportBtn">Экспортировать .conf</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Устройства</h2>
+      <div class="actions">
+        <input id="peerName" type="text" placeholder="имя нового устройства, например phone" />
+        <button id="addPeerBtn">Добавить</button>
+        <button id="refreshPeersBtn">Обновить список</button>
+      </div>
+      <table id="peersTable">
+        <thead>
+          <tr><th>Имя</th><th>Адрес</th><th>Последнее рукопожатие</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Журнал</h2>
+      <pre id="log"></pre>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

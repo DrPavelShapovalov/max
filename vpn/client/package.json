@@ -1,0 +1,59 @@
+{
+  "name": "maxvpn-client",
+  "version": "0.1.0",
+  "description": "Клиент MaxVPN: разворачивает WireGuard/AmneziaWG на своём сервере по SSH и управляет туннелем",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/run.js",
+    "dist": "electron-builder --win --publish never",
+    "dist:linux": "electron-builder --linux --publish never"
+  },
+  "dependencies": {
+    "ssh2": "^1.15.0"
+  },
+  "devDependencies": {
+    "electron": "^31.7.6",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "ru.maxvpn.client",
+    "productName": "MaxVPN",
+    "artifactName": "MaxVPN-Setup-${version}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**",
+      "renderer/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../server",
+        "to": "server"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "MaxVPN"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Network"
+    }
+  }
+}
