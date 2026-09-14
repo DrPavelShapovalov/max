@@ -17,6 +17,10 @@ DNS="1.1.1.1,1.0.0.1"
 ENDPOINT="auto"
 EMIT_JSON=0
 
+# Откуда брать утилиту maxvpn, если скрипт запущен без соседних файлов
+# (например, через `bash <(curl ...)`).
+CLI_URL="${MAXVPN_CLI_URL:-https://raw.githubusercontent.com/DrPavelShapovalov/max/claude/vpn-client-server-1f7g1c/vpn/server/maxvpn}"
+
 die() { echo "ОШИБКА: $*" >&2; exit 1; }
 log() { echo "[maxvpn] $*" >&2; }
 
@@ -30,6 +34,7 @@ usage() {
   --subnet CIDR      Внутренняя сеть VPN (по умолчанию: 10.28.0.0/24)
   --dns A,B          DNS для клиентов (по умолчанию: 1.1.1.1,1.0.0.1)
   --endpoint HOST    Внешний адрес сервера (по умолчанию: определяется сам)
+  --cli-url URL      Откуда скачать утилиту maxvpn, если её нет рядом
   --json             Вывести итоговые параметры машиночитаемым JSON
   -h, --help         Эта справка
 EOF
@@ -42,6 +47,7 @@ while [[ $# -gt 0 ]]; do
     --subnet)   SUBNET="${2:-}"; shift 2 ;;
     --dns)      DNS="${2:-}"; shift 2 ;;
     --endpoint) ENDPOINT="${2:-}"; shift 2 ;;
+    --cli-url)  CLI_URL="${2:-}"; shift 2 ;;
     --json)     EMIT_JSON=1; shift ;;
     -h|--help)  usage; exit 0 ;;
     *) die "неизвестный аргумент: $1" ;;
@@ -239,10 +245,30 @@ open_firewall() {
 
 install_cli() {
   local src
-  src="$(dirname "$(readlink -f "$0")")/maxvpn"
-  [[ -f "$src" ]] || die "рядом со скриптом не найден файл maxvpn"
-  install -m 755 "$src" /usr/local/bin/maxvpn
+  src="$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")/maxvpn"
+
+  if [[ -f "$src" ]]; then
+    install -m 755 "$src" /usr/local/bin/maxvpn
+  else
+    # Скрипт запущен без соседних файлов — скачиваем утилиту отдельно.
+    log "файла maxvpn нет рядом, скачиваю из $CLI_URL"
+    local tmp
+    tmp="$(mktemp)"
+    curl -fsSL --max-time 60 "$CLI_URL" -o "$tmp" \
+      || die "не удалось скачать maxvpn. Положите файл рядом со скриптом или задайте --cli-url"
+    # Простейшая проверка, что скачался скрипт, а не страница с ошибкой.
+    head -n1 "$tmp" | grep -q '^#!' \
+      || die "по адресу $CLI_URL лежит не скрипт — проверьте ссылку"
+    install -m 755 "$tmp" /usr/local/bin/maxvpn
+    rm -f "$tmp"
+  fi
   log "утилита управления установлена: /usr/local/bin/maxvpn"
+}
+
+verify_tools() {
+  command -v "$WGBIN" >/dev/null 2>&1 || die "утилита $WGBIN не установилась"
+  command -v "$QUICK" >/dev/null 2>&1 || die "утилита $QUICK не установилась"
+  log "проверка утилит пройдена: $("$WGBIN" --version 2>/dev/null | head -n1)"
 }
 
 enable_service() {
@@ -295,6 +321,7 @@ else
 fi
 
 install_packages
+verify_tools
 enable_forwarding
 detect_endpoint
 
