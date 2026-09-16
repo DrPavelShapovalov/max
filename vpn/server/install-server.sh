@@ -15,6 +15,7 @@ PORT=""                 # по умолчанию выбирается случ�
 SUBNET="10.28.0.0/24"
 DNS="1.1.1.1,1.0.0.1"
 ENDPOINT="auto"
+SSH_PORT=""
 EMIT_JSON=0
 
 # Откуда брать утилиту paulvpn, если скрипт запущен без соседних файлов
@@ -35,6 +36,8 @@ usage() {
   --dns A,B          DNS для клиентов (по умолчанию: 1.1.1.1,1.0.0.1)
   --endpoint HOST    Внешний адрес сервера (по умолчанию: определяется сам)
   --cli-url URL      Откуда скачать утилиту paulvpn, если её нет рядом
+  --ssh-port N       Дополнительный порт для SSH (порт 22 остаётся). Нужен,
+                     когда сеть блокирует 22: обычно задают 443
   --json             Вывести итоговые параметры машиночитаемым JSON
   -h, --help         Эта справка
 EOF
@@ -48,6 +51,7 @@ while [[ $# -gt 0 ]]; do
     --dns)      DNS="${2:-}"; shift 2 ;;
     --endpoint) ENDPOINT="${2:-}"; shift 2 ;;
     --cli-url)  CLI_URL="${2:-}"; shift 2 ;;
+    --ssh-port) SSH_PORT="${2:-}"; shift 2 ;;
     --json)     EMIT_JSON=1; shift ;;
     -h|--help)  usage; exit 0 ;;
     *) die "неизвестный аргумент: $1" ;;
@@ -56,6 +60,14 @@ done
 
 [[ "$MODE" == "wg" || "$MODE" == "awg" ]] || die "--mode должен быть wg или awg"
 [[ $EUID -eq 0 ]] || die "скрипт нужно запускать от root"
+
+# Аргументы проверяем до установки пакетов: опечатка не должна всплывать
+# через три минуты после начала работы.
+for value in "$PORT" "$SSH_PORT"; do
+  [[ -z "$value" ]] && continue
+  [[ "$value" =~ ^[0-9]+$ ]] && (( value >= 1 && value <= 65535 )) \
+    || die "порт должен быть числом от 1 до 65535, получено: $value"
+done
 
 STATE_DIR="/etc/paulvpn"
 
@@ -236,6 +248,49 @@ write_interface_base() {
   chmod 600 "$STATE_DIR/interface.base"
 }
 
+# Добавляет SSH ещё один порт, не убирая 22.
+#
+# В Ubuntu 24.04 sshd запускается через сокет systemd, и тогда порты берутся
+# из ssh.socket, а не из sshd_config — директива Port там просто игнорируется.
+# Поэтому сначала определяем, как именно запущен SSH.
+configure_ssh_port() {
+  [[ -n "$SSH_PORT" && "$SSH_PORT" != "22" ]] || return 0
+
+  if systemctl is-active --quiet ssh.socket || systemctl is-enabled --quiet ssh.socket 2>/dev/null; then
+    log "SSH работает через сокет systemd, добавляю порт $SSH_PORT там"
+    mkdir -p /etc/systemd/system/ssh.socket.d
+    # Пустой ListenStream сбрасывает унаследованный список, иначе порты сложатся
+    # с теми, что заданы в основном юните.
+    cat > /etc/systemd/system/ssh.socket.d/99-paulvpn.conf <<EOF
+[Socket]
+ListenStream=
+ListenStream=22
+ListenStream=$SSH_PORT
+EOF
+    systemctl daemon-reload
+    systemctl restart ssh.socket || die "не удалось перезапустить ssh.socket"
+  else
+    log "добавляю порт $SSH_PORT в конфигурацию sshd"
+    mkdir -p /etc/ssh/sshd_config.d
+    cat > /etc/ssh/sshd_config.d/99-paulvpn.conf <<EOF
+Port 22
+Port $SSH_PORT
+EOF
+    # Проверяем конфиг до перезапуска: с битым конфигом sshd не поднимется,
+    # и доступ к серверу будет потерян.
+    if ! sshd -t; then
+      rm -f /etc/ssh/sshd_config.d/99-paulvpn.conf
+      die "sshd отверг новую конфигурацию, порт не изменён"
+    fi
+    systemctl restart ssh || systemctl restart sshd || die "не удалось перезапустить SSH"
+  fi
+
+  if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "^Status: active"; then
+    ufw allow "$SSH_PORT"/tcp >/dev/null || log "ВНИМАНИЕ: ufw allow $SSH_PORT/tcp не выполнился"
+  fi
+  log "SSH теперь принимает подключения и на порту $SSH_PORT"
+}
+
 open_firewall() {
   if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "^Status: active"; then
     log "открываю $PORT/udp в ufw"
@@ -350,6 +405,7 @@ SAVED_CONF_FILE="$CONF_FILE"
 SAVED_QUICK="$QUICK"
 SAVED_WGBIN="$WGBIN"
 SAVED_WAN_IF="$WAN_IF"
+SAVED_SSH_PORT="${SSH_PORT:-22}"
 SAVED_SERVER_IP="$SERVER_IP"
 SAVED_SERVER_PRIV="$SERVER_PRIV"
 SAVED_SERVER_PUB="$SERVER_PUB"
@@ -376,9 +432,10 @@ chmod 600 "$STATE_DIR/peers.tsv"
 install_cli
 /usr/local/bin/paulvpn rebuild
 open_firewall
+configure_ssh_port
 enable_service
 
-log "готово: $MODE, порт $PORT/udp, эндпоинт $ENDPOINT"
+log "готово: $MODE, порт $PORT/udp, эндпоинт $ENDPOINT, SSH на порту ${SSH_PORT:-22}"
 
 if [[ $EMIT_JSON -eq 1 ]]; then
   echo "---PAULVPN-JSON---"
