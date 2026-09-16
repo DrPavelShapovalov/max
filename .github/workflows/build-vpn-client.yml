@@ -1,0 +1,64 @@
+name: Build MaxVPN (Windows)
+
+# Собирает готовый установщик MaxVPN для Windows.
+# Скачать: вкладка Actions -> нужный запуск -> раздел Artifacts.
+
+on:
+  push:
+    branches:
+      - claude/vpn-client-server-1f7g1c
+    paths:
+      - 'vpn/**'
+      - '.github/workflows/build-vpn-client.yml'
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Проверка скриптов сервера
+        run: |
+          bash -n vpn/server/install-server.sh
+          bash -n vpn/server/maxvpn
+
+      - name: Тесты клиента
+        working-directory: vpn/client
+        run: node test/run.js
+
+  build-windows:
+    needs: test
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: vpn/client
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Windows installer
+        run: npm run dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MaxVPN-Windows-Installer
+          path: vpn/client/dist/*.exe
+          if-no-files-found: error
