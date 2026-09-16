@@ -50,7 +50,7 @@ class SshSession {
         this.log(`Подключение к ${username}@${host}:${config.port} установлено.`);
         resolve();
       });
-      conn.on('error', (err) => reject(new Error(`SSH: ${err.message}`)));
+      conn.on('error', (err) => reject(describeConnectError(err, host, config.port)));
       if (config.tryKeyboard) conn.on('keyboard-interactive', onKeyboard);
       conn.connect(config);
     });
@@ -109,9 +109,48 @@ class SshSession {
   }
 }
 
+/**
+ * Превращает низкоуровневую ошибку ssh2 в объяснение, по которому понятно,
+ * что делать. Коды приходят из системного сокета, level — из самого ssh2.
+ */
+function describeConnectError(err, host, port) {
+  const code = err.code || '';
+
+  if (code === 'ETIMEDOUT' || code === 'EHOSTUNREACH' || code === 'ENETUNREACH') {
+    return new Error(
+      `Сервер ${host} не ответил на порту ${port}.\n` +
+        'Возможные причины:\n' +
+        '  - виртуальная машина выключена или ещё перезагружается после переустановки;\n' +
+        '  - ваша сеть блокирует исходящие подключения на порт 22 — так часто настроены ' +
+        'рабочие и гостевые сети, проверить можно, раздав интернет с телефона;\n' +
+        '  - адрес сервера указан неверно.'
+    );
+  }
+
+  if (code === 'ECONNREFUSED') {
+    return new Error(
+      `Сервер ${host} доступен, но на порту ${port} никто не отвечает. ` +
+        'Похоже, служба SSH не запущена или слушает другой порт.'
+    );
+  }
+
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
+    return new Error(`Не удалось определить адрес «${host}». Проверьте написание адреса сервера.`);
+  }
+
+  if (err.level === 'client-authentication') {
+    return new Error(
+      'Сервер отклонил вход: неверный пароль или ключ. ' +
+        'После переустановки системы пароль меняется — возьмите новый из письма хостинга.'
+    );
+  }
+
+  return new Error(`SSH: ${err.message}`);
+}
+
 /** Экранирует строку для безопасной подстановки в команду оболочки. */
 function shellQuote(value) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
-module.exports = { SshSession, shellQuote };
+module.exports = { SshSession, shellQuote, describeConnectError };

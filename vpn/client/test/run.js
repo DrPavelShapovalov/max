@@ -4,6 +4,15 @@ const assert = require('assert');
 const { generateKeyPair, publicKeyFrom, generatePresharedKey, isValidKey } = require('../src/keys');
 const { buildClientConf, parseServerJson } = require('../src/config');
 
+// ssh.js подключает ssh2; в тестах настоящий модуль не нужен, поэтому подменяем.
+const Module = require('module');
+const originalLoad = Module._load;
+Module._load = function (request, ...rest) {
+  if (request === 'ssh2') return { Client: class {} };
+  return originalLoad.call(this, request, ...rest);
+};
+const { describeConnectError, shellQuote } = require('../src/ssh');
+
 let failures = 0;
 
 function test(name, fn) {
@@ -98,6 +107,34 @@ test('JSON сервера извлекается из смешанного вы�
 
 test('вывод без JSON даёт понятную ошибку', () => {
   assert.throws(() => parseServerJson('что-то пошло не так'), /не вернул параметры/);
+});
+
+console.log('Ошибки подключения');
+
+test('таймаут объясняется, а не показывается кодом', () => {
+  const message = describeConnectError({ code: 'ETIMEDOUT' }, '31.76.24.204', 22).message;
+  assert.match(message, /не ответил на порту 22/);
+  assert.match(message, /порт 22/);
+  assert.ok(!message.includes('ETIMEDOUT'), 'код ошибки пользователю ничего не говорит');
+});
+
+test('отказ в соединении отличается от таймаута', () => {
+  const message = describeConnectError({ code: 'ECONNREFUSED' }, 'example.org', 2222).message;
+  assert.match(message, /на порту 2222 никто не отвечает/);
+});
+
+test('неверный пароль назван своим именем', () => {
+  const message = describeConnectError({ level: 'client-authentication' }, 'h', 22).message;
+  assert.match(message, /неверный пароль или ключ/);
+});
+
+test('незнакомая ошибка не теряется', () => {
+  const message = describeConnectError({ message: 'нечто странное' }, 'h', 22).message;
+  assert.match(message, /нечто странное/);
+});
+
+test('кавычки в аргументах экранируются', () => {
+  assert.strictEqual(shellQuote("it's"), "'it'\\''s'");
 });
 
 console.log(failures ? `\nПровалено проверок: ${failures}` : '\nВсе проверки пройдены.');
