@@ -1,4 +1,4 @@
-// MaxVPN — главный процесс Electron.
+// PaulVPN — главный процесс Electron.
 //
 // Логика разворачивания сервера целиком здесь: рендерер только собирает форму и
 // показывает журнал. Приватный ключ устройства генерируется локально, на сервер
@@ -17,7 +17,7 @@ const { Store } = require('./src/store');
 let mainWindow = null;
 let store = null;
 
-const REMOTE_DIR = '/root/.maxvpn';
+const REMOTE_DIR = '/root/.paulvpn';
 
 function serverScriptsDir() {
   // В собранном приложении скрипты кладутся в resources/server (extraResources),
@@ -37,7 +37,7 @@ function createWindow() {
     height: 760,
     minWidth: 900,
     minHeight: 640,
-    title: 'MaxVPN',
+    title: 'PaulVPN',
     backgroundColor: '#0e1116',
     autoHideMenuBar: true,
     webPreferences: {
@@ -102,11 +102,11 @@ async function assertServerUsable(session) {
 async function uploadScripts(session) {
   const dir = serverScriptsDir();
   const installer = fs.readFileSync(path.join(dir, 'install-server.sh'), 'utf8');
-  const cli = fs.readFileSync(path.join(dir, 'maxvpn'), 'utf8');
+  const cli = fs.readFileSync(path.join(dir, 'paulvpn'), 'utf8');
 
   await session.exec(`mkdir -p ${REMOTE_DIR} && chmod 700 ${REMOTE_DIR}`);
   await session.upload(installer, `${REMOTE_DIR}/install-server.sh`, 0o700);
-  await session.upload(cli, `${REMOTE_DIR}/maxvpn`, 0o700);
+  await session.upload(cli, `${REMOTE_DIR}/paulvpn`, 0o700);
   log('Скрипты установки загружены на сервер.');
 }
 
@@ -160,11 +160,11 @@ ipcMain.handle('deploy:run', async (_event, options) => {
     log(`Сервер настроен: ${info.mode}, ${info.endpoint}:${info.port}`);
 
     // Если устройство с таким именем уже есть, пересоздаём его под текущий ключ.
-    await session.exec(`${REMOTE_DIR}/maxvpn remove ${shellQuote(deviceName)}`, {
+    await session.exec(`${REMOTE_DIR}/paulvpn remove ${shellQuote(deviceName)}`, {
       allowFailure: true,
     });
     const add = await session.exec(
-      `${REMOTE_DIR}/maxvpn add ${shellQuote(deviceName)} --pubkey ${shellQuote(publicKey)}`
+      `${REMOTE_DIR}/paulvpn add ${shellQuote(deviceName)} --pubkey ${shellQuote(publicKey)}`
     );
     const peer = JSON.parse(add.stdout.trim());
     log(`Устройство «${peer.name}» добавлено, адрес в туннеле ${peer.address}.`);
@@ -203,7 +203,7 @@ ipcMain.handle('deploy:run', async (_event, options) => {
 
 ipcMain.handle('peers:list', async (_event, options) =>
   withSsh(options, async (session) => {
-    const result = await session.exec(`${REMOTE_DIR}/maxvpn list`);
+    const result = await session.exec(`${REMOTE_DIR}/paulvpn list`);
     return JSON.parse(result.stdout.trim());
   })
 );
@@ -212,15 +212,15 @@ ipcMain.handle('peers:add', async (_event, options) =>
   withSsh(options, async (session) => {
     const name = shellQuote(options.name);
     // Без --pubkey ключ делает сервер: так удобнее заводить телефон по QR-коду.
-    await session.exec(`${REMOTE_DIR}/maxvpn add ${name}`);
-    const conf = await session.exec(`${REMOTE_DIR}/maxvpn conf ${name}`);
+    await session.exec(`${REMOTE_DIR}/paulvpn add ${name}`);
+    const conf = await session.exec(`${REMOTE_DIR}/paulvpn conf ${name}`);
     return { name: options.name, conf: conf.stdout };
   })
 );
 
 ipcMain.handle('peers:remove', async (_event, options) =>
   withSsh(options, async (session) => {
-    await session.exec(`${REMOTE_DIR}/maxvpn remove ${shellQuote(options.name)}`);
+    await session.exec(`${REMOTE_DIR}/paulvpn remove ${shellQuote(options.name)}`);
     return { removed: options.name };
   })
 );
@@ -244,7 +244,7 @@ ipcMain.handle('tunnel:status', async () => {
 ipcMain.handle('conf:export', async (_event, text) => {
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
     title: 'Сохранить конфигурацию',
-    defaultPath: 'maxvpn.conf',
+    defaultPath: 'paulvpn.conf',
     filters: [{ name: 'Конфигурация WireGuard', extensions: ['conf'] }],
   });
   if (canceled || !filePath) return { saved: false };

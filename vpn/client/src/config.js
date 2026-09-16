@@ -50,7 +50,7 @@ function buildClientConf(p) {
  * весь вывод целиком не нужно.
  */
 function parseServerJson(output) {
-  const match = output.match(/---MAXVPN-JSON---\s*([\s\S]*?)\s*---MAXVPN-JSON-END---/);
+  const match = output.match(/---PAULVPN-JSON---\s*([\s\S]*?)\s*---PAULVPN-JSON-END---/);
   if (!match) {
     throw new Error('сервер не вернул параметры установки — смотрите журнал выполнения');
   }

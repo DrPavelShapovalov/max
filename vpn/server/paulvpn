@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# MaxVPN — управление устройствами (пирами) на сервере.
+# PaulVPN — управление устройствами (пирами) на сервере.
 #
-#   maxvpn info                                     параметры сервера в JSON
-#   maxvpn add <имя> [--pubkey KEY] [--psk KEY]     добавить устройство
-#   maxvpn list                                     список устройств в JSON
-#   maxvpn remove <имя>                             удалить устройство
-#   maxvpn conf <имя>                               показать конфиг (если ключ делал сервер)
-#   maxvpn qr <имя>                                 QR-код конфига для телефона
-#   maxvpn rebuild                                  пересобрать конфиг интерфейса
+#   paulvpn info                                     параметры сервера в JSON
+#   paulvpn add <имя> [--pubkey KEY] [--psk KEY]     добавить устройство
+#   paulvpn list                                     список устройств в JSON
+#   paulvpn remove <имя>                             удалить устройство
+#   paulvpn conf <имя>                               показать конфиг (если ключ делал сервер)
+#   paulvpn qr <имя>                                 QR-код конфига для телефона
+#   paulvpn rebuild                                  пересобрать конфиг интерфейса
 #
 # Если --pubkey не задан, пара ключей генерируется на сервере, приватный ключ
 # выводится один раз и НЕ сохраняется на диск.
 
 set -euo pipefail
 
-STATE_DIR="/etc/maxvpn"
+STATE_DIR="/etc/paulvpn"
 PARAMS="$STATE_DIR/params.env"
 PEERS="$STATE_DIR/peers.tsv"
 
@@ -150,7 +150,7 @@ cmd_info() {
 
 cmd_add() {
   local name="${1:-}"; shift || true
-  [[ -n "$name" ]] || die "укажите имя устройства: maxvpn add <имя>"
+  [[ -n "$name" ]] || die "укажите имя устройства: paulvpn add <имя>"
   [[ "$name" =~ ^[A-Za-z0-9_.-]{1,32}$ ]] || die "имя: латиница, цифры, . _ - (до 32 символов)"
   [[ -z "$(peer_line "$name")" ]] || die "устройство «$name» уже существует"
 
@@ -179,7 +179,7 @@ cmd_add() {
 
   if [[ -n "$priv" ]]; then
     # Конфиг с приватным ключом кладём под 600, чтобы его можно было забрать
-    # командой `maxvpn conf` или показать QR-кодом.
+    # командой `paulvpn conf` или показать QR-кодом.
     client_conf "$priv" "$ip" "$psk" > "$STATE_DIR/$name.conf"
     chmod 600 "$STATE_DIR/$name.conf"
   fi
@@ -211,7 +211,7 @@ cmd_list() {
 
 cmd_remove() {
   local name="${1:-}"
-  [[ -n "$name" ]] || die "укажите имя устройства: maxvpn remove <имя>"
+  [[ -n "$name" ]] || die "укажите имя устройства: paulvpn remove <имя>"
   [[ -n "$(peer_line "$name")" ]] || die "устройство «$name» не найдено"
   local tmp
   tmp="$(mktemp)"

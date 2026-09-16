@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MaxVPN — установщик сервера WireGuard / AmneziaWG для Debian и Ubuntu.
+# PaulVPN — установщик сервера WireGuard / AmneziaWG для Debian и Ubuntu.
 #
 # Скрипт идемпотентен: повторный запуск не пересоздаёт ключи сервера и не
 # теряет уже добавленные устройства.
@@ -17,12 +17,12 @@ DNS="1.1.1.1,1.0.0.1"
 ENDPOINT="auto"
 EMIT_JSON=0
 
-# Откуда брать утилиту maxvpn, если скрипт запущен без соседних файлов
+# Откуда брать утилиту paulvpn, если скрипт запущен без соседних файлов
 # (например, через `bash <(curl ...)`).
-CLI_URL="${MAXVPN_CLI_URL:-https://raw.githubusercontent.com/DrPavelShapovalov/max/claude/vpn-client-server-1f7g1c/vpn/server/maxvpn}"
+CLI_URL="${PAULVPN_CLI_URL:-https://raw.githubusercontent.com/DrPavelShapovalov/max/claude/vpn-client-server-1f7g1c/vpn/server/paulvpn}"
 
 die() { echo "ОШИБКА: $*" >&2; exit 1; }
-log() { echo "[maxvpn] $*" >&2; }
+log() { echo "[paulvpn] $*" >&2; }
 
 usage() {
   cat >&2 <<'EOF'
@@ -34,7 +34,7 @@ usage() {
   --subnet CIDR      Внутренняя сеть VPN (по умолчанию: 10.28.0.0/24)
   --dns A,B          DNS для клиентов (по умолчанию: 1.1.1.1,1.0.0.1)
   --endpoint HOST    Внешний адрес сервера (по умолчанию: определяется сам)
-  --cli-url URL      Откуда скачать утилиту maxvpn, если её нет рядом
+  --cli-url URL      Откуда скачать утилиту paulvpn, если её нет рядом
   --json             Вывести итоговые параметры машиночитаемым JSON
   -h, --help         Эта справка
 EOF
@@ -57,7 +57,7 @@ done
 [[ "$MODE" == "wg" || "$MODE" == "awg" ]] || die "--mode должен быть wg или awg"
 [[ $EUID -eq 0 ]] || die "скрипт нужно запускать от root"
 
-STATE_DIR="/etc/maxvpn"
+STATE_DIR="/etc/paulvpn"
 
 if [[ "$MODE" == "awg" ]]; then
   IFACE="awg0"
@@ -173,7 +173,7 @@ EOF
 
 enable_forwarding() {
   log "включаю маршрутизацию пакетов"
-  cat > /etc/sysctl.d/99-maxvpn.conf <<'EOF'
+  cat > /etc/sysctl.d/99-paulvpn.conf <<'EOF'
 net.ipv4.ip_forward = 1
 net.ipv6.conf.all.forwarding = 1
 EOF
@@ -211,7 +211,7 @@ generate_awg_params() {
 }
 
 # Записывает [Interface] сервера в $STATE_DIR/interface.base.
-# CLI maxvpn пересобирает из него итоговый конфиг вместе со списком пиров.
+# CLI paulvpn пересобирает из него итоговый конфиг вместе со списком пиров.
 write_interface_base() {
   local server_ip="$1"
   {
@@ -245,24 +245,24 @@ open_firewall() {
 
 install_cli() {
   local src
-  src="$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")/maxvpn"
+  src="$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")/paulvpn"
 
   if [[ -f "$src" ]]; then
-    install -m 755 "$src" /usr/local/bin/maxvpn
+    install -m 755 "$src" /usr/local/bin/paulvpn
   else
     # Скрипт запущен без соседних файлов — скачиваем утилиту отдельно.
-    log "файла maxvpn нет рядом, скачиваю из $CLI_URL"
+    log "файла paulvpn нет рядом, скачиваю из $CLI_URL"
     local tmp
     tmp="$(mktemp)"
     curl -fsSL --max-time 60 "$CLI_URL" -o "$tmp" \
-      || die "не удалось скачать maxvpn. Положите файл рядом со скриптом или задайте --cli-url"
+      || die "не удалось скачать paulvpn. Положите файл рядом со скриптом или задайте --cli-url"
     # Простейшая проверка, что скачался скрипт, а не страница с ошибкой.
     head -n1 "$tmp" | grep -q '^#!' \
       || die "по адресу $CLI_URL лежит не скрипт — проверьте ссылку"
-    install -m 755 "$tmp" /usr/local/bin/maxvpn
+    install -m 755 "$tmp" /usr/local/bin/paulvpn
     rm -f "$tmp"
   fi
-  log "утилита управления установлена: /usr/local/bin/maxvpn"
+  log "утилита управления установлена: /usr/local/bin/paulvpn"
 }
 
 verify_tools() {
@@ -374,14 +374,14 @@ write_interface_base "$SERVER_IP"
 chmod 600 "$STATE_DIR/peers.tsv"
 
 install_cli
-/usr/local/bin/maxvpn rebuild
+/usr/local/bin/paulvpn rebuild
 open_firewall
 enable_service
 
 log "готово: $MODE, порт $PORT/udp, эндпоинт $ENDPOINT"
 
 if [[ $EMIT_JSON -eq 1 ]]; then
-  echo "---MAXVPN-JSON---"
-  /usr/local/bin/maxvpn info
-  echo "---MAXVPN-JSON-END---"
+  echo "---PAULVPN-JSON---"
+  /usr/local/bin/paulvpn info
+  echo "---PAULVPN-JSON-END---"
 fi

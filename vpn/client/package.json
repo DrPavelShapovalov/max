@@ -1,7 +1,7 @@
 {
-  "name": "maxvpn-client",
+  "name": "paulvpn-client",
   "version": "0.1.0",
-  "description": "Клиент MaxVPN: разворачивает WireGuard/AmneziaWG на своём сервере по SSH и управляет туннелем",
+  "description": "Клиент PaulVPN: разворачивает WireGuard/AmneziaWG на своём сервере по SSH и управляет туннелем",
   "license": "UNLICENSED",
   "private": true,
   "author": "Шаповалов П.И.",
@@ -24,9 +24,9 @@
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "ru.maxvpn.client",
-    "productName": "MaxVPN",
-    "artifactName": "MaxVPN-Setup-${version}.${ext}",
+    "appId": "ru.paulvpn.client",
+    "productName": "PaulVPN",
+    "artifactName": "PaulVPN-Setup-${version}.${ext}",
     "directories": {
       "output": "dist"
     },
@@ -52,7 +52,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "MaxVPN"
+      "shortcutName": "PaulVPN"
     },
     "linux": {
       "target": [

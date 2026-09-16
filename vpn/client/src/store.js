@@ -31,7 +31,7 @@ class Store {
   }
 
   get confPath() {
-    return path.join(this.dir, 'maxvpn.conf');
+    return path.join(this.dir, 'paulvpn.conf');
   }
 
   saveConf(text) {

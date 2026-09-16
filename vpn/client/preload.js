@@ -3,7 +3,7 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('maxvpn', {
+contextBridge.exposeInMainWorld('paulvpn', {
   getProfile: () => ipcRenderer.invoke('profile:get'),
   deploy: (options) => ipcRenderer.invoke('deploy:run', options),
   listPeers: (options) => ipcRenderer.invoke('peers:list', options),

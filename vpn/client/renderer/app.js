@@ -1,4 +1,4 @@
-// Рендерер: собирает форму, дёргает главный процесс через мост window.maxvpn.
+// Рендерер: собирает форму, дёргает главный процесс через мост window.paulvpn.
 
 const $ = (id) => document.getElementById(id);
 
@@ -77,7 +77,7 @@ $('deployBtn').addEventListener('click', () =>
     setStatus('Настраиваю сервер…');
     appendLog('Начинаю установку.');
 
-    const result = await window.maxvpn.deploy({
+    const result = await window.paulvpn.deploy({
       ...options,
       mode: $('mode').value,
       vpnPort: $('vpnPort').value,
@@ -94,7 +94,7 @@ $('deployBtn').addEventListener('click', () =>
 $('connectBtn').addEventListener('click', () =>
   guard(async () => {
     setStatus('Поднимаю туннель…');
-    const result = await window.maxvpn.tunnelUp();
+    const result = await window.paulvpn.tunnelUp();
     if (!result.ok) throw new Error(result.error);
     appendLog(`Туннель «${result.name}» поднят.`);
     await refreshTunnelStatus();
@@ -103,7 +103,7 @@ $('connectBtn').addEventListener('click', () =>
 
 $('disconnectBtn').addEventListener('click', () =>
   guard(async () => {
-    const result = await window.maxvpn.tunnelDown();
+    const result = await window.paulvpn.tunnelDown();
     if (!result.ok) throw new Error(result.error);
     appendLog('Туннель остановлен.');
     await refreshTunnelStatus();
@@ -112,7 +112,7 @@ $('disconnectBtn').addEventListener('click', () =>
 
 $('exportBtn').addEventListener('click', () =>
   guard(async () => {
-    const result = await window.maxvpn.exportConf(null);
+    const result = await window.paulvpn.exportConf(null);
     appendLog(result.saved ? `Конфигурация сохранена: ${result.filePath}` : 'Сохранение отменено.');
   })
 );
@@ -121,7 +121,7 @@ $('refreshPeersBtn').addEventListener('click', () =>
   guard(async () => {
     const options = sshOptions();
     validateSsh(options);
-    renderPeers(await window.maxvpn.listPeers(options));
+    renderPeers(await window.paulvpn.listPeers(options));
   })
 );
 
@@ -132,11 +132,11 @@ $('addPeerBtn').addEventListener('click', () =>
     const name = $('peerName').value.trim();
     if (!name) throw new Error('Введите имя нового устройства.');
 
-    const result = await window.maxvpn.addPeer({ ...options, name });
+    const result = await window.paulvpn.addPeer({ ...options, name });
     appendLog(`Устройство «${result.name}» добавлено. Конфигурация ниже — перенесите её на устройство.`);
     appendLog(result.conf);
     $('peerName').value = '';
-    renderPeers(await window.maxvpn.listPeers(options));
+    renderPeers(await window.paulvpn.listPeers(options));
   })
 );
 
@@ -168,9 +168,9 @@ function renderPeers(peers) {
       guard(async () => {
         const options = sshOptions();
         validateSsh(options);
-        await window.maxvpn.removePeer({ ...options, name: peer.name });
+        await window.paulvpn.removePeer({ ...options, name: peer.name });
         appendLog(`Устройство «${peer.name}» удалено.`);
-        renderPeers(await window.maxvpn.listPeers(options));
+        renderPeers(await window.paulvpn.listPeers(options));
       })
     );
     actions.appendChild(remove);
@@ -178,17 +178,17 @@ function renderPeers(peers) {
 }
 
 async function refreshTunnelStatus() {
-  const state = await window.maxvpn.tunnelStatus();
+  const state = await window.paulvpn.tunnelStatus();
   setStatus(state.up ? 'Подключено' : 'Отключено', state.up ? 'on' : null);
 }
 
 // --------------------------------------------------------------- инициализация
 
-window.maxvpn.onLog(appendLog);
+window.paulvpn.onLog(appendLog);
 
 (async function init() {
   updateModeHint();
-  const { profile, hasConf, tunnelEnv } = await window.maxvpn.getProfile();
+  const { profile, hasConf, tunnelEnv } = await window.paulvpn.getProfile();
 
   if (profile.host) $('host').value = profile.host;
   if (profile.sshPort) $('sshPort').value = profile.sshPort;

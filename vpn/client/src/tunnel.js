@@ -75,7 +75,7 @@ async function detect(mode) {
         platform,
         reason:
           `Не найден ${client.exe}. ${client.downloadHint}\n` +
-          'Само подключение будет делать MaxVPN, открывать этот клиент не придётся.',
+          'Само подключение будет делать PaulVPN, открывать этот клиент не придётся.',
       };
     }
     return {

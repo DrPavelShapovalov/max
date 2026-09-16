@@ -87,11 +87,11 @@ test('неполный набор параметров обфускации — 
 
 test('JSON сервера извлекается из смешанного вывода', () => {
   const output = [
-    '[maxvpn] ставлю пакеты',
-    '---MAXVPN-JSON---',
+    '[paulvpn] ставлю пакеты',
+    '---PAULVPN-JSON---',
     '{"mode":"awg","port":51820}',
-    '---MAXVPN-JSON-END---',
-    '[maxvpn] готово',
+    '---PAULVPN-JSON-END---',
+    '[paulvpn] готово',
   ].join('\n');
   assert.deepStrictEqual(parseServerJson(output), { mode: 'awg', port: 51820 });
 });
