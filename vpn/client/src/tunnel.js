@@ -5,9 +5,11 @@
 // уровня ядра (WinTun, wireguard-go) требует подписи и прав администратора, и
 // дублировать его в v1 смысла нет.
 //
-// Windows: wireguard.exe /installtunnelservice и /uninstalltunnelservice создают
-//   и удаляют службу WireGuardTunnel$<имя>, описаны в
+// Windows: wireguard.exe и amneziawg.exe принимают одни и те же ключи
+//   /installtunnelservice и /uninstalltunnelservice и создают службы
+//   WireGuardTunnel$<имя> и AmneziaWGTunnel$<имя> соответственно.
 //   https://github.com/WireGuard/wireguard-windows/blob/master/docs/enterprise.md
+//   https://github.com/amnezia-vpn/amneziawg-windows-client/blob/master/docs/enterprise.md
 // Linux/macOS: wg-quick up|down, для AmneziaWG — awg-quick.
 
 const { execFile } = require('child_process');
@@ -15,10 +17,24 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const WINDOWS_CANDIDATES = [
-  'C:\\Program Files\\WireGuard\\wireguard.exe',
-  'C:\\Program Files (x86)\\WireGuard\\wireguard.exe',
-];
+// Клиент AmneziaWG — форк клиента WireGuard, поэтому и раскладка каталогов у них
+// одинаковая, отличаются только имена.
+const WINDOWS_CLIENTS = {
+  wg: {
+    exe: 'wireguard.exe',
+    dirs: ['C:\\Program Files\\WireGuard', 'C:\\Program Files (x86)\\WireGuard'],
+    servicePrefix: 'WireGuardTunnel$',
+    downloadHint: 'Установите WireGuard для Windows: https://www.wireguard.com/install/',
+  },
+  awg: {
+    exe: 'amneziawg.exe',
+    dirs: ['C:\\Program Files\\AmneziaWG', 'C:\\Program Files (x86)\\AmneziaWG'],
+    servicePrefix: 'AmneziaWGTunnel$',
+    downloadHint:
+      'Установите клиент AmneziaWG для Windows: ' +
+      'https://github.com/amnezia-vpn/amneziawg-windows-client/releases',
+  },
+};
 
 function run(file, args, opts = {}) {
   return new Promise((resolve) => {
@@ -47,25 +63,28 @@ async function detect(mode) {
   const platform = process.platform;
 
   if (platform === 'win32') {
-    const exe = WINDOWS_CANDIDATES.find((p) => fs.existsSync(p)) || (await which('wireguard.exe'));
-    if (mode === 'awg') {
-      return {
-        supported: false,
-        platform,
-        reason:
-          'Для AmneziaWG в Windows нужен клиент AmneziaVPN или AmneziaWG: сохраните ' +
-          'конфиг кнопкой «Экспортировать .conf» и импортируйте его в этот клиент. ' +
-          'Формат конфига уже правильный — обфускация записана в секцию [Interface].',
-      };
-    }
+    const client = WINDOWS_CLIENTS[mode] || WINDOWS_CLIENTS.wg;
+    const installed = client.dirs
+      .map((dir) => path.join(dir, client.exe))
+      .find((candidate) => fs.existsSync(candidate));
+    const exe = installed || (await which(client.exe));
+
     if (!exe) {
       return {
         supported: false,
         platform,
-        reason: 'Не найден wireguard.exe. Установите WireGuard для Windows с https://www.wireguard.com/install/',
+        reason:
+          `Не найден ${client.exe}. ${client.downloadHint}\n` +
+          'Само подключение будет делать MaxVPN, открывать этот клиент не придётся.',
       };
     }
-    return { supported: true, platform, binary: exe, needsAdmin: true };
+    return {
+      supported: true,
+      platform,
+      binary: exe,
+      servicePrefix: client.servicePrefix,
+      needsAdmin: true,
+    };
   }
 
   const quick = mode === 'awg' ? 'awg-quick' : 'wg-quick';
@@ -95,8 +114,8 @@ async function up(confPath, mode) {
   if (!env.supported) return { ok: false, error: env.reason };
 
   if (env.platform === 'win32') {
-    // wireguard.exe берёт имя туннеля из имени файла, поэтому путь должен быть
-    // постоянным — конфиг лежит в каталоге данных приложения.
+    // Имя туннеля берётся из имени файла, поэтому путь должен быть постоянным —
+    // конфиг лежит в каталоге данных приложения.
     const result = await run(env.binary, ['/installtunnelservice', confPath]);
     if (!result.ok) {
       return {
@@ -151,7 +170,8 @@ async function status(confPath, mode) {
   const name = tunnelNameFromConf(confPath);
 
   if (process.platform === 'win32') {
-    const result = await run('sc', ['query', `WireGuardTunnel$${name}`]);
+    const client = WINDOWS_CLIENTS[mode] || WINDOWS_CLIENTS.wg;
+    const result = await run('sc', ['query', `${client.servicePrefix}${name}`]);
     return { up: result.ok && /RUNNING/.test(result.stdout), name };
   }
 
