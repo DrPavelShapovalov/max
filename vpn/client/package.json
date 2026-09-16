@@ -4,6 +4,11 @@
   "description": "Клиент MaxVPN: разворачивает WireGuard/AmneziaWG на своём сервере по SSH и управляет туннелем",
   "license": "UNLICENSED",
   "private": true,
+  "author": "Шаповалов П.И.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DrPavelShapovalov/max.git"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",

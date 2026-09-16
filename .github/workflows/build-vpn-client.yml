@@ -51,10 +51,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # Без GH_TOKEN: с ним electron-builder считает сборку публикуемой
+      # и падает на вычислении каналов обновления, хотя --publish never.
       - name: Build Windows installer
         run: npm run dist
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
