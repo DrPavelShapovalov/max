@@ -12,6 +12,16 @@
     --glass:rgba(10,22,29,.82);
     --grad-accent:linear-gradient(135deg,#3df0e2,#1fc4d6 55%,#2f9fe0);
   }
+  /* светлая тема (переключатель ☀/🌙) — панели и шапка светлеют, вьюпорты остаются тёмными */
+  body.light{
+    --void:#e8eef1; --void2:#f4f8fa; --panel:#ffffff; --panel2:#eef4f6; --line:#c9d7dd; --line2:#b3c5cd;
+    --ink:#0e2127; --ink-soft:#37545d; --ink-faint:#6a828a; --accent:#0eae9f; --accent2:#2f8fe0;
+    --glass:rgba(249,252,253,.92); --grad-accent:linear-gradient(135deg,#19c3b4,#0eae9f 55%,#2f8fe0);
+  }
+  body.light .toolbar{background:linear-gradient(180deg,#ffffff,#eaf2f4)}
+  body.light button.act,body.light .act-b{color:#02231f}
+  body.light .chip.armed,body.light .ghost.armed{color:#02231f}
+  body.light .status{color:var(--accent)}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:
@@ -172,7 +182,7 @@
       </div>
       <div class="sp-name">OSSA&nbsp;<span>3D</span></div>
       <div class="sp-sub">CRANIOFACIAL&nbsp;DISTRACTION&nbsp;PLANNER</div>
-      <div class="sp-ver">VERSION&nbsp;3.2</div>
+      <div class="sp-ver">VERSION&nbsp;3.3</div>
       <div class="sp-bar"><i></i></div>
       <div class="sp-note">Инициализация модулей планирования…</div>
     </div>
@@ -186,7 +196,7 @@
           <path d="M16 20v6M12 26h8" opacity=".8"/>
         </svg>
       </span>
-      <div>OSSA&nbsp;3D<span class="vtag">v3.2</span><br><small>CRANIOFACIAL&nbsp;DISTRACTION&nbsp;PLANNER</small></div>
+      <div>OSSA&nbsp;3D<span class="vtag">v3.3</span><br><small>CRANIOFACIAL&nbsp;DISTRACTION&nbsp;PLANNER</small></div>
     </div>
     <button class="act" id="loadBtn">Загрузить DICOM</button>
     <input type="file" id="fileInput" webkitdirectory directory multiple accept=".dcm,application/dicom" style="display:none">
@@ -201,6 +211,7 @@
     <div class="grp" title="Ширина окна">WW <input type="range" id="ww" min="1" max="4000" value="1500"><span id="wwval">1500</span></div>
     <span class="chip" data-preset="300,1500">Кость</span>
     <span class="chip" data-preset="40,400">Мягкие ткани</span>
+    <span class="chip" id="themeBtn" title="Светлая / тёмная тема">☀ Тема</span>
     <span class="chip" id="rotFree" title="Вращение по всем осям">↻ Вращать</span>
     <span class="chip" id="rotTurn" title="Вращение по кругу (турель)">⟳ Круг</span>
     <span class="chip" id="rotPan" title="Перемещение (панорама)">✥ Двигать</span>
@@ -232,7 +243,7 @@
         <div class="p-body">
           <div class="sect">Объекты</div>
           <div id="objList" class="objlist"><div class="info">Загрузите КТ.</div></div>
-          <div class="btns"><button id="isoBtn" class="act-b" title="Кликни по кости — связная деталь под курсором станет отдельным подвижным объектом">✂ Отделить деталь кликом</button></div>
+          <div class="btns"><button id="isoBtn" class="act-b" title="Кликни по кости — связная деталь под курсором станет отдельным подвижным объектом">✂ Отделить кликом</button></div>
           <div class="info" style="font-size:11px;opacity:.7">Отделяет связную деталь под курсором. Delete — удалить выделенный объект.</div>
           <div class="sep"></div>
           <div class="sect">Сегментация по MPR (Mimics)</div>
@@ -276,7 +287,7 @@
           <div class="btns"><button id="movePlane" class="ghost">Двигать</button><button id="rotPlane" class="ghost">Вращать</button></div>
           <div class="info">Уменьши ширину/высоту/толщину и наведи рамку на угол — распил захватит только кость внутри рамки.</div>
           <div class="btns"><button id="cutDo" class="act-b">Распилить рамкой</button><button id="cutReset" class="ghost">Сброс</button></div>
-          <div class="btns"><button id="segBtn" class="ghost">🦷 Отделить нижнюю челюсть</button></div>
+          <div class="btns"><button id="segBtn" class="ghost">🦷 Отделить НЧ</button></div>
 
           <div class="sep"></div>
           <div class="sect">Перемещение фрагмента</div>
@@ -308,14 +319,14 @@
           <div class="row"><label>Модель</label>
             <select id="distModel"><option>КДА-30</option><option>КДА-50</option><option>КДА-70</option><option>КДА-100</option><option selected>КДА-180</option></select>
           </div>
-          <div class="btns"><button id="distAddBtn" class="ghost" title="По 2 точкам аппарата поставить реалистичный дистрактор">🩺 Поставить дистрактор</button></div>
+          <div class="btns"><button id="distAddBtn" class="ghost" title="По 2 точкам аппарата поставить реалистичный дистрактор">🩺 Дистрактор</button></div>
           <div class="sect">Реконструктивная пластина</div>
           <div class="row"><label>Ширина</label><input type="range" id="plateW" min="3" max="12" step="0.5" value="6"><span class="v" id="plateWv">6 мм</span></div>
           <div class="row"><label>Толщина</label><input type="range" id="plateT" min="0.8" max="3" step="0.2" value="1.4"><span class="v" id="plateTv">1.4 мм</span></div>
-          <div class="btns"><button id="plateBtn" class="ghost">✚ Пластина: точки</button><button id="plateDone" class="ghost">Изогнуть</button></div>
-          <div class="btns"><button id="nerveAuto" class="act-b" title="Найти ход канала нижнечелюстного нерва автоматически по КТ">🩸 Канал нерва: авто (по КТ)</button></div>
+          <div class="btns"><button id="plateBtn" class="ghost">✚ Пластина</button><button id="plateDone" class="ghost">Изогнуть</button></div>
+          <div class="btns"><button id="nerveAuto" class="act-b" title="Найти ход канала нижнечелюстного нерва автоматически по КТ">🩸 Канал (авто)</button></div>
           <div class="btns"><button id="nerveBtn" class="ghost">Нерв: вручную</button><button id="nerveDone" class="ghost">Готово</button></div>
-          <div class="btns"><button id="nerveProx" class="ghost" title="Раскрасить выбранный объект по расстоянию до канала нерва">⚠ Близость к нерву</button></div>
+          <div class="btns"><button id="nerveProx" class="ghost" title="Раскрасить выбранный объект по расстоянию до канала нерва">⚠ Нерв: близость</button></div>
           <div class="btns"><button id="expObjSTL" class="ghost">⬇ STL объекта</button><button id="impSTLbtn" class="ghost">⬆ Импорт STL</button></div>
           <input type="file" id="impSTL" accept=".stl" multiple style="display:none">
           <div class="info">Примитив/винт → двигай гизмо на место → «STL объекта» для печати. Импорт STL — свой эндопротез.</div>
@@ -327,7 +338,7 @@
         <div class="p-head" data-panel="panelPlan"><span class="ico">◠ Дистрактор и симметрия</span><span class="tg">▾</span></div>
         <div class="p-body">
           <div class="sect">Референс симметрии</div>
-          <div class="btns"><button id="midSetBtn" class="ghost">◎ Средняя линия (3 тчк)</button></div>
+          <div class="btns"><button id="midSetBtn" class="ghost">◎ Средняя линия</button></div>
           <div class="row"><label>Сдвиг ср.</label><input type="range" id="midAdj" min="-30" max="30" step="0.5" value="0"><span class="v" id="midAdjv">0 мм</span></div>
           <div class="btns"><button id="mirrorBtn" class="ghost">Зеркало здоровой</button></div>
 
@@ -346,13 +357,13 @@
               <option value="combo">Сочетанная (криволинейный)</option>
             </select>
           </div>
-          <div class="btns"><button id="devPtBtn" class="ghost">◎ Точки аппарата: дистальная → медиальная</button></div>
-          <div class="btns"><button id="planKDO" class="act-b">▶ Рассчитать КДО (авто)</button></div>
+          <div class="btns"><button id="devPtBtn" class="ghost">◎ Точки аппарата</button></div>
+          <div class="btns"><button id="planKDO" class="act-b">▶ Рассчитать КДО</button></div>
           <div class="info" id="kdoInfo">Отметь остеотомию, 2 точки опор аппарата и нажми «Рассчитать» — программа сама посчитает мм, угол и тип КДА.</div>
           <div class="row"><label>Дистракция</label><input type="range" id="arcDist" min="0" max="100" step="0.1" value="0"><span class="v" id="arcDistv">0 мм</span></div>
           <div class="info" id="symInfo">Регенерат растёт по мере раскрутки. «Дистракция» — анимация 0 → план.</div>
           <div class="sep"></div>
-          <div class="row"><label title="Жёсткий рельс аппарата между дистальным и медиальным фрагментами: перемещай медиальный вручную гизмо — движение строго по траектории (без отклонений вбок). Плоскость движения — из списка «Плоскость» выше."><input type="checkbox" id="kdoRod" style="width:auto"> 🔩 Штанга-рельс (ручное перемещение)</label></div>
+          <div class="row"><label title="Жёсткий рельс аппарата между дистальным и медиальным фрагментами: перемещай медиальный вручную гизмо — движение строго по траектории (без отклонений вбок). Плоскость движения — из списка «Плоскость» выше."><input type="checkbox" id="kdoRod" style="width:auto"> 🔩 Штанга-рельс</label></div>
           <div class="info" id="rodInfo">Выбери подвижный (медиальный) фрагмент, включи «Штанга-рельс» и тяни его гизмо: сагиттально/вертикально — считаются мм; сочетанно — градус дуги и рекомендованный криволинейный КДА. Выключи — вернётся авто-анимация ползунком.</div>
 
           <div class="sep"></div>
@@ -375,7 +386,7 @@
         <div class="p-body">
           <button id="measDist" class="ghost" style="flex:0 0 auto">📏 Длина</button>
           <button id="measAngle" class="ghost" style="flex:0 0 auto">∠ Угол</button>
-          <button id="measVol" class="ghost" style="flex:0 0 auto">◈ Объём фрагмента</button>
+          <button id="measVol" class="ghost" style="flex:0 0 auto">◈ Объём</button>
           <button id="measClear" class="ghost" style="flex:0 0 auto">Очистить</button>
           <span class="info" id="measInfo">Длина — 2 точки, угол — 3 точки прямо на кости.</span>
           <span class="vbadge" id="measVal" style="display:none"></span>
@@ -384,7 +395,7 @@
           <button id="baBtn" class="ghost" style="flex:0 0 auto" title="Переключить до/после">⇄ До/После</button>
           <button id="recBtn" class="ghost" style="flex:0 0 auto" title="Записать видео дистракции (.webm)">⏺ Видео</button>
           <span style="width:1px;height:22px;background:var(--line)"></span>
-          <button id="exportSTL" class="act-b" style="flex:0 0 auto">⬇ STL (для печати)</button>
+          <button id="exportSTL" class="act-b" style="flex:0 0 auto">⬇ STL</button>
           <button id="exportProto" class="act-b" style="flex:0 0 auto">⬇ Протокол PDF</button>
         </div>
       </div>

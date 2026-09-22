@@ -2515,6 +2515,9 @@ function bindControls() {
   $('fileInput').addEventListener('change', e => loadFiles(e.target.files));
   $('loadBtn').onclick = () => $('fileInput').click();
   if($('undoBtn')) $('undoBtn').onclick = doUndo;
+  if($('themeBtn')){ const applyTheme=(light)=>{ document.body.classList.toggle('light',light); $('themeBtn').textContent=light?'🌙 Тема':'☀ Тема'; try{localStorage.setItem('ossa-theme',light?'light':'dark');}catch(e){} };
+    let saved='dark'; try{ saved=localStorage.getItem('ossa-theme')||'dark'; }catch(e){} applyTheme(saved==='light');
+    $('themeBtn').onclick = ()=> applyTheme(!document.body.classList.contains('light')); }
   if($('redoBtn')) $('redoBtn').onclick = doRedo;
   if($('saveProjBtn')) $('saveProjBtn').onclick = saveProject;
   if($('openProjBtn')) $('openProjBtn').onclick = ()=> $('projInput').click();
