@@ -415,6 +415,11 @@ function setMprMode(mode){
   if(mprMode){ setMeasMode(null); const b=$({dist:'mDist',angle:'mAngle',dens:'mDens'}[mprMode]); b&&b.classList.add('armed'); }
 }
 function clearMpr(){ mprMeas={axial:[],coronal:[],sagittal:[]}; mprDraft=null; if(volume) renderAllMPR(); }
+// закраска маски в экранных координатах канваса (переиспользуется мышью и колесом)
+let segCursor={plane:null,x:0,y:0}, segPainting=false;
+function paintScreen(plane, cvx, cvy){ const m=sliceMeta(plane);
+  const f=px2frac(plane,cvx,cvy); const a=Math.round(f.fx*(m.w-1)), b=Math.round(f.fy*(m.h-1));
+  paintSeg(plane,a,b,idx[m.axis]); renderMPR(plane); }
 function computeDensity(o){
   const plane=o.plane, m=sliceMeta(plane), k=o.k, c=o.pts[0], e=o.pts[1];
   const cx=c.fx*m.w, cy=c.fy*m.h; const rpx=Math.hypot((e.fx-c.fx)*m.w,(e.fy-c.fy)*m.h);
@@ -458,13 +463,12 @@ function bindMprMeas(){
     const toPx=(ev)=>{ const r=cv.getBoundingClientRect(); return { x:(ev.clientX-r.left)*cv.width/r.width, y:(ev.clientY-r.top)*cv.height/r.height }; };
     const toFrac=(ev)=>{ const p=toPx(ev); return px2frac(plane,p.x,p.y); };
     const slabMax=()=> +($('slab')?.max||31);
-    const paintAt=(ev)=>{ const f=toFrac(ev); const m=sliceMeta(plane);
-      const a=Math.round(f.fx*(m.w-1)), b=Math.round(f.fy*(m.h-1)); paintSeg(plane,a,b,idx[m.axis]); renderMPR(plane); };
+    const paintAt=(ev)=>{ const p=toPx(ev); segCursor={plane,x:p.x,y:p.y}; paintScreen(plane,p.x,p.y); };
     const seedAt=(ev)=>{ const f=toFrac(ev); const m=sliceMeta(plane);
       const a=Math.round(f.fx*(m.w-1)), b=Math.round(f.fy*(m.h-1)); pushUndo(); regionGrow(plane,a,b,idx[m.axis]); };
     cv.addEventListener('mousedown',(ev)=>{ if(!volume) return;
       if(segWand){ ev.preventDefault(); ev.stopPropagation(); seedAt(ev); return; }
-      if(segMode){ ev.preventDefault(); ev.stopPropagation(); pushUndo(); drag='paint'; paintAt(ev); return; }
+      if(segMode){ ev.preventDefault(); ev.stopPropagation(); pushUndo(); drag='paint'; segPainting=true; paintAt(ev); return; }
       if(mprMode){ ev.preventDefault(); ev.stopPropagation(); onMprClick(plane, toFrac(ev), idx[sliceMeta(plane).axis]); return; }
       if(plane==='coronal'&&oblique.on) return;      // косой коронар строится отдельным наклоном
       const p=toPx(ev); const S=xhairScreen[plane];
@@ -474,7 +478,8 @@ function bindMprMeas(){
         if(near(S.tH)){ drag='thick'; return; }      // квадрат → толщина среза
       }
       drag='move'; setCrosshair(plane, toFrac(ev)); }, true);
-    cv.addEventListener('mousemove',(ev)=>{ if(!drag||mprMode) return;
+    cv.addEventListener('mousemove',(ev)=>{ if(segMode){ const p=toPx(ev); segCursor={plane,x:p.x,y:p.y}; }
+      if(!drag||mprMode) return;
       if(drag==='paint'){ paintAt(ev); return; }
       const p=toPx(ev); const S=xhairScreen[plane];
       if(drag==='move'){ setCrosshair(plane, toFrac(ev)); return; }
@@ -491,7 +496,7 @@ function bindMprMeas(){
         slabN=n; if($('slab')){ $('slab').value=n; $('slabv').textContent=n; }
         renderAllMPR(); return; }
     });
-    window.addEventListener('mouseup',()=>{ drag=null; });
+    window.addEventListener('mouseup',()=>{ drag=null; segPainting=false; });
     cv.addEventListener('dblclick',(ev)=>{ if(!volume||mprMode) return; ev.preventDefault();
       xhair[plane].angle=0; slabN=1; if($('slab')){ $('slab').value=1; $('slabv').textContent=1; } renderAllMPR(); });
   });
@@ -2208,12 +2213,23 @@ function applyPlanMove(pl, s){
     setGroupRigid(g, quat, C, null); }
 }
 function moveAlongArc() {
+  if (mobileMode==='rod'){ slideRod(+$('arcDist').value); return; }   // штанга-рельс: слайдер тоже двигает
   const ps=activePlans(); if (mobileMode!=='arc' || !ps.length) return;
   const sMax = +$('arcDist').value;
   const Lmax=Math.max(...ps.map(p=>p.L))||1;
   for(const pl of ps) applyPlanMove(pl, sMax*(pl.L/Lmax));       // синхронно, каждый по своей длине
   drawRegen(sMax);
   $('arcDistv').textContent = `${sMax.toFixed(1)} мм`;
+}
+// слайдер двигает медиальный фрагмент по рельсу (гарантированное скольжение)
+function slideRod(mm){
+  if(!rodRec||!rodBasis) return; const {vert,ap}=rodBasis; const plane=($('kdoPlane')&&$('kdoPlane').value)||'sag';
+  let dir; if(plane==='vert') dir=vert.clone(); else if(plane==='sag') dir=ap.clone();
+  else dir=ap.clone().add(vert.clone().negate()).normalize();     // сочетанно: вперёд-вниз
+  rodRec.group.quaternion.identity();
+  rodRec.group.position.copy(rodStart.clone().add(dir.multiplyScalar(mm)));
+  updateRod();
+  $('arcDistv').textContent = `${mm.toFixed(1)} мм`;
 }
 
 // ================= Штанга-рельс (ручной аппарат между фрагментами) =================
@@ -2233,7 +2249,7 @@ function anatomyBasis(){
 function setRod(on){
   rodOn=on; $('kdoRod').checked=on;
   clearRod();
-  if(!on){ mobileMode='arc'; $('rodInfo').textContent='Штанга выключена. Авто-анимация — ползунком «Дистракция».'; if(plans.length){ moveAlongArc(); } return; }
+  if(!on){ mobileMode='arc'; const sl=$('arcDist'); if(sl){ sl.min=0; sl.step=0.1; const Lmax=plans.length?Math.max(...plans.map(p=>p.L)):100; sl.max=Lmax.toFixed(1); sl.value=0; } $('rodInfo').textContent='Штанга выключена. Авто-анимация — ползунком «Дистракция».'; if(plans.length){ moveAlongArc(); } return; }
   const rec=activeRec();
   if(!rec){ rodOn=false; $('kdoRod').checked=false; alert('Сначала распили и кликни подвижный (медиальный) фрагмент.'); return; }
   rodRec=rec;
@@ -2245,8 +2261,9 @@ function setRod(on){
   rodMed0=rec.centroid.clone();                                    // якорь на медиальном (t=0)
   rodBasis=anatomyBasis();
   if(gizmo){ gizmo.setMode('translate'); gizmo.setSpace('world'); gizmo.attach(rec.group); }
+  const sl=$('arcDist'); if(sl){ sl.min=-30; sl.max=30; sl.step=0.5; sl.value=0; }
   updateRod();
-  $('rodInfo').textContent='Тяни медиальный фрагмент гизмо — движение строго по траектории. Значения считаются автоматически.';
+  $('rodInfo').textContent='Двигай ползунком «Дистракция» ИЛИ тяни фрагмент гизмо — он скользит строго по рельсу (вперёд-вниз/вертикаль). Дистальный фрагмент неподвижен.';
 }
 function nearestCurviDevice(turnDeg){
   const want=180-turnDeg; let best=DEVICES[0];
@@ -2448,6 +2465,8 @@ function bindWheel() {
       idx[m.axis] = Math.max(0, Math.min(m.count - 1, idx[m.axis] + dir));
       $('sl-' + p).value = idx[m.axis];
       renderMPR(p); syncOthers(p);
+      // Mimics-стиль: держишь ЛКМ (кисть) и крутишь колесо → закрашиваешь каждый срез
+      if (segMode && segPainting && segCursor.plane===p){ paintScreen(p, segCursor.x, segCursor.y); }
     }, { passive: false });
   });
 }
