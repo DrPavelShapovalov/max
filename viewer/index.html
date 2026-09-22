@@ -291,10 +291,11 @@
           <div class="info" id="cutInfo">Нарисуй линию карандашом или наведи рамку и распили.</div>
 
           <div class="sep"></div>
-          <div class="sect">Эндопротез ВНЧС (зеркало ветви)</div>
-          <div class="info">1) Выдели НИЖНЮЮ ЧЕЛЮСТЬ отдельным объектом («Отделить деталь кликом»). 2) Задай «Среднюю линию» (3 точки). 3) Поставь заготовку-Блок на зону дефекта поражённой ветви и выбери его. 4) «Сформировать эндопротез» — зеркалится ТОЛЬКО челюсть (не череп) + винты.</div>
-          <div class="btns"><button id="tmjBtn" class="act-b">🦴 Сформировать эндопротез (зеркало)</button></div>
-          <div class="info" id="tmjInfo">Эндопротез повторяет форму противоположной ветви. Компоненты и винты — подвижные объекты, экспортируются в STL.</div>
+          <div class="sect">Эндопротез ВНЧС (BonaByte)</div>
+          <div class="info">Как в BonaByte: 1) «✚ Путь эндопротеза» — кликай точки от мыщелка вниз по ветви к телу. 2) «Сформировать» — медная изогнутая пластина + головка + винты + суставная ямка. (Без пути — режим зеркала: выдели челюсть + блок на дефект.)</div>
+          <div class="btns"><button id="tmjPathBtn" class="ghost">✚ Путь эндопротеза</button></div>
+          <div class="btns"><button id="tmjBtn" class="act-b">🦴 Сформировать эндопротез</button></div>
+          <div class="info" id="tmjInfo">Ширина/толщина берутся из «Реконструктивной пластины». Компоненты — подвижные объекты, экспорт в STL.</div>
 
           <div class="sect">Импланты и ориентиры</div>
           <div class="btns"><button id="primCyl" class="ghost">⬤ Цилиндр</button><button id="primBox" class="ghost">▬ Блок</button><button id="primSph" class="ghost">● Сфера</button></div>

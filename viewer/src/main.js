@@ -560,6 +560,7 @@ function __ossaTestHook(){ try{ window.__ossa = {
   wandTest(){ regionGrow('axial',(volume.dims[0]/2)|0,(volume.dims[1]/2)|0,idx[2]); let n=0; for(const x of segMask)n+=x; return n; },
   distractorTest(){ devPts=[new THREE.Vector3(-20,0,20), new THREE.Vector3(-25,0,-20)]; modelRadius=100; addDistractor(); return frags.map(f=>f.name); },
   plateTest(){ modelRadius=100; platePts=[new THREE.Vector3(-30,0,0),new THREE.Vector3(-10,10,0),new THREE.Vector3(10,10,0),new THREE.Vector3(30,0,0)]; buildPlate(); const f=frags.find(x=>/пластина/i.test(x.name)); return { name:f&&f.name, tris:f?(f.soup.length/9|0):0 }; },
+  tmjPathTest(){ modelRadius=100; platePts=[new THREE.Vector3(-25,0,40),new THREE.Vector3(-30,5,10),new THREE.Vector3(-28,10,-15),new THREE.Vector3(-10,20,-30)]; buildTMJ(); return frags.map(f=>f.name); },
   proxTest(){ modelRadius=100;
     const nerve=geoToSoup(new THREE.CylinderGeometry(1,1,40,8)); addFrag(nerve,0xff5d6c,new THREE.Vector3(0,0,1),soupCentroid(nerve),'Канал нерва (правый)');
     const imp=geoToSoup(new THREE.BoxGeometry(10,10,10)); const r=addFrag(imp,0xd9a066,new THREE.Vector3(0,0,1),soupCentroid(imp),'Эндопротез'); selectFrag(frags.indexOf(r));
@@ -1788,10 +1789,47 @@ function addScrewAt(P, dir, d, L, name){
 function geoToWorldSoup2(soup, mat){ const out=new Float32Array(soup.length); const v=new THREE.Vector3();
   for(let i=0;i<soup.length;i+=3){ v.set(soup[i],soup[i+1],soup[i+2]).applyMatrix4(mat); out[i]=v.x;out[i+1]=v.y;out[i+2]=v.z; } return out; }
 // Эндопротез ВНЧС = ЗЕРКАЛО противоположной (здоровой) ветви НЧ в зоне заготовки + винты
+// Эндопротез ВНЧС в стиле BonaByte: медная изогнутая пластина (мыщелок→ветвь→тело)
+// + мыщелковая головка + винты + суставная ямка. Строится по отмеченным точкам пути.
+function buildTMJFromPath(){
+  pushUndo();
+  const pts=platePts.slice(); const curve=new THREE.CatmullRomCurve3(pts); const N=Math.max(26, pts.length*14);
+  const width=Math.max(6,+($('plateW')?.value||8)), thick=Math.max(1.6,+($('plateT')?.value||2.2)); const up=new THREE.Vector3(0,0,1);
+  const A=[]; const push=(a,b,c,d)=>{ A.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z, a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z); };
+  const F=[]; for(let i=0;i<=N;i++){ const p=curve.getPointAt(i/N); const t=curve.getTangentAt(i/N).normalize();
+    let u=up.clone(); if(Math.abs(t.dot(u))>0.9)u.set(0,1,0); const s=new THREE.Vector3().crossVectors(t,u).normalize(); const n=new THREE.Vector3().crossVectors(s,t).normalize(); F.push({p,s,n}); }
+  for(let i=0;i<F.length-1;i++){ const f=F[i],g=F[i+1];
+    const wf=width*(0.7+0.6*i/(F.length-1)), wg=width*(0.7+0.6*(i+1)/(F.length-1));   // тело шире
+    const fl=f.p.clone().add(f.s.clone().multiplyScalar(-wf/2)), fr=f.p.clone().add(f.s.clone().multiplyScalar(wf/2));
+    const gl=g.p.clone().add(g.s.clone().multiplyScalar(-wg/2)), gr=g.p.clone().add(g.s.clone().multiplyScalar(wg/2));
+    const flo=fl.clone().add(f.n.clone().multiplyScalar(-thick)), fro=fr.clone().add(f.n.clone().multiplyScalar(-thick));
+    const glo=gl.clone().add(g.n.clone().multiplyScalar(-thick)), gro=gr.clone().add(g.n.clone().multiplyScalar(-thick));
+    push(fl,fr,gr,gl); push(glo,gro,fro,flo); push(fl,gl,glo,flo); push(fr,fro,gro,gr); }
+  // мыщелковая головка на первом конце
+  const headR=Math.max(5,width*0.85); const headC=pts[0].clone().add(F[0].p.clone().sub(F[1].p).normalize().multiplyScalar(headR*0.6));
+  const head=geoToWorldSoup(new THREE.SphereGeometry(headR,26,18), new THREE.Matrix4().setPosition(headC));
+  const soup=concatSoups([new Float32Array(A), head]);
+  const rec=addFrag(soup, 0xb5651d, up, soupCentroid(soup), 'Эндопротез ВНЧС');
+  rec.mesh.material.metalness=0.85; rec.mesh.material.roughness=0.3; rec.mesh.material.needsUpdate=true;
+  // винты вдоль тела (последние 55% пути)
+  const d=+($('screwD')?.value||2.0), L=+($('screwL')?.value||10); let ns=0;
+  for(let i=Math.floor(F.length*0.45); i<F.length-1; i+=Math.max(1,Math.floor(F.length*0.13))){ const f=F[i];
+    addScrewAt(f.p.clone().add(f.n.clone().multiplyScalar(thick*0.4)), f.n.clone().negate(), d, L, `Винт ${++ns}`); }
+  // суставная ямка (grey) у головки
+  const fossa=geoToWorldSoup(new THREE.SphereGeometry(headR*1.25,24,12,0,Math.PI*2,0,Math.PI/2),
+    new THREE.Matrix4().compose(headC.clone().add(new THREE.Vector3(0,0,headR*0.7)), new THREE.Quaternion(), new THREE.Vector3(1,1,1)));
+  const fr2=addFrag(fossa, 0xa9b4bd, up, soupCentroid(fossa), 'Суставная ямка (fossa)');
+  fr2.mesh.material.metalness=0.5; fr2.mesh.material.roughness=0.5; fr2.mesh.material.needsUpdate=true;
+  platePts=[]; plateMarks.forEach(m=>scene.remove(m)); plateMarks=[]; plateMode=false; $('plateBtn')&&$('plateBtn').classList.remove('armed');
+  isCut=true; selectFrag(frags.indexOf(rec)); if(gizmo){gizmo.setMode('translate');gizmo.attach(rec.group);} refreshObjPanel();
+  $('tmjInfo')&&($('tmjInfo').textContent=`Эндопротез ВНЧС (медная пластина + головка + ${ns} винта + ямка). Двигай/вращай гизмо, экспорт в STL.`);
+  status('Эндопротез ВНЧС построен'); setTimeout(()=>status('',null),2500);
+}
 function buildTMJ(){
+  if(platePts.length>=2){ buildTMJFromPath(); return; }
   pushUndo();
   const rec=activeRec();
-  if(!rec){ alert('Поставь заготовку (Блок/Цилиндр) на зону дефекта ветви так, чтобы она охватывала нужный участок, и выбери её в «Объекты».'); return; }
+  if(!rec){ alert('Эндопротез: отметь путь кнопкой «✚ Путь эндопротеза» (мыщелок → вниз по ветви → тело), затем «Сформировать эндопротез». Либо поставь блок на дефект для режима зеркала.'); return; }
   const mid=midNormalPoint(); const ml=mid.normal.clone().normalize(); const P0=mid.point.clone();
   const mirror=(p)=>{ const dd=p.clone().sub(P0).dot(ml); return p.clone().sub(ml.clone().multiplyScalar(2*dd)); };
   rec.group.updateMatrixWorld(true); const M=rec.group.matrixWorld;
@@ -2371,6 +2409,7 @@ function bindOsteotomy() {
   if($('plateW')) $('plateW').addEventListener('input', e=> $('plateWv').textContent=e.target.value+' мм');
   if($('plateT')) $('plateT').addEventListener('input', e=> $('plateTv').textContent=e.target.value+' мм');
   $('tmjBtn').onclick = buildTMJ;
+  if($('tmjPathBtn')) $('tmjPathBtn').onclick = ()=>{ setPlateMode(!plateMode); if(plateMode) $('cutInfo')&&($('cutInfo').textContent='Путь эндопротеза: кликай точки от мыщелка вниз по ветви к телу, затем «Сформировать эндопротез».'); };
   ['tmjHead','tmjThick','tmjGap'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('input',()=>{ $(id+'v').textContent = el.value+' мм'; }); });
   $('nerveBtn').onclick = ()=> setNerveMode(!nerveMode);
   $('nerveDone').onclick = buildNerve;
