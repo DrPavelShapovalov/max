@@ -1,0 +1,9 @@
+# Downloaded Manrope font cache
+.fonts/
+# Patient photos and rendered collages never go into git
+cases/
+*.jpg
+*.jpeg
+*.png
+*.heic
+__pycache__/
