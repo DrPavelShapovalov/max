@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OSSA 3D — Craniofacial Distraction Planner</title>
+<style>
+  :root{
+    --void:#050b10; --void2:#081319; --panel:#0c1a22; --panel2:#12262f; --line:#20363f; --line2:#2c4854;
+    --ink:#eafcfd; --ink-soft:#9cc0c8; --ink-faint:#5f818b; --accent:#33ecdd; --accent2:#4aa8ff; --violet:#8b7bff; --warn:#ffc24d; --good:#3ee08f; --bad:#ff6b7a;
+    --mono:ui-monospace,'Cascadia Code',Consolas,monospace;
+    --glass:rgba(10,22,29,.82);
+    --grad-accent:linear-gradient(135deg,#3df0e2,#1fc4d6 55%,#2f9fe0);
+  }
+  /* светлая тема (переключатель ☀/🌙) — панели и шапка светлеют, вьюпорты остаются тёмными */
+  body.light{
+    --void:#e8eef1; --void2:#f4f8fa; --panel:#ffffff; --panel2:#eef4f6; --line:#c9d7dd; --line2:#b3c5cd;
+    --ink:#0e2127; --ink-soft:#37545d; --ink-faint:#6a828a; --accent:#0eae9f; --accent2:#2f8fe0;
+    --glass:rgba(249,252,253,.92); --grad-accent:linear-gradient(135deg,#19c3b4,#0eae9f 55%,#2f8fe0);
+  }
+  body.light .toolbar{background:linear-gradient(180deg,#ffffff,#eaf2f4)}
+  body.light button.act,body.light .act-b{color:#02231f}
+  body.light .chip.armed,body.light .ghost.armed{color:#02231f}
+  body.light .status{color:var(--accent)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:
+      radial-gradient(1300px 800px at 82% -12%, rgba(74,168,255,.09), transparent 58%),
+      radial-gradient(1000px 700px at -5% 112%, rgba(51,236,221,.07), transparent 55%),
+      linear-gradient(180deg,var(--void2),var(--void));
+    color:var(--ink);font-family:system-ui,'Segoe UI',Inter,sans-serif;overflow:hidden;display:flex;flex-direction:column;position:relative}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.35;
+    background-image:linear-gradient(rgba(51,236,221,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(51,236,221,.04) 1px,transparent 1px);
+    background-size:52px 52px;mask:radial-gradient(140% 100% at 50% 0%,#000,transparent 80%);-webkit-mask:radial-gradient(140% 100% at 50% 0%,#000,transparent 80%)}
+  /* ── верхняя панель ── */
+  .toolbar{display:flex;align-items:center;gap:13px;padding:10px 18px;position:relative;z-index:2;
+    background:linear-gradient(180deg,rgba(19,42,52,.96),rgba(10,25,32,.96));border-bottom:1px solid var(--line);flex-wrap:wrap;
+    box-shadow:0 10px 30px -18px #000}
+  .toolbar::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.5}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:.02em}
+  .brand .mk{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;
+    background:linear-gradient(135deg,#153541,#0e2530);border:1px solid var(--line);color:var(--accent);
+    box-shadow:0 0 18px -6px var(--accent)}
+  .brand small{font-family:var(--mono);font-size:10px;color:var(--ink-faint);font-weight:400;letter-spacing:.12em}
+  button.act{background:var(--grad-accent);color:#03120f;border:none;border-radius:9px;
+    padding:9px 17px;font-weight:700;cursor:pointer;font-size:13px;box-shadow:0 6px 20px -8px var(--accent), inset 0 1px 0 rgba(255,255,255,.25);letter-spacing:.01em}
+  button.act:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  button.act:active{transform:translateY(0)}
+  .grp{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+  .grp input[type=range]{width:104px;accent-color:var(--accent)}
+  .chip{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);color:var(--ink-soft);border-radius:7px;
+        padding:5px 10px;font-size:11px;font-family:var(--mono);cursor:pointer;transition:all .12s}
+  .chip:hover{color:var(--accent);border-color:var(--accent);box-shadow:0 0 12px -4px var(--accent)}
+  .chip.armed{background:var(--grad-accent);color:#04120f;border-color:transparent;font-weight:700;box-shadow:0 0 16px -4px var(--accent)}
+  .meta{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);text-align:right;line-height:1.4}
+  .tabs{display:flex;gap:2px;background:var(--panel);border-bottom:1px solid var(--line);padding:0 10px}
+  .tabs .tab{padding:7px 14px;font-size:12px;font-family:var(--mono);color:var(--ink-soft);cursor:pointer;
+    border-bottom:2px solid transparent;user-select:none}
+  .tabs .tab:hover{color:var(--ink)}
+  .tabs .tab.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(47,228,214,.06)}
+  .prog{height:3px;background:transparent;opacity:0;transition:opacity .2s}
+  .prog>div{height:100%;background:var(--accent);width:0;box-shadow:0 0 8px var(--accent)}
+  /* ── сетка вьюпортов ── */
+  .grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;background:var(--line);min-height:0}
+  .grid.maxed{grid-template-columns:1fr;grid-template-rows:1fr}
+  .grid.maxed .vp{display:none}
+  .grid.maxed .vp.active{display:flex;grid-column:1;grid-row:1}
+  .vp{position:relative;background:#000;overflow:hidden;display:flex;flex-direction:column}
+  .vp canvas{flex:1;width:100%;height:100%;display:block}
+  .vp .sl{position:absolute;left:8px;right:8px;bottom:8px;accent-color:var(--accent);opacity:.8}
+  .vp .tag{position:absolute;top:6px;right:8px;font-family:var(--mono);font-size:10px;color:var(--ink-faint);
+           background:rgba(8,17,22,.6);padding:2px 6px;border-radius:4px;pointer-events:none}
+  .vp.threeD{background:radial-gradient(120% 120% at 50% 0%,#0e2029,#070f14)}
+  .vp.threeD::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.5;
+    background-image:linear-gradient(rgba(47,228,214,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(47,228,214,.04) 1px,transparent 1px);
+    background-size:38px 38px;mask:radial-gradient(circle at 50% 60%,#000,transparent 78%);-webkit-mask:radial-gradient(circle at 50% 60%,#000,transparent 78%)}
+  .vp.threeD #cv-3d{position:relative;z-index:1}
+  .brand .vtag{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:#04120f;background:linear-gradient(180deg,#37f0e1,#22c9bd);
+    padding:1px 6px;border-radius:10px;font-weight:700;margin-left:6px;vertical-align:middle;box-shadow:0 0 12px -3px var(--accent)}
+  .drawlayer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
+  .drawlayer.on{pointer-events:auto;cursor:crosshair}
+  #dropHint{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--ink-faint);
+            font-family:var(--mono);font-size:12px;pointer-events:none}
+  #dropHint b{color:var(--accent)}
+  .status{position:fixed;bottom:10px;left:16px;font-family:var(--mono);font-size:11px;color:var(--accent);z-index:9}
+  /* ── блоки-панели инструментов ── */
+  .panel{position:absolute;background:var(--glass);border:1px solid var(--line2);border-radius:14px;
+    backdrop-filter:blur(14px) saturate(1.2);font-size:11px;z-index:6;
+    box-shadow:0 22px 60px -22px #000, 0 0 0 1px rgba(51,236,221,.05), inset 0 1px 0 rgba(255,255,255,.05);
+    width:230px;display:flex;flex-direction:column;max-height:calc(100% - 20px)}
+  #panelCut{top:10px;left:10px}
+  #panelPlan{top:10px;right:10px}
+  #panelMeas{bottom:10px;left:50%;transform:translateX(-50%);width:auto;max-width:calc(100% - 24px)}
+  .p-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 13px;cursor:pointer;
+    font-weight:700;color:var(--accent);border-bottom:1px solid var(--line);user-select:none;font-size:12px;letter-spacing:.03em;
+    background:linear-gradient(180deg,rgba(51,236,221,.08),transparent);border-radius:14px 14px 0 0}
+  .p-head .ico{display:flex;align-items:center;gap:7px}
+  .p-head .tg{color:var(--ink-faint);font-family:var(--mono);font-size:11px}
+  .p-body{padding:10px 12px;display:flex;flex-direction:column;gap:7px;overflow-y:auto}
+  .panel.collapsed .p-body{display:none}
+  .sect{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);
+    opacity:.85;margin-top:3px;display:flex;align-items:center;gap:6px}
+  .sect::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+  .row{display:flex;align-items:center;gap:7px}
+  .row label{width:66px;color:var(--ink-soft);font-family:var(--mono);font-size:10px;flex-shrink:0}
+  .row input[type=range]{flex:1;accent-color:var(--accent);min-width:0}
+  .row select{flex:1;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:3px;font-size:11px}
+  .row span.v{width:52px;text-align:right;font-family:var(--mono);font-size:10px;color:var(--ink-faint)}
+  .btns{display:flex;gap:7px}
+  .act-b{flex:1;background:var(--grad-accent);color:#03120f;border:none;border-radius:8px;
+    padding:8px;font-weight:700;cursor:pointer;font-size:11px;box-shadow:0 4px 14px -8px var(--accent), inset 0 1px 0 rgba(255,255,255,.22);transition:all .12s}
+  .act-b:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .ghost{flex:1;background:linear-gradient(180deg,var(--panel2),var(--panel));color:var(--ink-soft);border:1px solid var(--line);border-radius:8px;
+    padding:8px;cursor:pointer;font-size:11px;transition:all .12s}
+  .ghost:hover{color:var(--accent);border-color:var(--accent);box-shadow:0 0 12px -5px var(--accent)}
+  .ghost.armed{background:var(--grad-accent);color:#04120f;border-color:transparent;font-weight:700;box-shadow:0 0 16px -5px var(--accent)}
+  .sep{height:1px;background:var(--line);margin:3px 0}
+  .objlist{max-height:132px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+  .obj-row{display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:5px;font-size:11px;cursor:default}
+  .obj-row.sel{background:rgba(47,228,214,.12);outline:1px solid var(--line)}
+  .obj-row .eye{cursor:pointer;width:15px;text-align:center;opacity:.85;font-size:10px}
+  .obj-row .dot{width:9px;height:9px;border-radius:2px;flex:0 0 auto}
+  .obj-row .nm{flex:1;cursor:pointer;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .obj-row.sel .nm{color:var(--accent)}
+  .obj-row .del{cursor:pointer;color:var(--ink-faint);opacity:.6}
+  .obj-row .del:hover{color:#ff6b6b;opacity:1}
+  .info{font-family:var(--mono);font-size:10px;color:var(--ink-faint);line-height:1.45}
+  .info b{color:var(--ink-soft)}
+  /* нижняя мерная панель — горизонтальная */
+  #panelMeas .p-body{flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px;max-width:88vw}
+  #panelMeas .info{max-width:340px}
+  .vbadge{font-family:var(--mono);font-size:11px;color:var(--good);background:rgba(57,217,138,.08);
+    border:1px solid rgba(57,217,138,.3);border-radius:6px;padding:5px 9px}
+  /* ── сплэш: небольшая плашка-карточка по центру экрана ── */
+  #splash{position:fixed;inset:0;z-index:100;display:grid;place-items:center;
+    background:radial-gradient(900px 600px at 50% 40%,#0a1a22,#04090c 75%);transition:opacity .6s ease}
+  #splash.hide{opacity:0;pointer-events:none}
+  .sp-card{position:relative;width:430px;max-width:86vw;padding:34px 30px 26px;display:flex;flex-direction:column;align-items:center;gap:13px;
+    background:linear-gradient(180deg,rgba(18,42,51,.92),rgba(10,22,28,.94));border:1px solid var(--line);border-radius:18px;overflow:hidden;
+    box-shadow:0 30px 90px -30px #000, 0 0 60px -20px rgba(47,228,214,.4), inset 0 1px 0 rgba(255,255,255,.05)}
+  .sp-card::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.6;
+    background-image:linear-gradient(rgba(47,228,214,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(47,228,214,.05) 1px,transparent 1px);
+    background-size:30px 30px;mask:radial-gradient(circle at 50% 34%,#000,transparent 75%);-webkit-mask:radial-gradient(circle at 50% 34%,#000,transparent 75%)}
+  .sp-card::after{content:"";position:absolute;left:50%;top:88px;width:300px;height:300px;transform:translate(-50%,-50%);pointer-events:none;
+    background:conic-gradient(from 0deg,transparent 0deg,rgba(47,228,214,.16) 26deg,transparent 62deg);border-radius:50%;
+    animation:sweep 4s linear infinite;mask:radial-gradient(circle,transparent 34%,#000 35%,#000 47%,transparent 48%);
+    -webkit-mask:radial-gradient(circle,transparent 34%,#000 35%,#000 47%,transparent 48%)}
+  @keyframes sweep{to{transform:translate(-50%,-50%) rotate(360deg)}}
+  .sp-reticle{position:relative;width:118px;height:118px;display:grid;place-items:center;filter:drop-shadow(0 0 24px rgba(47,228,214,.45))}
+  .sp-reticle .ring{position:absolute;border-radius:50%;border:1px solid rgba(47,228,214,.3)}
+  .sp-reticle .r1{inset:0;border-top-color:var(--accent);border-right-color:var(--accent);animation:spin 3.2s linear infinite}
+  .sp-reticle .r2{inset:15px;border-bottom-color:var(--accent2);border-left-color:var(--accent2);animation:spin 2.4s linear infinite reverse}
+  .sp-reticle .r3{inset:28px;border-style:dashed;border-color:rgba(147,182,190,.22);animation:spin 9s linear infinite}
+  .sp-reticle .core{animation:pulse 2.2s ease-in-out infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes pulse{0%,100%{opacity:.7;transform:scale(.96)}50%{opacity:1;transform:scale(1.05)}}
+  .sp-name{position:relative;font-size:38px;font-weight:800;letter-spacing:.08em;
+    background:linear-gradient(180deg,#eafeff,#9fe9e3 60%,#2fe4d6);-webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 34px rgba(47,228,214,.25)}
+  .sp-name span{-webkit-text-fill-color:var(--accent);color:var(--accent)}
+  .sp-sub{font-family:var(--mono);font-size:9.5px;letter-spacing:.34em;color:var(--ink-soft);text-indent:.34em;text-align:center}
+  .sp-ver{font-family:var(--mono);font-size:9.5px;letter-spacing:.26em;color:#04120f;background:linear-gradient(180deg,#37f0e1,#22c9bd);
+    padding:3px 11px;border-radius:20px;font-weight:700;box-shadow:0 0 20px -4px var(--accent)}
+  .sp-bar{position:relative;width:100%;height:3px;background:#0e2229;border-radius:3px;overflow:hidden;margin-top:4px}
+  .sp-bar i{display:block;height:100%;width:42%;background:linear-gradient(90deg,transparent,var(--accent),transparent);
+    animation:load 1.15s ease-in-out infinite}
+  @keyframes load{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}
+  .sp-note{position:relative;font-family:var(--mono);font-size:10px;color:var(--ink-faint);letter-spacing:.05em}
+</style>
+</head>
+<body>
+  <div id="splash">
+    <div class="sp-card">
+      <div class="sp-reticle">
+        <span class="ring r1"></span><span class="ring r2"></span><span class="ring r3"></span>
+        <svg class="core" width="58" height="58" viewBox="0 0 32 32" fill="none" stroke="#2fe4d6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 20a10 8 0 0 1 20 0" opacity=".5"/>
+          <path d="M9 20c2.5 3 11.5 3 14 0"/>
+          <path d="M16 20v6M12 26h8" opacity=".9"/>
+          <circle cx="16" cy="14" r="1.3" fill="#2fe4d6" stroke="none"/>
+        </svg>
+      </div>
+      <div class="sp-name">OSSA&nbsp;<span>3D</span></div>
+      <div class="sp-sub">CRANIOFACIAL&nbsp;DISTRACTION&nbsp;PLANNER</div>
+      <div class="sp-ver">VERSION&nbsp;3.3</div>
+      <div class="sp-bar"><i></i></div>
+      <div class="sp-note">Инициализация модулей планирования…</div>
+    </div>
+  </div>
+  <div class="toolbar">
+    <div class="brand">
+      <span class="mk" id="brandMark">
+        <svg width="18" height="18" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 20a10 8 0 0 1 20 0" opacity=".55"/>
+          <path d="M9 20c2.5 3 11.5 3 14 0"/>
+          <path d="M16 20v6M12 26h8" opacity=".8"/>
+        </svg>
+      </span>
+      <div>OSSA&nbsp;3D<span class="vtag">v3.3</span><br><small>CRANIOFACIAL&nbsp;DISTRACTION&nbsp;PLANNER</small></div>
+    </div>
+    <button class="act" id="loadBtn">Загрузить DICOM</button>
+    <input type="file" id="fileInput" webkitdirectory directory multiple accept=".dcm,application/dicom" style="display:none">
+    <span class="chip" id="undoBtn" title="Отменить (Ctrl+Z)" style="opacity:.4">↩</span>
+    <span class="chip" id="redoBtn" title="Повторить (Ctrl+Y)" style="opacity:.4">↪</span>
+    <span class="chip" id="saveProjBtn" title="Сохранить весь план в файл .ossa">💾 Проект</span>
+    <span class="chip" id="openProjBtn" title="Открыть план .ossa">📂 Открыть</span>
+    <input type="file" id="projInput" accept=".ossa,application/json" style="display:none">
+    <input type="text" id="patName" placeholder="Пациент / № КТ" title="ФИО или номер — попадёт в проект и протокол"
+      style="background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:4px 8px;font-size:11px;width:150px;font-family:var(--mono)">
+    <div class="grp" title="Уровень окна (центр)">WC <input type="range" id="wc" min="-1000" max="3000" value="300"><span id="wcval">300</span></div>
+    <div class="grp" title="Ширина окна">WW <input type="range" id="ww" min="1" max="4000" value="1500"><span id="wwval">1500</span></div>
+    <span class="chip" data-preset="300,1500">Кость</span>
+    <span class="chip" data-preset="40,400">Мягкие ткани</span>
+    <span class="chip" id="themeBtn" title="Светлая / тёмная тема">☀ Тема</span>
+    <span class="chip" id="rotFree" title="Вращение по всем осям">↻ Вращать</span>
+    <span class="chip" id="rotTurn" title="Вращение по кругу (турель)">⟳ Круг</span>
+    <span class="chip" id="rotPan" title="Перемещение (панорама)">✥ Двигать</span>
+    <span class="chip" id="zoomIn" title="Приблизить">🔍+</span>
+    <span class="chip" id="zoomOut" title="Отдалить">🔍−</span>
+    <div class="grp" title="Толщина слоя (усреднение соседних срезов)">Слой <input type="range" id="slab" min="1" max="31" step="2" value="1"><span id="slabv">1</span></div>
+    <span class="chip" id="obl" title="Полуаксиальный (косой) реформат в окне «Коронар»">⟂ Oblique</span>
+    <div class="grp" title="Наклон косого среза"><input type="range" id="oblA" min="-90" max="90" value="0" style="width:80px"><span id="oblAv">0°</span></div>
+    <span class="chip" id="mDist" title="Линейка на срезах">MPR 📏</span>
+    <span class="chip" id="mAngle" title="Угол на срезах">∠</span>
+    <span class="chip" id="mDens" title="Плотность/площадь кружком">⊙ HU</span>
+    <span class="chip" id="mClear" title="Очистить измерения MPR">✕</span>
+    <div class="grp" title="Порог кости для 3D">3D&nbsp;порог <input type="range" id="thr" min="-200" max="1500" value="300"><span id="thrval">300 HU</span></div>
+    <label class="grp" title="Отделять нижнюю челюсть при построении 3D"><input type="checkbox" id="autoSeg" checked style="accent-color:var(--accent)"> Сегментация&nbsp;НЧ</label>
+    <div class="meta"><span id="meta">Серия не загружена</span></div>
+  </div>
+  <div class="prog"><div id="progbar"></div></div>
+  <div id="seriesTabs" class="tabs" style="display:none"></div>
+
+  <div class="grid">
+    <div class="vp"><canvas id="cv-axial" width="600" height="450"></canvas><input class="sl" id="sl-axial" type="range" min="0" max="0" value="0"></div>
+    <div class="vp"><canvas id="cv-coronal" width="600" height="450"></canvas><input class="sl" id="sl-coronal" type="range" min="0" max="0" value="0"></div>
+    <div class="vp"><canvas id="cv-sagittal" width="600" height="450"></canvas><input class="sl" id="sl-sagittal" type="range" min="0" max="0" value="0"></div>
+    <div class="vp threeD"><canvas id="cv-3d"></canvas><canvas id="cv-draw" class="drawlayer"></canvas><span class="tag" id="info3d">3D</span>
+
+      <!-- ЛЕВЫЙ БЛОК: РАСПИЛ -->
+      <div class="panel" id="panelCut">
+        <div class="p-head" data-panel="panelCut"><span class="ico">✂ Распил / Остеотомия</span><span class="tg">▾</span></div>
+        <div class="p-body">
+          <div class="sect">Объекты</div>
+          <div id="objList" class="objlist"><div class="info">Загрузите КТ.</div></div>
+          <div class="btns"><button id="isoBtn" class="act-b" title="Кликни по кости — связная деталь под курсором станет отдельным подвижным объектом">✂ Отделить кликом</button></div>
+          <div class="info" style="font-size:11px;opacity:.7">Отделяет связную деталь под курсором. Delete — удалить выделенный объект.</div>
+          <div class="sep"></div>
+          <div class="sect">Сегментация по MPR (Mimics)</div>
+          <div class="info">Крась область на срезах (аксиал/коронар/сагиттал), прокручивай срезы — потом «Извлечь объект» построит 3D по маске.</div>
+          <div class="btns"><button id="segPaint" class="ghost">🖌 Кисть</button><button id="segWandBtn" class="ghost">🪄 Палочка</button><button id="segEraseBtn" class="ghost">Стереть</button></div>
+          <div class="row"><label>Кисть</label><input type="range" id="segBrushR" min="2" max="30" value="9"><span class="v" id="segBrushRv">9 px</span></div>
+          <div class="row"><label>Допуск</label><input type="range" id="segTol" min="50" max="800" step="10" value="250"><span class="v" id="segTolv">250 HU</span></div>
+          <div class="row"><label><input type="checkbox" id="segThr" checked style="width:auto"> Только кость (по 3D-порогу)</label></div>
+          <div class="btns"><button id="segExtract" class="act-b">⬆ Извлечь объект</button><button id="segClear" class="ghost">Очистить</button></div>
+          <div class="info" id="segMprInfo">Кисть выключена.</div>
+          <div class="sep"></div>
+          <div class="sect">Карандаш — от руки</div>
+          <div class="row"><label>Режим</label>
+            <select id="penMode">
+              <option value="line" selected>Линия остеотомии</option>
+              <option value="loop">Контур области</option>
+              <option value="knife">🔪 Нож (обрезать)</option>
+            </select>
+          </div>
+          <div class="btns"><button id="penBtn" class="ghost">✏ Рисовать</button><button id="penClear" class="ghost">Стереть</button></div>
+          <div class="btns"><button id="penCut" class="act-b">Применить</button></div>
+          <div class="btns"><button id="penSwap" class="ghost">Выбрать другой фрагмент</button><button id="knifeUndo" class="ghost">↩ Вернуть</button></div>
+          <div class="info" id="penInfo">Проведи линию через кость — отделятся фрагменты выше и ниже линии (локально). «Поменять фрагмент» — какой подвижен.</div>
+
+          <div class="sep"></div>
+          <div class="sect">Плоскость-рамка</div>
+          <div class="row"><label>Плоскость</label>
+            <select id="cutOrient">
+              <option value="axial">Аксиальная</option>
+              <option value="coronal">Коронарная</option>
+              <option value="sagittal" selected>Сагиттальная</option>
+            </select>
+          </div>
+          <div class="row"><label>Наклон X</label><input type="range" id="cutTiltX" min="-60" max="60" value="0"><span class="v" id="cutTiltXv">0°</span></div>
+          <div class="row"><label>Наклон Y</label><input type="range" id="cutTiltY" min="-60" max="60" value="0"><span class="v" id="cutTiltYv">0°</span></div>
+          <div class="row"><label>Положение</label><input type="range" id="cutOff" min="-120" max="120" value="0"><span class="v" id="cutOffv">0 мм</span></div>
+          <div class="row"><label>Ширина</label><input type="range" id="cutW" min="10" max="260" step="2" value="70"><span class="v" id="cutWv">70 мм</span></div>
+          <div class="row"><label>Высота</label><input type="range" id="cutL" min="10" max="260" step="2" value="70"><span class="v" id="cutLv">70 мм</span></div>
+          <div class="row"><label>Толщина</label><input type="range" id="cutD" min="6" max="200" step="2" value="40"><span class="v" id="cutDv">40 мм</span></div>
+          <div class="row"><label><input type="checkbox" id="planeOn" style="width:auto" checked> Показывать рамку</label></div>
+          <div class="btns"><button id="movePlane" class="ghost">Двигать</button><button id="rotPlane" class="ghost">Вращать</button></div>
+          <div class="info">Уменьши ширину/высоту/толщину и наведи рамку на угол — распил захватит только кость внутри рамки.</div>
+          <div class="btns"><button id="cutDo" class="act-b">Распилить рамкой</button><button id="cutReset" class="ghost">Сброс</button></div>
+          <div class="btns"><button id="segBtn" class="ghost">🦷 Отделить НЧ</button></div>
+
+          <div class="sep"></div>
+          <div class="sect">Перемещение фрагмента</div>
+          <div class="row"><label>Подвижный</label>
+            <select id="cutMobile"><option value="B">Сторона −</option><option value="A">Сторона +</option></select>
+          </div>
+          <div class="row"><label>Дистракция</label><input type="range" id="mvDist" min="0" max="40" step="0.5" value="0"><span class="v" id="mvDistv">0 мм</span></div>
+          <div class="row"><label>Сдвиг X</label><input type="range" id="mvX" min="-30" max="30" step="0.5" value="0"><span class="v" id="mvXv">0</span></div>
+          <div class="row"><label>Сдвиг Y</label><input type="range" id="mvY" min="-30" max="30" step="0.5" value="0"><span class="v" id="mvYv">0</span></div>
+          <div class="row"><label>Поворот</label><input type="range" id="mvRot" min="-30" max="30" step="0.5" value="0"><span class="v" id="mvRotv">0°</span></div>
+          <div class="btns"><button id="pickBtn" class="ghost">✋ Тащить</button><button id="gizMove" class="ghost">Сдвиг</button><button id="gizRot" class="ghost">Пов.</button></div>
+          <div class="info" id="cutInfo">Нарисуй линию карандашом или наведи рамку и распили.</div>
+
+          <div class="sep"></div>
+          <div class="sect">Эндопротез ВНЧС (BonaByte)</div>
+          <div class="info">Как в BonaByte: 1) «✚ Путь эндопротеза» — кликай точки от мыщелка вниз по ветви к телу. 2) «Сформировать» — медная изогнутая пластина + головка + винты + суставная ямка. (Без пути — режим зеркала: выдели челюсть + блок на дефект.)</div>
+          <div class="btns"><button id="tmjPathBtn" class="ghost">✚ Путь эндопротеза</button></div>
+          <div class="btns"><button id="tmjBtn" class="act-b">🦴 Сформировать эндопротез</button></div>
+          <div class="info" id="tmjInfo">Ширина/толщина берутся из «Реконструктивной пластины». Компоненты — подвижные объекты, экспорт в STL.</div>
+
+          <div class="sect">Импланты и ориентиры</div>
+          <div class="btns"><button id="primCyl" class="ghost">⬤ Цилиндр</button><button id="primBox" class="ghost">▬ Блок</button><button id="primSph" class="ghost">● Сфера</button></div>
+          <div class="row"><label>Винт Ø</label>
+            <select id="screwD"><option>1.5</option><option selected>2.0</option><option>2.3</option><option>2.7</option></select>
+            <select id="screwL"><option>6</option><option selected>8</option><option>10</option><option>12</option><option>14</option></select>
+          </div>
+          <div class="btns"><button id="screwBtn" class="ghost">🔩 Добавить винт</button></div>
+          <div class="sect">Дистрактор (библиотека)</div>
+          <div class="row"><label>Модель</label>
+            <select id="distModel"><option>КДА-30</option><option>КДА-50</option><option>КДА-70</option><option>КДА-100</option><option selected>КДА-180</option></select>
+          </div>
+          <div class="btns"><button id="distAddBtn" class="ghost" title="По 2 точкам аппарата поставить реалистичный дистрактор">🩺 Дистрактор</button></div>
+          <div class="sect">Реконструктивная пластина</div>
+          <div class="row"><label>Ширина</label><input type="range" id="plateW" min="3" max="12" step="0.5" value="6"><span class="v" id="plateWv">6 мм</span></div>
+          <div class="row"><label>Толщина</label><input type="range" id="plateT" min="0.8" max="3" step="0.2" value="1.4"><span class="v" id="plateTv">1.4 мм</span></div>
+          <div class="btns"><button id="plateBtn" class="ghost">✚ Пластина</button><button id="plateDone" class="ghost">Изогнуть</button></div>
+          <div class="btns"><button id="nerveAuto" class="act-b" title="Найти ход канала нижнечелюстного нерва автоматически по КТ">🩸 Канал (авто)</button></div>
+          <div class="btns"><button id="nerveBtn" class="ghost">Нерв: вручную</button><button id="nerveDone" class="ghost">Готово</button></div>
+          <div class="btns"><button id="nerveProx" class="ghost" title="Раскрасить выбранный объект по расстоянию до канала нерва">⚠ Нерв: близость</button></div>
+          <div class="btns"><button id="expObjSTL" class="ghost">⬇ STL объекта</button><button id="impSTLbtn" class="ghost">⬆ Импорт STL</button></div>
+          <input type="file" id="impSTL" accept=".stl" multiple style="display:none">
+          <div class="info">Примитив/винт → двигай гизмо на место → «STL объекта» для печати. Импорт STL — свой эндопротез.</div>
+        </div>
+      </div>
+
+      <!-- ПРАВЫЙ БЛОК: ДИСТРАКТОР + СИММЕТРИЯ -->
+      <div class="panel" id="panelPlan">
+        <div class="p-head" data-panel="panelPlan"><span class="ico">◠ Дистрактор и симметрия</span><span class="tg">▾</span></div>
+        <div class="p-body">
+          <div class="sect">Референс симметрии</div>
+          <div class="btns"><button id="midSetBtn" class="ghost">◎ Средняя линия</button></div>
+          <div class="row"><label>Сдвиг ср.</label><input type="range" id="midAdj" min="-30" max="30" step="0.5" value="0"><span class="v" id="midAdjv">0 мм</span></div>
+          <div class="btns"><button id="mirrorBtn" class="ghost">Зеркало здоровой</button></div>
+
+          <div class="sep"></div>
+          <div class="sect">Дистрактор — авто-расчёт</div>
+          <div class="row"><label>Случай</label>
+            <select id="kdoMode">
+              <option value="uni" selected>Односторонний (до симметрии)</option>
+              <option value="bi">Двусторонний (до смыкания резцов)</option>
+            </select>
+          </div>
+          <div class="row"><label>Плоскость</label>
+            <select id="kdoPlane" title="Как движется фрагмент: только в сагиттальной, только вертикально, или сочетанно (криволинейный аппарат)">
+              <option value="sag" selected>Сагиттальная (вперёд-вниз)</option>
+              <option value="vert">Вертикальная (удлинение ветви)</option>
+              <option value="combo">Сочетанная (криволинейный)</option>
+            </select>
+          </div>
+          <div class="btns"><button id="devPtBtn" class="ghost">◎ Точки аппарата</button></div>
+          <div class="btns"><button id="planKDO" class="act-b">▶ Рассчитать КДО</button></div>
+          <div class="info" id="kdoInfo">Отметь остеотомию, 2 точки опор аппарата и нажми «Рассчитать» — программа сама посчитает мм, угол и тип КДА.</div>
+          <div class="row"><label>Дистракция</label><input type="range" id="arcDist" min="0" max="100" step="0.1" value="0"><span class="v" id="arcDistv">0 мм</span></div>
+          <div class="info" id="symInfo">Регенерат растёт по мере раскрутки. «Дистракция» — анимация 0 → план.</div>
+          <div class="sep"></div>
+          <div class="row"><label title="Жёсткий рельс аппарата между дистальным и медиальным фрагментами: перемещай медиальный вручную гизмо — движение строго по траектории (без отклонений вбок). Плоскость движения — из списка «Плоскость» выше."><input type="checkbox" id="kdoRod" style="width:auto"> 🔩 Штанга-рельс</label></div>
+          <div class="info" id="rodInfo">Выбери подвижный (медиальный) фрагмент, включи «Штанга-рельс» и тяни его гизмо: сагиттально/вертикально — считаются мм; сочетанно — градус дуги и рекомендованный криволинейный КДА. Выключи — вернётся авто-анимация ползунком.</div>
+
+          <div class="sep"></div>
+          <div class="sect">Цефалометрия / асимметрия</div>
+          <div class="row"><label>Точка</label>
+            <select id="cephPick">
+              <option value="Co-R">Мыщелок R</option><option value="Go-R">Угол (гонион) R</option>
+              <option value="Co-L">Мыщелок L</option><option value="Go-L">Угол (гонион) L</option>
+              <option value="Me">Ментон (подбородок)</option>
+            </select>
+          </div>
+          <div class="btns"><button id="cephBtn" class="ghost">◎ Ставить точки</button><button id="cephClear" class="ghost">Очистить</button></div>
+          <div class="info" id="cephInfo">Задай «Среднюю линию», расставь 5 точек — программа посчитает асимметрию ветвей/тела, девиацию подбородка и гониальные углы (в протокол PDF).</div>
+        </div>
+      </div>
+
+      <!-- НИЖНИЙ БЛОК: ИЗМЕРЕНИЯ + ЭКСПОРТ -->
+      <div class="panel" id="panelMeas">
+        <div class="p-head" data-panel="panelMeas"><span class="ico">↔ Измерения и экспорт</span><span class="tg">▾</span></div>
+        <div class="p-body">
+          <button id="measDist" class="ghost" style="flex:0 0 auto">📏 Длина</button>
+          <button id="measAngle" class="ghost" style="flex:0 0 auto">∠ Угол</button>
+          <button id="measVol" class="ghost" style="flex:0 0 auto">◈ Объём</button>
+          <button id="measClear" class="ghost" style="flex:0 0 auto">Очистить</button>
+          <span class="info" id="measInfo">Длина — 2 точки, угол — 3 точки прямо на кости.</span>
+          <span class="vbadge" id="measVal" style="display:none"></span>
+          <span style="width:1px;height:22px;background:var(--line)"></span>
+          <button id="animBtn" class="ghost" style="flex:0 0 auto" title="Проиграть дистракцию 0→план">▶ Анимация</button>
+          <button id="baBtn" class="ghost" style="flex:0 0 auto" title="Переключить до/после">⇄ До/После</button>
+          <button id="recBtn" class="ghost" style="flex:0 0 auto" title="Записать видео дистракции (.webm)">⏺ Видео</button>
+          <span style="width:1px;height:22px;background:var(--line)"></span>
+          <button id="exportSTL" class="act-b" style="flex:0 0 auto">⬇ STL</button>
+          <button id="exportProto" class="act-b" style="flex:0 0 auto">⬇ Протокол PDF</button>
+        </div>
+      </div>
+
+      <div id="dropHint">Нажмите <b>«Загрузить DICOM»</b> или перетащите папку с серией сюда<br>Аксиал · Коронар · Сагиттал · 3D-кость<br><span style="opacity:.7">двойной клик по окну — на весь экран · колесо — срезы · мышь — вращение 3D</span></div>
+    </div>
+  </div>
+
+  <div class="status" id="status"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
