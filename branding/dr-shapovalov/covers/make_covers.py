@@ -12,9 +12,10 @@ sys.path.insert(0, os.path.join(HERE, '..', 'collage'))
 from fonts import manrope
 
 NAME = 'S. H. A. P. O. V. A. L. O. V.'
+# Gold: a soft vertical gradient reads as metal, a flat fill reads as mustard.
+GOLD_TOP, GOLD_BOTTOM = (236, 206, 130), (176, 138, 58)
 THEMES = {
-    'light': dict(bg=(244, 243, 240), ink=(22, 24, 26), mark='mark-dark.svg'),
-    'dark': dict(bg=(22, 24, 26), ink=(244, 243, 240), mark='mark-white.svg'),
+    'gold': dict(bg=(12, 12, 12)),
 }
 SIZES = {'x-gettr': (1500, 500), 'parler': (1200, 400)}
 SS = 3                                  # supersample, then downscale for clean edges
@@ -28,28 +29,36 @@ def cover(theme, W, H):
     t = THEMES[theme]
     w, h = W * SS, H * SS
     k = h / 500                         # layout designed at 500 px height
-    img = Image.new('RGB', (w, h), t['bg'])
-    d = ImageDraw.Draw(img)
+    mask = Image.new('L', (w, h), 0)    # everything golden is drawn into this mask
+    d = ImageDraw.Draw(mask)
 
     mark_px = int(96 * k)
-    png = cairosvg.svg2png(url=os.path.join(HERE, '..', t['mark']),
+    png = cairosvg.svg2png(url=os.path.join(HERE, '..', 'mark-white.svg'),
                            output_width=mark_px, output_height=mark_px)
-    mark = Image.open(io.BytesIO(png)).convert('RGBA')
+    mark_alpha = Image.open(io.BytesIO(png)).convert('RGBA').getchannel('A')
 
     font = ImageFont.truetype(manrope(700), int(38 * k))
     track = 4.5 * k
     tw = tracked_width(d, NAME, font, track)
 
     gap = int(34 * k)
-    asc, desc = font.getmetrics()
-    block = mark_px + gap + asc
-    top = (h - block) // 2
-    img.paste(mark, ((w - mark_px) // 2, top), mark)
+    asc, _ = font.getmetrics()
+    top = (h - (mark_px + gap + asc)) // 2
+    mask.paste(mark_alpha, ((w - mark_px) // 2, top), mark_alpha)
 
     x, base = (w - tw) / 2, top + mark_px + gap + asc
     for ch in NAME:
-        d.text((x, base), ch, font=font, fill=t['ink'], anchor='ls')
+        d.text((x, base), ch, font=font, fill=255, anchor='ls')
         x += d.textlength(ch, font=font) + track
+
+    # Gradient spans only the content block, so mark and letters both get the full range.
+    y0, y1 = top, base
+    grad = Image.new('RGB', (1, h))
+    for y in range(h):
+        f = min(1.0, max(0.0, (y - y0) / max(1, y1 - y0)))
+        grad.putpixel((0, y), tuple(int(a + (b - a) * f) for a, b in zip(GOLD_TOP, GOLD_BOTTOM)))
+    img = Image.new('RGB', (w, h), t['bg'])
+    img.paste(grad.resize((w, h)), (0, 0), mask)
     return img.resize((W, H), Image.LANCZOS)
 
 
