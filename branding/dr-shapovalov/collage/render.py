@@ -6,7 +6,7 @@ and README.md). Output: one 1080x1440 JPEG per slide, next to the case file.
 """
 import io, json, os, sys
 import cairosvg
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 from fit import solve
 from fonts import manrope
 
@@ -26,6 +26,8 @@ F_TITLE = ImageFont.truetype(manrope(800), 36)
 F_SUB = ImageFont.truetype(manrope(500), 36)
 F_PILL = ImageFont.truetype(manrope(800), 17)
 F_HANDLE = ImageFont.truetype(manrope(700), 21)
+F_BADGE = ImageFont.truetype(manrope(800), 40)
+F_BADGE_CAP = ImageFont.truetype(manrope(600), 16)
 
 
 def open_upright(path):
@@ -34,7 +36,7 @@ def open_upright(path):
 
 
 def load(photo, base):
-    """Opens a photo and blacks out the eyes listed in it (supersampled circles)."""
+    """Opens a photo, blacks out the eyes (supersampled circles), applies "precrop"."""
     img = open_upright(os.path.join(base, photo['file']))
     circles = photo.get('eyes', [])
     if circles:
@@ -43,7 +45,23 @@ def load(photo, base):
         for cx, cy, r in circles:
             d.ellipse([(cx - r) * 4, (cy - r) * 4, (cx + r) * 4, (cy + r) * 4], fill=255)
         img.paste((0, 0, 0), (0, 0), big.resize(img.size, Image.LANCZOS))
+    if photo.get('precrop'):
+        img = img.crop(tuple(photo['precrop']))
     return img
+
+
+def shifted(photo, size):
+    """Landmarks are measured on the full image; "precrop" (e.g. a screenshot's frame)
+    moves the origin, so the solver gets coordinates inside the cropped area."""
+    q = dict(photo)
+    if photo.get('precrop'):
+        l, t, r, b = photo['precrop']
+        q['anchor'] = [photo['anchor'][0] - l, photo['anchor'][1] - t]
+        q['include'] = [[x - l, y - t] for x, y in photo['include']]
+        q['size'] = (r - l, b - t)
+    else:
+        q['size'] = size
+    return q
 
 
 def rounded_mask(size, r):
@@ -70,10 +88,42 @@ def pill(canvas, x, y, label, dark):
     tracked(d, x + 15, y + 7, label, F_PILL, WHITE if dark else INK, 1.6)
 
 
-def place(canvas, img, box, x, y, w, h, label, dark):
+def enhance(im, kind):
+    """Levels, colour and sharpness only: nothing is added to or removed from the anatomy."""
+    if kind == 'photo':
+        im = ImageOps.autocontrast(im, cutoff=0.5)
+        im = ImageEnhance.Brightness(im).enhance(1.04)
+        im = ImageEnhance.Color(im).enhance(1.08)
+    elif kind == 'ct':
+        im = ImageOps.autocontrast(im, cutoff=0.3, preserve_tone=True)   # keeps greyscale grey
+    return im.filter(ImageFilter.UnsharpMask(radius=1.4, percent=70, threshold=2))
+
+
+def badge(canvas, x, y, w, h, value, caption, dark):
+    """Big measurement plate in the photo's bottom-right corner."""
+    d = ImageDraw.Draw(canvas)
+    vw = d.textlength(value, font=F_BADGE); cw_ = d.textlength(caption, font=F_BADGE_CAP)
+    bw, bh = int(max(vw, cw_) + 36), 88
+    bx, by = x + w - bw - 14, y + h - bh - 14
+    layer = Image.new('RGBA', (bw * SS, bh * SS), (0, 0, 0, 0))
+    ImageDraw.Draw(layer).rounded_rectangle([0, 0, bw * SS - 1, bh * SS - 1], 16 * SS,
+                                            fill=INK + (235,) if dark else WHITE + (242,))
+    layer = layer.resize((bw, bh), Image.LANCZOS)
+    canvas.paste(layer, (bx, by), layer)
+    fg = WHITE if dark else INK
+    d.text((bx + 18, by + 14), caption, font=F_BADGE_CAP, fill=(200, 200, 200) if dark else MUTED)
+    d.text((bx + 18, by + 34), value, font=F_BADGE, fill=fg)
+
+
+def place(canvas, img, box, x, y, w, h, label, dark, photo=None):
     im = img.resize((w, h), Image.LANCZOS, box=box)   # box aspect == w/h, so scale is uniform
+    if photo and photo.get('enhance'):
+        im = enhance(im, photo['enhance'])
     canvas.paste(im, (x, y), rounded_mask((w, h), RADIUS))
     pill(canvas, x + 14, y + 14, label, dark)
+    if photo and photo.get('badge'):
+        b = photo['badge']
+        badge(canvas, x, y, w, h, b['value'], b.get('caption', ''), dark)
 
 
 def header_footer(canvas, title, subtitle):
@@ -92,8 +142,7 @@ def header_footer(canvas, title, subtitle):
 
 
 def fitted(pair, w, h, margin, base):
-    for p in pair:
-        p['size'] = open_upright(os.path.join(base, p['file'])).size
+    pair = [shifted(p, open_upright(os.path.join(base, p['file'])).size) for p in pair]
     r = solve(pair, w, h, margin=margin)
     if r is None:
         raise SystemExit(f'No crop fits {w}x{h} for {[p["file"] for p in pair]}: '
@@ -110,15 +159,24 @@ def fitted(pair, w, h, margin, base):
 def slide_pairs(slide, labels, base):
     """Every row is a before|after pair; all boxes share one size."""
     rows = slide['rows']
-    rh = (GRID_H - (len(rows) - 1) * GUT) // len(rows)
+    free = GRID_H - (len(rows) - 1) * GUT
+    weights = slide.get('row_weights', [1] * len(rows))
+    heights = [int(free * wgt / sum(weights)) for wgt in weights]
     cw = min(slide.get('max_width', (W - 2 * SIDE - GUT) // 2), (W - 2 * SIDE - GUT) // 2)
     x0 = (W - (2 * cw + GUT)) // 2
     c = Image.new('RGB', (W, H), BG)
-    for i, row in enumerate(rows):
-        imgs, boxes = fitted(row, cw, rh, slide.get('margin', 0.025), base)
-        y = GRID_TOP + i * (rh + GUT)
+    y = GRID_TOP
+    independent = set(slide.get('independent_rows', []))
+    for i, (row, rh) in enumerate(zip(rows, heights)):
+        if i in independent:
+            # Photos shot so differently that a shared scale is meaningless: frame each on its own.
+            fits = [fitted([p], cw, rh, slide.get('margin', 0.025), base) for p in row]
+            imgs, boxes = [f[0][0] for f in fits], [f[1][0] for f in fits]
+        else:
+            imgs, boxes = fitted(row, cw, rh, slide.get('margin', 0.025), base)
         for j in range(2):
-            place(c, imgs[j], boxes[j], x0 + j * (cw + GUT), y, cw, rh, labels[j], j == 1)
+            place(c, imgs[j], boxes[j], x0 + j * (cw + GUT), y, cw, rh, labels[j], j == 1, row[j])
+        y += rh + GUT
     return c
 
 
@@ -131,10 +189,11 @@ def slide_pair_then_stacked(slide, labels, base):
     c = Image.new('RGB', (W, H), BG)
     imgs, boxes = fitted(slide['rows'][0], cw, h1, slide.get('margin', 0.03), base)
     for j in range(2):
-        place(c, imgs[j], boxes[j], SIDE + j * (cw + GUT), GRID_TOP, cw, h1, labels[j], j == 1)
+        place(c, imgs[j], boxes[j], SIDE + j * (cw + GUT), GRID_TOP, cw, h1, labels[j], j == 1, slide['rows'][0][j])
     imgs, boxes = fitted(slide['rows'][1], full, h2, slide.get('margin', 0.03), base)
     for j in range(2):
-        place(c, imgs[j], boxes[j], SIDE, GRID_TOP + h1 + GUT + j * (h2 + GUT), full, h2, labels[j], j == 1)
+        place(c, imgs[j], boxes[j], SIDE, GRID_TOP + h1 + GUT + j * (h2 + GUT), full, h2, labels[j], j == 1,
+              slide['rows'][1][j])
     return c
 
 
