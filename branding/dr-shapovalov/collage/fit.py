@@ -26,7 +26,9 @@ def search(pred, lo, hi, want_high):
         else: hi = mid
     return lo if want_high else hi
 
-def solve(photos, W, H, margin=0.03, step=0.01):
+def solve(photos, W, H, margin=0.03, step=0.01, zoom='in'):
+    """zoom='in': tightest crop that still holds every include point (case 1 style).
+    zoom='out': widest crop the sources allow, anatomy centred as far as possible."""
     best = None
     grid = [i * step for i in range(int(0.15 / step), int(0.85 / step) + 1)]
     for ax, ay in itertools.product(grid, grid):
@@ -40,12 +42,26 @@ def solve(photos, W, H, margin=0.03, step=0.01):
                 break
             dmin.append(lo_); dmax.append(hi_)
         else:
-            common = min(dmax)
-            Ds = [max(common, d) for d in dmin]
-            if any(D > dm for D, dm in zip(Ds, dmax)):
-                continue
-            mismatch = max(Ds) / min(Ds)
-            key = (round(mismatch, 3), -common)
+            if zoom == 'out':
+                # Widest crop the tightest source allows; a photo whose landmarks would not
+                # fit at that zoom backs off to its own limit (reported as mismatch).
+                common = max(dmin)
+                Ds = [min(common, dm) for dm in dmax]
+                mismatch = max(Ds) / min(Ds)
+                boxes = [crop(p, W, H, D, ax, ay) for p, D in zip(photos, Ds)]
+                off = 0.0
+                for p, (l, t, r, b) in zip(photos, boxes):
+                    xs = [x for x, _ in p['include']]; ys = [y for _, y in p['include']]
+                    off += abs(((min(xs) + max(xs)) / 2 - l) / (r - l) - 0.5)
+                    off += abs(((min(ys) + max(ys)) / 2 - t) / (b - t) - 0.5)
+                key = (round(mismatch, 3), round(common, 3), round(off, 4))
+            else:
+                common = min(dmax)
+                Ds = [max(common, d) for d in dmin]
+                if any(D > dm for D, dm in zip(Ds, dmax)):
+                    continue
+                mismatch = max(Ds) / min(Ds)
+                key = (round(mismatch, 3), -common)
             if best is None or key < best[0]:
                 best = (key, ax, ay, Ds)
     if best is None:

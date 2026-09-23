@@ -47,6 +47,28 @@ def load(photo, base):
         img.paste((0, 0, 0), (0, 0), big.resize(img.size, Image.LANCZOS))
     if photo.get('precrop'):
         img = img.crop(tuple(photo['precrop']))
+    if photo.get('pad'):
+        l, t, rr, b = photo['pad']
+        color = photo.get('pad_color', 'edge')
+        grown = Image.new('RGB', (img.width + l + rr, img.height + t + b),
+                          tuple(color) if color != 'edge' else (0, 0, 0))
+        if color == 'edge':
+            # Continue the background by smearing the outermost pixel column/row
+            # (softened vertically/horizontally), so the extension has no visible seam.
+            if l:
+                col = img.crop((0, 0, 1, img.height)).filter(ImageFilter.GaussianBlur(3))
+                grown.paste(col.resize((l, img.height)), (0, t))
+            if rr:
+                col = img.crop((img.width - 1, 0, img.width, img.height)).filter(ImageFilter.GaussianBlur(3))
+                grown.paste(col.resize((rr, img.height)), (l + img.width, t))
+            if t:
+                row = img.crop((0, 0, img.width, 1)).filter(ImageFilter.GaussianBlur(3))
+                grown.paste(row.resize((img.width, t)), (l, 0))
+            if b:
+                row = img.crop((0, img.height - 1, img.width, img.height)).filter(ImageFilter.GaussianBlur(3))
+                grown.paste(row.resize((img.width, b)), (l, t + img.height))
+        grown.paste(img, (l, t))
+        img = grown
     return img
 
 
@@ -54,13 +76,17 @@ def shifted(photo, size):
     """Landmarks are measured on the full image; "precrop" (e.g. a screenshot's frame)
     moves the origin, so the solver gets coordinates inside the cropped area."""
     q = dict(photo)
+    ox, oy, w, h = 0, 0, size[0], size[1]
     if photo.get('precrop'):
         l, t, r, b = photo['precrop']
-        q['anchor'] = [photo['anchor'][0] - l, photo['anchor'][1] - t]
-        q['include'] = [[x - l, y - t] for x, y in photo['include']]
-        q['size'] = (r - l, b - t)
-    else:
-        q['size'] = size
+        ox, oy, w, h = -l, -t, r - l, b - t
+    if photo.get('pad'):
+        # Background strip added on the given sides (plain wall / black), never anatomy.
+        l, t, r, b = photo['pad']
+        ox, oy, w, h = ox + l, oy + t, w + l + r, h + t + b
+    q['anchor'] = [photo['anchor'][0] + ox, photo['anchor'][1] + oy]
+    q['include'] = [[x + ox, y + oy] for x, y in photo['include']]
+    q['size'] = (w, h)
     return q
 
 
@@ -82,7 +108,8 @@ def pill(canvas, x, y, label, dark):
     w, h = int(tw + 30), 34
     layer = Image.new('RGBA', (w * SS, h * SS), (0, 0, 0, 0))
     ImageDraw.Draw(layer).rounded_rectangle([0, 0, w * SS - 1, h * SS - 1], h * SS // 2,
-                                            fill=INK + (235,) if dark else WHITE + (240,))
+                                            fill=INK + (235,) if dark else WHITE + (240,),
+                                            outline=None if dark else INK + (40,), width=SS)
     layer = layer.resize((w, h), Image.LANCZOS)
     canvas.paste(layer, (x, y), layer)
     tracked(d, x + 15, y + 7, label, F_PILL, WHITE if dark else INK, 1.6)
@@ -141,9 +168,9 @@ def header_footer(canvas, title, subtitle):
     d.text((fx + 44, fy + 17), HANDLE, font=F_HANDLE, fill=INK, anchor='lm')
 
 
-def fitted(pair, w, h, margin, base):
+def fitted(pair, w, h, margin, base, zoom='in'):
     pair = [shifted(p, open_upright(os.path.join(base, p['file'])).size) for p in pair]
-    r = solve(pair, w, h, margin=margin)
+    r = solve(pair, w, h, margin=margin, zoom=zoom)
     if r is None:
         raise SystemExit(f'No crop fits {w}x{h} for {[p["file"] for p in pair]}: '
                          'loosen "include" points or change the layout.')
@@ -170,10 +197,10 @@ def slide_pairs(slide, labels, base):
     for i, (row, rh) in enumerate(zip(rows, heights)):
         if i in independent:
             # Photos shot so differently that a shared scale is meaningless: frame each on its own.
-            fits = [fitted([p], cw, rh, slide.get('margin', 0.025), base) for p in row]
+            fits = [fitted([p], cw, rh, slide.get('margin', 0.025), base, slide.get('zoom', 'in')) for p in row]
             imgs, boxes = [f[0][0] for f in fits], [f[1][0] for f in fits]
         else:
-            imgs, boxes = fitted(row, cw, rh, slide.get('margin', 0.025), base)
+            imgs, boxes = fitted(row, cw, rh, slide.get('margin', 0.025), base, slide.get('zoom', 'in'))
         for j in range(2):
             place(c, imgs[j], boxes[j], x0 + j * (cw + GUT), y, cw, rh, labels[j], j == 1, row[j])
         y += rh + GUT
@@ -197,7 +224,39 @@ def slide_pair_then_stacked(slide, labels, base):
     return c
 
 
-LAYOUTS = {'pairs': slide_pairs, 'pair_then_stacked': slide_pair_then_stacked}
+def slide_justified(slide, labels, base):
+    """Each row: before|after at one height, widths follow each photo's own "crop" aspect,
+    so nothing inside the crop is cut to fit a shared frame. Rows fill the grid width;
+    if they overflow the grid height, the whole block shrinks and stays centred."""
+    rows = slide['rows']
+    inner = W - 2 * SIDE
+    specs = []
+    for row in rows:
+        imgs = [load(p, base) for p in row]
+        boxes = [tuple(p['crop']) if p.get('crop') else (0, 0, im.width, im.height)
+                 for p, im in zip(row, imgs)]
+        aspects = [(b[2] - b[0]) / (b[3] - b[1]) for b in boxes]
+        specs.append((row, imgs, boxes, aspects, (inner - GUT) / sum(aspects)))
+    total = sum(s[4] for s in specs) + GUT * (len(rows) - 1)
+    f = min(1.0, GRID_H / total)
+    y = GRID_TOP + int((GRID_H - (total * f if f < 1 else total)) / 2)
+    c = Image.new('RGB', (W, H), BG)
+    for row, imgs, boxes, aspects, h in specs:
+        h = int(h * f)
+        widths = [int(a * h) for a in aspects]
+        x = (W - (sum(widths) + GUT)) // 2
+        for j, (p, im, b, w) in enumerate(zip(row, imgs, boxes, widths)):
+            for msg in ([f'  warning: {p["file"]} enlarged x{w / (b[2] - b[0]):.2f}, may look soft']
+                        if w / (b[2] - b[0]) > 1.3 else []):
+                print(msg)
+            place(c, im, b, x, y, w, h, labels[j], j == 1, p)
+            x += w + GUT
+        y += h + GUT
+    return c
+
+
+LAYOUTS = {'pairs': slide_pairs, 'pair_then_stacked': slide_pair_then_stacked,
+           'justified': slide_justified}
 
 if __name__ == '__main__':
     case_path = sys.argv[1]
