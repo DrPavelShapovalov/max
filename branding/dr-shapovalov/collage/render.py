@@ -90,6 +90,37 @@ def shifted(photo, size):
     return q
 
 
+def _offset(photo):
+    """Shift from source coordinates to the loaded (precropped/padded) image."""
+    ox = oy = 0
+    if photo.get('precrop'):
+        ox -= photo['precrop'][0]; oy -= photo['precrop'][1]
+    if photo.get('pad'):
+        ox += photo['pad'][0]; oy += photo['pad'][1]
+    return ox, oy
+
+
+def skin_tone(img, photo):
+    """Median RGB over the "skin" boxes (cheeks/forehead, clear of eye plates)."""
+    ox, oy = _offset(photo)
+    chans = ([], [], [])
+    for l, t, r_, b in photo['skin']:
+        patch = img.crop((l + ox, t + oy, r_ + ox, b + oy)).convert('RGB')
+        for store, ch in zip(chans, patch.split()):
+            store.extend(ch.tobytes())
+    return [sorted(c)[len(c) // 2] for c in chans]
+
+
+def match_skin(img, photo, ref_img, ref_photo):
+    """Per-channel gains so the skin of img matches ref's skin. Multiplicative,
+    so black stays black; it corrects lighting/white balance, not anatomy."""
+    src, dst = skin_tone(img, photo), skin_tone(ref_img, ref_photo)
+    gains = [d / max(s, 1) for s, d in zip(src, dst)]
+    print(f'  skin match {photo["file"]}: gains {[round(g, 3) for g in gains]}')
+    return Image.merge('RGB', [ch.point(lambda v, g=g: min(255, int(v * g + 0.5)))
+                               for ch, g in zip(img.split(), gains)])
+
+
 def rounded_mask(size, r):
     m = Image.new('L', (size[0] * SS, size[1] * SS), 0)
     ImageDraw.Draw(m).rounded_rectangle([0, 0, m.width - 1, m.height - 1], r * SS, fill=255)
@@ -121,6 +152,8 @@ def enhance(im, kind):
         im = ImageOps.autocontrast(im, cutoff=0.5)
         im = ImageEnhance.Brightness(im).enhance(1.04)
         im = ImageEnhance.Color(im).enhance(1.08)
+    elif kind == 'sharpen':
+        pass
     elif kind == 'ct':
         im = ImageOps.autocontrast(im, cutoff=0.3, preserve_tone=True)   # keeps greyscale grey
     return im.filter(ImageFilter.UnsharpMask(radius=1.4, percent=70, threshold=2))
@@ -201,6 +234,17 @@ def slide_pairs(slide, labels, base):
             imgs, boxes = [f[0][0] for f in fits], [f[1][0] for f in fits]
         else:
             imgs, boxes = fitted(row, cw, rh, slide.get('margin', 0.025), base, slide.get('zoom', 'in'))
+        mode = slide.get('match_skin')
+        if mode and all(p.get('skin') for p in row):
+            if mode == 'all':
+                # Every face on the slide takes the skin tone of the first "before" photo.
+                if i == 0:
+                    ref = (imgs[0], row[0])
+                else:
+                    imgs = [match_skin(imgs[0], row[0], *ref), imgs[1]]
+            else:
+                ref = (imgs[0], row[0])
+            imgs = [imgs[0], match_skin(imgs[1], row[1], *ref)]
         for j in range(2):
             place(c, imgs[j], boxes[j], x0 + j * (cw + GUT), y, cw, rh, labels[j], j == 1, row[j])
         y += rh + GUT
