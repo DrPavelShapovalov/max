@@ -81,8 +81,7 @@ python3 render.py cases/<кейс>/case.json     # -> face.jpg, bite.jpg ряд�
 
 ## Водяной знак в подписи
 
-`"footer_watermark": "../script/footer-bronze-jaw.png"` в корне `case.json` ставит знак
+`"footer_watermark": "../script/footer-bronze.png"` в корне `case.json` ставит знак
 Dr. Shapovalov рядом с `@dr__shapovalov` в нижней полосе, под сеткой фото.
 **На фото водяной знак не ставится никогда: он не должен попадать на лицо пациента.**
-Варианты: `footer-bronze[-jaw].png` для светлого фона коллажа, `footer-gold[-jaw].png`
-для тёмного; `-jaw` — росчерк под фамилией в виде нижней челюсти.
+`footer-bronze.png` — для светлого фона коллажа (по умолчанию), `footer-gold.png` — для тёмного.

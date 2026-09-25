@@ -1,9 +1,8 @@
 """Transparent watermarks for case collages, with padding on every side.
 
-  watermark-<gold|bronze>[-jaw].png   full lockup with tagline
-  footer-<gold|bronze>[-jaw].png      no tagline, for the collage footer strip
+  watermark-<gold|bronze>.png   full lockup with tagline
+  footer-<gold|bronze>.png      no tagline, for the collage footer strip
 
-"-jaw": the underline is drawn as a lower jaw in profile (see make.mandible).
 Gold for dark backgrounds, bronze-gold for light ones. Watermarks go in the footer
 strip, never over the photos, so they can never cover a patient's face."""
 from PIL import Image
@@ -13,8 +12,8 @@ BRONZE = [(0.0, (112, 80, 26)), (0.42, (172, 134, 58)), (0.62, (138, 102, 36)), 
 BRONZE_TAIL = (120, 88, 30)
 
 
-def build(jaw, palette, tagline, width):
-    mask = make.lockup(400 * make.SS, tagline, jaw=jaw)
+def build(palette, tagline, width):
+    mask = make.lockup(400 * make.SS, tagline)
     pad = int(mask.height * 0.10)
     full = Image.new('L', (mask.width + 2 * pad, mask.height + 2 * pad), 0)
     full.paste(mask, (pad, pad))
@@ -29,9 +28,7 @@ def build(jaw, palette, tagline, width):
 
 
 if __name__ == '__main__':
-    for jaw in (False, True):
-        for pal in ('gold', 'bronze'):
-            sfx = f"{pal}{'-jaw' if jaw else ''}"
-            build(jaw, pal, True, 1600).save(f'watermark-{sfx}.png')
-            build(jaw, pal, False, 1200).save(f'footer-{sfx}.png')
-            print(sfx)
+    for pal in ('gold', 'bronze'):
+        build(pal, True, 1600).save(f'watermark-{pal}.png')
+        build(pal, False, 1200).save(f'footer-{pal}.png')
+        print(pal)
