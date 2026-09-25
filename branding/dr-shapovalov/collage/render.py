@@ -186,16 +186,31 @@ def place(canvas, img, box, x, y, w, h, label, dark, photo=None):
         badge(canvas, x, y, w, h, b['value'], b.get('caption', ''), dark)
 
 
-def header_footer(canvas, title, subtitle):
+WM_H = 66                     # footer watermark height; stays inside the 4:5 safe band
+
+
+def header_footer(canvas, title, subtitle, watermark=None):
     d = ImageDraw.Draw(canvas)
     sub = f' · {subtitle}'
     tw = d.textlength(title, font=F_TITLE) + d.textlength(sub, font=F_SUB)
     x, base = (W - tw) / 2, TOP + 44
     d.text((x, base), title, font=F_TITLE, fill=INK, anchor='ls')
     d.text((x + d.textlength(title, font=F_TITLE), base), sub, font=F_SUB, fill=MUTED, anchor='ls')
+    hw = d.textlength(HANDLE, font=F_HANDLE)
+    if watermark:
+        # Watermark lives in the footer strip under the grid, never on a photo,
+        # so it can never cover a patient's face.
+        wm = Image.open(watermark).convert('RGBA')
+        wm = wm.resize((int(wm.width * WM_H / wm.height), WM_H), Image.LANCZOS)
+        grid_bottom = H - GAP_F - FOOT - BOTTOM
+        cy = (grid_bottom + (H - BOTTOM + 11)) // 2
+        gap = 18
+        fx = int((W - (wm.width + gap + hw)) / 2)
+        canvas.paste(wm, (fx, cy - WM_H // 2), wm)
+        d.text((fx + wm.width + gap, cy + 2), HANDLE, font=F_HANDLE, fill=INK, anchor='lm')
+        return
     png = cairosvg.svg2png(url=MARK_SVG, output_width=34 * SS, output_height=34 * SS)
     mark = Image.open(io.BytesIO(png)).convert('RGBA').resize((34, 34), Image.LANCZOS)
-    hw = d.textlength(HANDLE, font=F_HANDLE)
     fx, fy = int((W - (34 + 10 + hw)) / 2), H - BOTTOM - FOOT + 3
     canvas.paste(mark, (fx, fy), mark)
     d.text((fx + 44, fy + 17), HANDLE, font=F_HANDLE, fill=INK, anchor='lm')
@@ -310,7 +325,10 @@ if __name__ == '__main__':
     for slide in case['slides']:
         print(f"slide {slide['name']}")
         canvas = LAYOUTS[slide['layout']](slide, labels, base)
-        header_footer(canvas, slide['title'], case.get('subtitle', 'до и после'))
+        wm = case.get('footer_watermark')
+        if wm and not os.path.isabs(wm):
+            wm = os.path.join(HERE, wm)
+        header_footer(canvas, slide['title'], case.get('subtitle', 'до и после'), wm)
         out = os.path.join(base, f"{slide['name']}.jpg")
         canvas.save(out, quality=95, subsampling=0)
         print(f'  -> {out}')
