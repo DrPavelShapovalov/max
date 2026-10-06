@@ -1,0 +1,304 @@
+<title>Dr. Shapovalov</title>
+<meta name="description" content="Павел Шаповалов — кандидат медицинских наук, челюстно-лицевой хирург детского отделения ФГБУ НМИЦ «ЦНИИСиЧЛХ», Москва.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+  /* Layout: one column like a clinical card; key measurements in mm carry the cases. */
+  :root{
+    --bg:#F4F3F0;
+    --surface:#FFFFFF;
+    --ink:#16181A;
+    --muted:#6F6C66;
+    --line:#E2DFD8;
+    --gold:#9A7432;
+    --todo-bg:#FBF3E2;
+    --todo-ink:#7A5A1E;
+    --font: 'Manrope', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#121315; --surface:#1A1C1F; --ink:#EDEBE6; --muted:#A19D96;
+      --line:#2C2E31; --gold:#D9B76A; --todo-bg:#2A2416; --todo-ink:#E6C987;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#121315; --surface:#1A1C1F; --ink:#EDEBE6; --muted:#A19D96;
+    --line:#2C2E31; --gold:#D9B76A; --todo-bg:#2A2416; --todo-ink:#E6C987;
+    color-scheme: dark;
+  }
+
+  *{ box-sizing:border-box; }
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:var(--font); font-size:16px; line-height:1.6;
+    padding-inline:20px; padding-block:0 48px;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{ color:inherit; text-underline-offset:3px; text-decoration-color:var(--line); }
+  a:hover{ text-decoration-color:var(--gold); }
+  a:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; border-radius:4px; }
+  .wrap{ max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:72px; }
+
+  /* top bar */
+  .bar{
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    padding-block:22px; border-bottom:1px solid var(--line);
+  }
+  .brand{ display:flex; align-items:center; gap:10px; font-weight:700; font-size:15px; text-decoration:none; }
+  .brand svg{ width:30px; height:30px; color:var(--ink); }
+  .nav{ display:flex; gap:20px; flex-wrap:wrap; font-size:14px; font-weight:600; color:var(--muted); }
+  .nav a{ text-decoration:none; }
+  .nav a:hover{ color:var(--ink); }
+
+  /* hero */
+  .hero{ display:grid; grid-template-columns:200px 1fr; gap:40px; align-items:center; }
+  .portrait{
+    width:200px; max-width:100%; aspect-ratio:1; border-radius:50%; overflow:hidden;
+    box-shadow:0 0 0 1px var(--line), 0 0 0 7px var(--bg), 0 0 0 8px var(--gold);
+  }
+  .portrait img{ display:block; width:100%; height:100%; object-fit:cover; }
+  .hero-text{ min-width:0; display:flex; flex-direction:column; gap:14px; }
+  .signature{ width:min(330px,100%); height:auto; display:block; margin-left:-6px; }
+  .sig-dark{ display:none; }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .sig-light{ display:none; }
+    :root:not([data-theme="light"]) .sig-dark{ display:block; }
+  }
+  :root[data-theme="dark"] .sig-light{ display:none; }
+  :root[data-theme="dark"] .sig-dark{ display:block; }
+  h1{ font-size:clamp(28px,5vw,38px); line-height:1.15; font-weight:800; margin:0; letter-spacing:-0.01em; text-wrap:balance; }
+  .role{ margin:0; font-size:17px; color:var(--muted); max-width:46ch; }
+  .role strong{ color:var(--ink); font-weight:600; }
+  .actions{ display:flex; flex-wrap:wrap; gap:10px; margin-top:6px; }
+  .btn{
+    display:inline-flex; align-items:center; gap:8px; padding:10px 18px; border-radius:999px;
+    font-size:14px; font-weight:700; text-decoration:none; border:1px solid var(--ink);
+  }
+  .btn.primary{ background:var(--ink); color:var(--bg); }
+  .btn.primary:hover{ background:transparent; color:var(--ink); }
+  .btn.ghost:hover{ border-color:var(--gold); }
+
+  /* sections */
+  section{ display:flex; flex-direction:column; gap:22px; scroll-margin-top:24px; }
+  .label{
+    margin:0; font-size:12px; font-weight:800; letter-spacing:0.14em; text-transform:uppercase; color:var(--gold);
+  }
+  h2{ margin:0; font-size:clamp(22px,3.6vw,28px); line-height:1.25; font-weight:800; text-wrap:balance; }
+  p{ margin:0; max-width:64ch; }
+  .muted{ color:var(--muted); }
+
+  /* facts list */
+  .facts{ margin:0; display:grid; grid-template-columns:max-content 1fr; border-top:1px solid var(--line); }
+  .facts dt, .facts dd{ margin:0; padding:14px 0; border-bottom:1px solid var(--line); }
+  .facts dt{ color:var(--muted); font-size:14px; font-weight:600; padding-right:28px; }
+  .facts dd{ min-width:0; }
+
+  .todo{
+    display:inline-block; padding:2px 10px; border-radius:6px; border:1px dashed var(--todo-ink);
+    background:var(--todo-bg); color:var(--todo-ink); font-size:14px; font-weight:600;
+  }
+
+  /* topics */
+  .topics{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .topics li{ padding:16px 18px; border:1px solid var(--line); border-radius:14px; background:var(--surface); min-width:0; }
+  .topics b{ display:block; font-weight:700; }
+  .topics span{ color:var(--muted); font-size:14px; }
+
+  /* cases */
+  .cases{ display:flex; flex-direction:column; }
+  .case{
+    display:grid; grid-template-columns:170px 1fr; gap:28px;
+    padding-block:28px; border-top:1px solid var(--line);
+  }
+  .case:last-child{ border-bottom:1px solid var(--line); }
+  .metric{ display:flex; flex-direction:column; gap:4px; }
+  .metric .num{ font-size:34px; font-weight:800; line-height:1; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .metric .num .arrow{ color:var(--gold); font-weight:600; }
+  .metric .cap{ font-size:13px; color:var(--muted); line-height:1.4; }
+  .case-body{ min-width:0; display:flex; flex-direction:column; gap:10px; }
+  .case h3{ margin:0; font-size:19px; line-height:1.3; font-weight:800; text-wrap:balance; }
+  .tags{ display:flex; flex-wrap:wrap; gap:6px; }
+  .tag{ font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; border:1px solid var(--line); color:var(--muted); }
+  .case ul{ margin:0; padding-left:18px; color:var(--muted); }
+  .case li{ margin-block:2px; }
+  .case li b{ color:var(--ink); font-weight:600; }
+  .note{ font-size:13px; color:var(--muted); }
+
+  /* contacts */
+  .contacts{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .contact{
+    display:flex; flex-direction:column; gap:2px; padding:18px 20px; border-radius:14px;
+    background:var(--surface); border:1px solid var(--line); text-decoration:none; min-width:0;
+  }
+  a.contact:hover{ border-color:var(--gold); }
+  .contact small{ font-size:12px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+  .contact span{ font-weight:700; overflow-wrap:anywhere; }
+
+  footer{
+    border-top:1px solid var(--line); padding-top:24px; display:flex; flex-direction:column; gap:8px;
+    font-size:13px; color:var(--muted);
+  }
+  footer p{ max-width:80ch; }
+
+  @media (max-width:640px){
+    .wrap{ gap:56px; }
+    .nav{ display:none; }
+    .hero{ grid-template-columns:1fr; gap:28px; }
+    .portrait{ width:150px; }
+    .topics, .contacts{ grid-template-columns:1fr; }
+    .case{ grid-template-columns:1fr; gap:14px; }
+    .facts{ grid-template-columns:1fr; }
+    .facts dt{ padding-bottom:0; border-bottom:0; }
+    .facts dd{ padding-top:4px; }
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .btn, .contact, a{ transition:border-color .2s, background .2s, color .2s; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="bar">
+    <a class="brand" href="#top" aria-label="Dr. Shapovalov — наверх">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="2.4"/>
+        <g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M 31 29 L 31 62"/><path d="M 48 29 L 48 62"/><path d="M 65 29 L 65 62"/><path d="M 25 64 L 71 64"/>
+        </g>
+        <circle cx="76" cy="71" r="5" fill="currentColor"/>
+      </svg>
+      dr__shapovalov
+    </a>
+    <nav class="nav" aria-label="Разделы">
+      <a href="#about">Обо мне</a>
+      <a href="#cases">Кейсы</a>
+      <a href="#work">Где работаю</a>
+      <a href="#contacts">Контакты</a>
+    </nav>
+  </header>
+
+  <section class="hero" id="top" aria-label="Павел Шаповалов">
+    <div class="portrait"><img src="img/portrait.jpg" alt="Павел Шаповалов" width="560" height="560"></div>
+    <div class="hero-text">
+      <img class="signature sig-light" src="img/signature-bronze.png" alt="Dr. Shapovalov" width="640" height="225">
+      <img class="signature sig-dark" src="img/signature-gold.png" alt="" width="640" height="225">
+      <h1>Павел Шаповалов</h1>
+      <p class="role"><strong>Челюстно-лицевой хирург</strong>, кандидат медицинских наук. Детское отделение ФГБУ НМИЦ «ЦНИИСиЧЛХ», Москва.</p>
+      <div class="actions">
+        <a class="btn primary" href="https://t.me/SHAPOVALOV_DR" target="_blank" rel="noopener">Telegram-канал</a>
+        <a class="btn ghost" href="https://www.instagram.com/dr__shapovalov/" target="_blank" rel="noopener">Instagram</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="about">
+    <p class="label">Обо мне</p>
+    <h2>Челюстно-лицевой хирург детского отделения</h2>
+    <p>Работаю в детском отделении Центрального НИИ стоматологии и челюстно-лицевой хирургии в Москве. В блоге показываю реальные кейсы: планирование, этапы операций и результаты «до и после», с цифрами и терминами, понятными и пациентам, и коллегам.</p>
+    <dl class="facts">
+      <dt>Учёная степень</dt><dd>Кандидат медицинских наук</dd>
+      <dt>Специальность</dt><dd>Челюстно-лицевая хирургия</dd>
+      <dt>Место работы</dt><dd>Детское отделение, ФГБУ НМИЦ «ЦНИИСиЧЛХ», Москва</dd>
+      <dt>Образование</dt><dd><span class="todo">Добавить: вуз, год выпуска, ординатура</span></dd>
+      <dt>Диссертация</dt><dd><span class="todo">Добавить: тема и год защиты</span></dd>
+      <dt>Стаж</dt><dd><span class="todo">Добавить: с какого года в специальности</span></dd>
+    </dl>
+  </section>
+
+  <section id="topics">
+    <p class="label">Чем занимаюсь</p>
+    <h2>Темы, которые разбираю в кейсах</h2>
+    <ul class="topics">
+      <li><b>Дистракционный остеогенез</b><span>Постепенное удлинение нижней челюсти аппаратом</span></li>
+      <li><b>Краниофациальная микросомия</b><span>Недоразвитие нижней челюсти с одной или двух сторон</span></li>
+      <li><b>Компьютерное 3D-планирование</b><span>Выбор аппаратов и величины дистракции до операции</span></li>
+      <li><b>Работа с ортодонтом</b><span>Совместный выбор метода и контроль во время дистракции</span></li>
+    </ul>
+  </section>
+
+  <section id="cases">
+    <p class="label">Кейсы</p>
+    <h2>Избранные случаи</h2>
+    <div class="cases">
+
+      <article class="case">
+        <div class="metric">
+          <div class="num">21&nbsp;мм</div>
+          <div class="cap">регенерат с каждой стороны при исходной сагиттальной щели 14&nbsp;мм</div>
+        </div>
+        <div class="case-body">
+          <h3>Краниофациальная микросомия: дистракция нижней челюсти с двух сторон</h3>
+          <div class="tags"><span class="tag">12 лет</span><span class="tag">Conmet, радиус 50°</span><span class="tag">до и через 6 месяцев</span></div>
+          <ul>
+            <li>Двустороннее поражение, деформация правой ушной раковины</li>
+            <li>Жалобы: нарушение прикуса, приёма пищи, ночной храп, эстетический недостаток</li>
+            <li>По плану 15&nbsp;мм; с учётом возраста и скачка роста выполнена <b>гиперкоррекция до 21&nbsp;мм</b></li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="case">
+        <div class="metric">
+          <div class="num">7,93 <span class="arrow">→</span> 2</div>
+          <div class="cap">сагиттальная щель, мм</div>
+        </div>
+        <div class="case-body">
+          <h3>Дистракция вместо ортогнатической операции</h3>
+          <div class="tags"><span class="tag">17 лет</span><span class="tag">радиус 70°</span><span class="tag">аппараты сняты через 5 месяцев</span></div>
+          <ul>
+            <li>Пациентка была кандидатом на ортогнатическую операцию</li>
+            <li>Вместе с ортодонтом выбрали двустороннюю дистракцию нижней челюсти</li>
+            <li>По плану справа 11&nbsp;мм, слева 7&nbsp;мм; под контролем ортодонта остановлена досрочно, <b>регенерат 7&nbsp;мм</b> с обеих сторон</li>
+            <li>Ортогнатическая операция <b>не потребовалась</b></li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="case">
+        <div class="metric">
+          <div class="num">10</div>
+          <div class="cap">этапов операции от разметки до контроля остеотомии</div>
+        </div>
+        <div class="case-body">
+          <h3>Как устанавливается дистракционный аппарат на нижнюю челюсть</h3>
+          <div class="tags"><span class="tag">горизонтальная остеотомия</span><span class="tag">КДА Conmet R50</span></div>
+          <ul>
+            <li>Хирургический шаблон для остеотомии</li>
+            <li>Привод выводится через троакар, винты фиксируются из отдельного прокола</li>
+            <li>Частичная, затем окончательная остеотомия и контроль расхождения фрагментов</li>
+          </ul>
+        </div>
+      </article>
+
+    </div>
+    <p class="note">Фотографии «до и после» публикуются только в соцсетях и только с согласия пациентов и их законных представителей.</p>
+  </section>
+
+  <section id="work">
+    <p class="label">Где работаю</p>
+    <h2>ФГБУ НМИЦ «ЦНИИСиЧЛХ»</h2>
+    <p>Центральный научно-исследовательский институт стоматологии и челюстно-лицевой хирургии, детское отделение. Москва, Россия.</p>
+    <dl class="facts">
+      <dt>Сайт института</dt><dd><a href="https://cniis.ru" target="_blank" rel="noopener">cniis.ru</a></dd>
+      <dt>Адрес приёма</dt><dd><span class="todo">Добавить адрес и как записаться</span></dd>
+    </dl>
+  </section>
+
+  <section id="contacts">
+    <p class="label">Контакты</p>
+    <h2>Где меня найти</h2>
+    <div class="contacts">
+      <a class="contact" href="https://t.me/SHAPOVALOV_DR" target="_blank" rel="noopener"><small>Telegram</small><span>t.me/SHAPOVALOV_DR</span></a>
+      <a class="contact" href="https://www.instagram.com/dr__shapovalov/" target="_blank" rel="noopener"><small>Instagram</small><span>@dr__shapovalov</span></a>
+      <div class="contact"><small>X · GETTR · Parler</small><span class="todo">Добавить ссылки</span></div>
+      <div class="contact"><small>Почта для связи</small><span class="todo">Добавить, если нужна</span></div>
+    </div>
+  </section>
+
+  <footer>
+    <p>© 2026 Павел Шаповалов. Информация на сайте носит ознакомительный характер и не заменяет очную консультацию врача.</p>
+  </footer>
+
+</div>
