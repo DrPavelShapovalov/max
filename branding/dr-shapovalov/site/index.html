@@ -2,65 +2,104 @@
 <meta name="description" content="Павел Шаповалов — кандидат медицинских наук, челюстно-лицевой хирург детского отделения ФГБУ НМИЦ «ЦНИИСиЧЛХ», Москва.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Manrope:wght@400;500;600;700;800&display=swap">
 <style>
-  /* Layout: one column like a clinical card; key measurements in mm carry the cases. */
+  /* Layout: a surgeon's card. Gold hand-drawn lines run through the page,
+     three directions each carry their own colour, numbers are drawn to scale in mm. */
   :root{
     --bg:#F4F3F0;
+    --bg-2:#ECEAE5;
     --surface:#FFFFFF;
     --ink:#16181A;
     --muted:#6F6C66;
-    --line:#E2DFD8;
-    --gold:#9A7432;
+    --line:#DEDAD2;
+    --gold:#A27A30;
+    --gold-hi:#D8B467;
+    --gold-lo:#8A6524;
+    --c-dist:#A27A30;   /* дистракция — золото */
+    --c-micro:#3D6E68;  /* микросомия — патина */
+    --c-plan:#4A5D86;   /* 3D-планирование — сталь */
     --todo-bg:#FBF3E2;
     --todo-ink:#7A5A1E;
-    --font: 'Manrope', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --display:'Cormorant Garamond', 'Cormorant', Georgia, 'Times New Roman', serif;
+    --text:'Manrope', 'Segoe UI', system-ui, -apple-system, sans-serif;
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
-      --bg:#121315; --surface:#1A1C1F; --ink:#EDEBE6; --muted:#A19D96;
-      --line:#2C2E31; --gold:#D9B76A; --todo-bg:#2A2416; --todo-ink:#E6C987;
+      --bg:#0E0F10; --bg-2:#151618; --surface:#17191B; --ink:#EEEAE2; --muted:#A39E95;
+      --line:#2A2C2F; --gold:#D6B266; --gold-hi:#F0D48E; --gold-lo:#B08A3A;
+      --c-dist:#D6B266; --c-micro:#7FB5AD; --c-plan:#93A6D4;
+      --todo-bg:#2A2416; --todo-ink:#E6C987;
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"]{
-    --bg:#121315; --surface:#1A1C1F; --ink:#EDEBE6; --muted:#A19D96;
-    --line:#2C2E31; --gold:#D9B76A; --todo-bg:#2A2416; --todo-ink:#E6C987;
+    --bg:#0E0F10; --bg-2:#151618; --surface:#17191B; --ink:#EEEAE2; --muted:#A39E95;
+    --line:#2A2C2F; --gold:#D6B266; --gold-hi:#F0D48E; --gold-lo:#B08A3A;
+    --c-dist:#D6B266; --c-micro:#7FB5AD; --c-plan:#93A6D4;
+    --todo-bg:#2A2416; --todo-ink:#E6C987;
     color-scheme: dark;
   }
 
   *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; overflow-x:clip; }
   body{
     background:var(--bg); color:var(--ink);
-    font-family:var(--font); font-size:16px; line-height:1.6;
-    padding-inline:20px; padding-block:0 48px;
-    -webkit-font-smoothing:antialiased;
+    font-family:var(--text); font-size:16px; line-height:1.6;
+    padding-inline:20px; padding-block:0 40px;
+    -webkit-font-smoothing:antialiased; overflow-x:clip;
   }
   a{ color:inherit; text-underline-offset:3px; text-decoration-color:var(--line); }
   a:hover{ text-decoration-color:var(--gold); }
-  a:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; border-radius:4px; }
-  .wrap{ max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:72px; }
+  :focus-visible{ outline:2px solid var(--gold); outline-offset:3px; border-radius:6px; }
+  .wrap{ max-width:1120px; margin:0 auto; }
+  p{ margin:0; }
 
-  /* top bar */
-  .bar{
-    display:flex; align-items:center; justify-content:space-between; gap:16px;
-    padding-block:22px; border-bottom:1px solid var(--line);
+  /* ---------- nav ---------- */
+  .nav{
+    position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+    margin-inline:-20px; padding:14px 20px;
+    background:color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid color-mix(in srgb, var(--line) 70%, transparent);
   }
+  .nav-in{ max-width:1120px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:16px; }
   .brand{ display:flex; align-items:center; gap:10px; font-weight:700; font-size:15px; text-decoration:none; }
   .brand svg{ width:30px; height:30px; color:var(--ink); }
-  .nav{ display:flex; gap:20px; flex-wrap:wrap; font-size:14px; font-weight:600; color:var(--muted); }
-  .nav a{ text-decoration:none; }
-  .nav a:hover{ color:var(--ink); }
-
-  /* hero */
-  .hero{ display:grid; grid-template-columns:200px 1fr; gap:40px; align-items:center; }
-  .portrait{
-    width:200px; max-width:100%; aspect-ratio:1; border-radius:50%; overflow:hidden;
-    box-shadow:0 0 0 1px var(--line), 0 0 0 7px var(--bg), 0 0 0 8px var(--gold);
+  .links{ display:flex; gap:26px; font-size:14px; font-weight:600; color:var(--muted); }
+  .links a{ text-decoration:none; position:relative; padding-block:4px; }
+  .links a::after{
+    content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:var(--gold);
+    transform:scaleX(0); transform-origin:left; transition:transform .35s ease;
   }
-  .portrait img{ display:block; width:100%; height:100%; object-fit:cover; }
-  .hero-text{ min-width:0; display:flex; flex-direction:column; gap:14px; }
-  .signature{ width:min(330px,100%); height:auto; display:block; margin-left:-6px; }
+  .links a:hover{ color:var(--ink); }
+  .links a:hover::after{ transform:scaleX(1); }
+  .nav .cta{
+    font-size:13px; font-weight:800; padding:9px 16px; border-radius:999px; text-decoration:none;
+    background:var(--ink); color:var(--bg); white-space:nowrap;
+  }
+
+  /* ---------- hero ---------- */
+  .hero{
+    position:relative; display:grid; grid-template-columns:1.15fr .85fr; gap:48px; align-items:center;
+    padding-block:72px 88px;
+  }
+  .hero-lines{
+    position:absolute; inset:-40px -20vw 0; width:calc(100% + 40vw); height:calc(100% + 40px);
+    pointer-events:none; z-index:0; overflow:visible;
+  }
+  .hero-lines path{ fill:none; stroke:var(--gold); stroke-linecap:round; }
+  .hero-lines .l1{ stroke-width:1.4; opacity:.75; }
+  .hero-lines .l2{ stroke-width:.9; opacity:.45; }
+  .hero-lines .l3{ stroke-width:.6; opacity:.3; }
+  .hero > *:not(.hero-lines){ position:relative; z-index:1; min-width:0; }
+  .hero-text{ display:flex; flex-direction:column; gap:20px; }
+  .kicker{
+    display:flex; align-items:center; gap:12px; margin:0;
+    font-size:12px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--gold);
+  }
+  .kicker::before{ content:""; width:36px; height:1px; background:var(--gold); }
+  .signature{ width:min(420px,92%); height:auto; display:block; margin:-4px 0 -10px -8px; }
   .sig-dark{ display:none; }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]) .sig-light{ display:none; }
@@ -68,100 +107,287 @@
   }
   :root[data-theme="dark"] .sig-light{ display:none; }
   :root[data-theme="dark"] .sig-dark{ display:block; }
-  h1{ font-size:clamp(28px,5vw,38px); line-height:1.15; font-weight:800; margin:0; letter-spacing:-0.01em; text-wrap:balance; }
-  .role{ margin:0; font-size:17px; color:var(--muted); max-width:46ch; }
-  .role strong{ color:var(--ink); font-weight:600; }
-  .actions{ display:flex; flex-wrap:wrap; gap:10px; margin-top:6px; }
+  h1{
+    margin:0; font-family:var(--display); font-weight:600; letter-spacing:-.01em;
+    font-size:clamp(44px,7vw,84px); line-height:.98; text-wrap:balance;
+  }
+  h1 em{ font-style:italic; font-weight:500; color:var(--gold); }
+  .lede{ font-size:18px; color:var(--muted); max-width:44ch; }
+  .lede strong{ color:var(--ink); font-weight:600; }
+  .actions{ display:flex; flex-wrap:wrap; gap:12px; margin-top:6px; }
   .btn{
-    display:inline-flex; align-items:center; gap:8px; padding:10px 18px; border-radius:999px;
-    font-size:14px; font-weight:700; text-decoration:none; border:1px solid var(--ink);
+    position:relative; overflow:hidden; display:inline-flex; align-items:center; gap:10px;
+    padding:14px 24px; border-radius:999px; font-size:14px; font-weight:800; text-decoration:none;
+    border:1px solid var(--ink); isolation:isolate;
   }
+  .btn svg{ width:16px; height:16px; transition:transform .35s ease; }
+  .btn:hover svg{ transform:translateX(4px); }
   .btn.primary{ background:var(--ink); color:var(--bg); }
-  .btn.primary:hover{ background:transparent; color:var(--ink); }
-  .btn.ghost:hover{ border-color:var(--gold); }
-
-  /* sections */
-  section{ display:flex; flex-direction:column; gap:22px; scroll-margin-top:24px; }
-  .label{
-    margin:0; font-size:12px; font-weight:800; letter-spacing:0.14em; text-transform:uppercase; color:var(--gold);
+  .btn.primary::before{
+    content:""; position:absolute; inset:0; z-index:-1;
+    background:linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--gold-hi) 55%, transparent) 50%, transparent 70%);
+    transform:translateX(-120%); transition:transform .8s ease;
   }
-  h2{ margin:0; font-size:clamp(22px,3.6vw,28px); line-height:1.25; font-weight:800; text-wrap:balance; }
-  p{ margin:0; max-width:64ch; }
-  .muted{ color:var(--muted); }
+  .btn.primary:hover::before{ transform:translateX(120%); }
+  .btn.ghost:hover{ border-color:var(--gold); color:var(--gold); }
 
-  /* facts list */
-  .facts{ margin:0; display:grid; grid-template-columns:max-content 1fr; border-top:1px solid var(--line); }
-  .facts dt, .facts dd{ margin:0; padding:14px 0; border-bottom:1px solid var(--line); }
-  .facts dt{ color:var(--muted); font-size:14px; font-weight:600; padding-right:28px; }
-  .facts dd{ min-width:0; }
-
-  .todo{
-    display:inline-block; padding:2px 10px; border-radius:6px; border:1px dashed var(--todo-ink);
-    background:var(--todo-bg); color:var(--todo-ink); font-size:14px; font-weight:600;
+  .portrait-wrap{ justify-self:center; width:min(380px,100%); aspect-ratio:1; position:relative; }
+  .ring{
+    position:absolute; inset:0; border-radius:50%;
+    background:conic-gradient(from 0deg, var(--gold-hi), var(--gold-lo) 25%, transparent 45%, var(--gold-hi) 60%, var(--gold-lo) 80%, var(--gold-hi));
+    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+            mask:radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
   }
+  .portrait{ position:absolute; inset:16px; border-radius:50%; overflow:hidden; background:var(--bg-2); }
+  .portrait img{ display:block; width:100%; height:100%; object-fit:cover; }
+  .badge{
+    position:absolute; right:2%; bottom:8%; display:flex; flex-direction:column; align-items:flex-start; gap:2px;
+    padding:12px 16px; border-radius:16px; background:var(--surface); border:1px solid var(--line);
+    box-shadow:0 18px 40px -22px rgba(0,0,0,.35);
+  }
+  .badge b{ font-family:var(--display); font-size:26px; line-height:1; font-weight:700; }
+  .badge span{ font-size:12px; color:var(--muted); font-weight:600; }
 
-  /* topics */
-  .topics{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .topics li{ padding:16px 18px; border:1px solid var(--line); border-radius:14px; background:var(--surface); min-width:0; }
-  .topics b{ display:block; font-weight:700; }
-  .topics span{ color:var(--muted); font-size:14px; }
+  /* ---------- marquee ---------- */
+  .marquee{
+    margin-inline:calc(50% - 50vw); overflow:hidden; border-block:1px solid var(--line);
+    padding-block:18px; background:var(--bg-2);
+  }
+  .track{ display:flex; width:max-content; gap:0; }
+  .track span{
+    display:flex; align-items:center; gap:28px; padding-right:28px; white-space:nowrap;
+    font-family:var(--display); font-style:italic; font-size:clamp(22px,3vw,30px); font-weight:500;
+  }
+  .track span i{ width:7px; height:7px; border-radius:50%; background:var(--gold); display:inline-block; }
+
+  /* ---------- sections ---------- */
+  section.block{ padding-block:110px 0; display:flex; flex-direction:column; gap:40px; scroll-margin-top:70px; }
+  .head{ display:grid; grid-template-columns:1fr 1fr; gap:24px 48px; align-items:end; }
+  .head > *{ min-width:0; }
+  h2{
+    margin:0; font-family:var(--display); font-weight:600; letter-spacing:-.005em;
+    font-size:clamp(36px,5vw,58px); line-height:1.02; text-wrap:balance;
+  }
+  h2 em{ font-style:italic; font-weight:500; color:var(--gold); }
+  .head p{ color:var(--muted); max-width:52ch; }
+
+  /* terms */
+  .term{
+    font:inherit; color:inherit; background:none; border:0; padding:0; cursor:help;
+    border-bottom:1.5px dotted var(--gold); color:var(--ink); font-weight:600;
+  }
+  .term:hover, .term[aria-expanded="true"]{ color:var(--gold); }
+  .tip{
+    position:fixed; z-index:50; width:min(320px, calc(100vw - 32px));
+    padding:16px 18px; border-radius:16px; background:var(--ink); color:var(--bg);
+    font-size:14px; line-height:1.5; box-shadow:0 24px 48px -20px rgba(0,0,0,.5);
+    opacity:0; transform:translateY(6px); transition:opacity .2s, transform .2s; pointer-events:none;
+  }
+  .tip.on{ opacity:1; transform:none; }
+  .tip b{ display:block; font-family:var(--display); font-size:21px; font-weight:600; margin-bottom:4px; color:var(--gold-hi); }
+
+  /* directions */
+  .dirs{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .dir{
+    --c:var(--c-dist);
+    position:relative; display:flex; flex-direction:column; gap:14px; min-width:0;
+    padding:28px 26px 26px; border-radius:22px; background:var(--surface); border:1px solid var(--line);
+    text-decoration:none; overflow:hidden; transition:transform .45s cubic-bezier(.2,.7,.2,1), border-color .3s;
+  }
+  .dir.micro{ --c:var(--c-micro); }
+  .dir.plan{ --c:var(--c-plan); }
+  .dir:hover{ transform:translateY(-6px); border-color:var(--c); }
+  .dir svg.curve{ width:100%; height:70px; display:block; }
+  .dir svg.curve path{ fill:none; stroke:var(--c); stroke-width:1.6; stroke-linecap:round; stroke-dasharray:1; stroke-dashoffset:0; }
+  .dir:hover svg.curve path{ animation:draw 1.2s cubic-bezier(.6,.1,.2,1) both; }
+  .dir .dot{ display:flex; align-items:center; gap:8px; font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--c); }
+  .dir .dot::before{ content:""; width:9px; height:9px; border-radius:50%; background:var(--c); }
+  .dir h3{ margin:0; font-family:var(--display); font-size:30px; line-height:1.05; font-weight:600; text-wrap:balance; }
+  .dir p{ color:var(--muted); font-size:15px; }
+  .dir .more{ margin-top:auto; padding-top:6px; font-size:13px; font-weight:800; color:var(--ink); display:flex; align-items:center; gap:8px; }
+  .dir .more svg{ width:14px; height:14px; transition:transform .35s; }
+  .dir:hover .more svg{ transform:translateX(5px); }
 
   /* cases */
-  .cases{ display:flex; flex-direction:column; }
+  .cases{ display:flex; flex-direction:column; gap:20px; }
   .case{
-    display:grid; grid-template-columns:170px 1fr; gap:28px;
-    padding-block:28px; border-top:1px solid var(--line);
+    --c:var(--c-dist);
+    display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:40px;
+    padding:40px; border-radius:28px; background:var(--surface); border:1px solid var(--line);
+    position:relative; overflow:hidden; scroll-margin-top:90px;
   }
-  .case:last-child{ border-bottom:1px solid var(--line); }
-  .metric{ display:flex; flex-direction:column; gap:4px; }
-  .metric .num{ font-size:34px; font-weight:800; line-height:1; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .metric .num .arrow{ color:var(--gold); font-weight:600; }
-  .metric .cap{ font-size:13px; color:var(--muted); line-height:1.4; }
-  .case-body{ min-width:0; display:flex; flex-direction:column; gap:10px; }
-  .case h3{ margin:0; font-size:19px; line-height:1.3; font-weight:800; text-wrap:balance; }
-  .tags{ display:flex; flex-wrap:wrap; gap:6px; }
-  .tag{ font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; border:1px solid var(--line); color:var(--muted); }
-  .case ul{ margin:0; padding-left:18px; color:var(--muted); }
-  .case li{ margin-block:2px; }
-  .case li b{ color:var(--ink); font-weight:600; }
-  .note{ font-size:13px; color:var(--muted); }
+  .case.micro{ --c:var(--c-micro); }
+  .case::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--c); }
+  .case-text{ display:flex; flex-direction:column; gap:16px; min-width:0; }
+  .case .tagrow{ display:flex; flex-wrap:wrap; gap:8px; }
+  .tag{ font-size:12px; font-weight:700; padding:5px 12px; border-radius:999px; border:1px solid var(--line); color:var(--muted); }
+  .tag.c{ border-color:color-mix(in srgb, var(--c) 45%, transparent); color:var(--c); }
+  .case h3{ margin:0; font-family:var(--display); font-size:clamp(28px,3.4vw,38px); line-height:1.05; font-weight:600; text-wrap:balance; }
+  .case ul{ margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; }
+  .case li{ position:relative; padding-left:22px; color:var(--muted); }
+  .case li::before{ content:""; position:absolute; left:0; top:.78em; width:12px; height:1px; background:var(--c); }
+  .case li strong{ color:var(--ink); font-weight:600; }
+
+  .viz{
+    display:flex; flex-direction:column; gap:22px; min-width:0;
+    padding:28px; border-radius:20px; background:var(--bg); border:1px solid var(--line);
+  }
+  .big{ font-family:var(--display); font-weight:700; line-height:.9; font-size:clamp(64px,8vw,104px); letter-spacing:-.02em; font-variant-numeric:lining-nums tabular-nums; }
+  .big small{ font-size:.32em; font-weight:600; letter-spacing:0; margin-left:6px; color:var(--muted); }
+  .big .arr{ color:var(--c); font-weight:500; }
+  .viz-cap{ font-size:13px; color:var(--muted); margin-top:-10px; }
+  .bars{ display:flex; flex-direction:column; gap:14px; }
+  .bar{ display:grid; grid-template-columns:96px 1fr 58px; align-items:center; gap:12px; font-size:13px; }
+  .bar .name{ color:var(--muted); font-weight:600; }
+  .bar .val{ text-align:right; font-weight:800; font-variant-numeric:tabular-nums; }
+  .bar .rail{ height:10px; border-radius:99px; background:var(--bg-2); border:1px solid var(--line); overflow:hidden; }
+  .bar .fill{ height:100%; width:var(--w); border-radius:99px; background:var(--c); transform-origin:left; }
+  .bar .fill.soft{ background:color-mix(in srgb, var(--c) 35%, var(--bg-2)); }
+  .scale{ display:grid; grid-template-columns:96px 1fr 58px; gap:12px; font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .scale .ticks{ display:flex; justify-content:space-between; }
+
+  /* steps */
+  .steps-wrap{ display:grid; grid-template-columns:.8fr 1.2fr; gap:48px; align-items:start; }
+  .steps-intro{ position:sticky; top:110px; display:flex; flex-direction:column; gap:18px; min-width:0; }
+  .steps-intro p{ color:var(--muted); }
+  .steps{ position:relative; list-style:none; margin:0; padding:0 0 0 0; display:flex; flex-direction:column; min-width:0; }
+  .steps::before{
+    content:""; position:absolute; left:23px; top:24px; bottom:24px; width:1px; background:var(--line);
+  }
+  .steps::after{
+    content:""; position:absolute; left:23px; top:24px; bottom:24px; width:1px; background:var(--gold);
+    transform-origin:top;
+  }
+  .step{ position:relative; display:grid; grid-template-columns:48px 1fr; gap:20px; padding-block:14px; }
+  .step .n{
+    width:48px; height:48px; border-radius:50%; display:grid; place-items:center; position:relative; z-index:1;
+    background:var(--bg); border:1px solid var(--gold); color:var(--gold);
+    font-family:var(--display); font-weight:700; font-size:20px; font-variant-numeric:lining-nums;
+  }
+  .step p{ align-self:center; font-size:16px; min-width:0; }
+  .step p span{ color:var(--muted); }
+
+  /* about */
+  .about{ display:grid; grid-template-columns:1fr 1fr; gap:48px; }
+  .about > *{ min-width:0; }
+  .quote{
+    font-family:var(--display); font-style:italic; font-weight:500; font-size:clamp(26px,3vw,34px); line-height:1.2;
+  }
+  .about .txt{ display:flex; flex-direction:column; gap:20px; }
+  .about .txt p{ color:var(--muted); max-width:56ch; }
+  dl.facts{ margin:0; display:grid; grid-template-columns:max-content 1fr; border-top:1px solid var(--line); }
+  .facts dt, .facts dd{ margin:0; padding:16px 0; border-bottom:1px solid var(--line); }
+  .facts dt{ color:var(--muted); font-size:14px; font-weight:600; padding-right:28px; }
+  .facts dd{ min-width:0; font-weight:600; }
+  .todo{
+    display:inline-block; padding:3px 10px; border-radius:8px; border:1px dashed var(--todo-ink);
+    background:var(--todo-bg); color:var(--todo-ink); font-size:13px; font-weight:700;
+  }
+
+  /* work */
+  .work{
+    position:relative; overflow:hidden; border-radius:32px; padding:56px;
+    background:var(--ink); color:var(--bg);
+    display:grid; grid-template-columns:1.2fr .8fr; gap:40px; align-items:end;
+  }
+  .work > *{ position:relative; z-index:1; min-width:0; }
+  .work .kicker{ color:var(--gold-hi); }
+  .work .kicker::before{ background:var(--gold-hi); }
+  .work h2{ color:var(--bg); }
+  .work h2 em{ color:var(--gold-hi); }
+  .work p{ color:color-mix(in srgb, var(--bg) 72%, var(--ink)); max-width:50ch; }
+  .work .lines{ position:absolute; inset:0; width:100%; height:100%; z-index:0; }
+  .work .lines path{ fill:none; stroke:var(--gold-hi); stroke-width:1; opacity:.35; }
+  .work .side{ display:flex; flex-direction:column; gap:12px; }
+  .work a.btn{ border-color:color-mix(in srgb, var(--bg) 40%, transparent); color:var(--bg); align-self:flex-start; }
+  .work a.btn:hover{ border-color:var(--gold-hi); color:var(--gold-hi); }
+  .work .todo{ align-self:flex-start; }
 
   /* contacts */
-  .contacts{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .contacts{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
   .contact{
-    display:flex; flex-direction:column; gap:2px; padding:18px 20px; border-radius:14px;
-    background:var(--surface); border:1px solid var(--line); text-decoration:none; min-width:0;
+    display:flex; flex-direction:column; gap:30px; padding:24px; border-radius:22px; min-width:0;
+    background:var(--surface); border:1px solid var(--line); text-decoration:none;
+    transition:transform .4s cubic-bezier(.2,.7,.2,1), border-color .3s;
   }
-  a.contact:hover{ border-color:var(--gold); }
-  .contact small{ font-size:12px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
-  .contact span{ font-weight:700; overflow-wrap:anywhere; }
+  a.contact:hover{ transform:translateY(-4px); border-color:var(--gold); }
+  .contact small{ font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); display:flex; justify-content:space-between; align-items:center; }
+  .contact small svg{ width:16px; height:16px; color:var(--gold); transition:transform .35s; }
+  a.contact:hover small svg{ transform:translate(3px,-3px); }
+  .contact span{ font-family:var(--display); font-size:24px; font-weight:600; line-height:1.1; overflow-wrap:anywhere; }
+  .contact .todo{ font-family:var(--text); font-size:13px; }
 
-  footer{
-    border-top:1px solid var(--line); padding-top:24px; display:flex; flex-direction:column; gap:8px;
-    font-size:13px; color:var(--muted);
+  /* footer */
+  footer{ padding-block:110px 0; display:flex; flex-direction:column; gap:28px; }
+  .wordmark{
+    font-family:var(--display); font-weight:600; text-align:center; white-space:nowrap;
+    font-size:clamp(17px,5.6vw,72px); letter-spacing:.08em; line-height:1;
+    background:linear-gradient(180deg, var(--gold-hi), var(--gold-lo));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
   }
-  footer p{ max-width:80ch; }
+  .foot{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; font-size:13px; color:var(--muted); border-top:1px solid var(--line); padding-top:22px; }
+  .foot p{ max-width:72ch; }
 
-  @media (max-width:640px){
-    .wrap{ gap:56px; }
-    .nav{ display:none; }
-    .hero{ grid-template-columns:1fr; gap:28px; }
-    .portrait{ width:150px; }
-    .topics, .contacts{ grid-template-columns:1fr; }
-    .case{ grid-template-columns:1fr; gap:14px; }
-    .facts{ grid-template-columns:1fr; }
+  /* ---------- motion ---------- */
+  @keyframes draw{ from{ stroke-dashoffset:1; } to{ stroke-dashoffset:0; } }
+  @keyframes write{ from{ clip-path:inset(0 100% 0 0); } to{ clip-path:inset(0 0 0 0); } }
+  @keyframes up{ from{ opacity:0; transform:translateY(22px); } to{ opacity:1; transform:none; } }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  @keyframes slide{ to{ transform:translateX(-50%); } }
+  @keyframes grow{ from{ transform:scaleX(0); } to{ transform:scaleX(1); } }
+  @keyframes growY{ from{ transform:scaleY(0); } to{ transform:scaleY(1); } }
+
+  @media (prefers-reduced-motion:no-preference){
+    .hero-lines path{ stroke-dasharray:1; animation:draw 2.6s cubic-bezier(.6,.1,.2,1) both; }
+    .hero-lines .l2{ animation-delay:.35s; animation-duration:3s; }
+    .hero-lines .l3{ animation-delay:.7s; animation-duration:3.4s; }
+    .signature{ animation:write 1.9s cubic-bezier(.55,.1,.25,1) .25s both; }
+    .hero-text > *:not(.signature){ animation:up .9s cubic-bezier(.2,.7,.2,1) both; }
+    .hero-text > :nth-child(1){ animation-delay:.1s; }
+    .hero-text > :nth-child(4){ animation-delay:.5s; }
+    .hero-text > :nth-child(5){ animation-delay:.65s; }
+    .hero-text > :nth-child(6){ animation-delay:.8s; }
+    .portrait-wrap{ animation:up 1.1s cubic-bezier(.2,.7,.2,1) .3s both; }
+    .ring{ animation:spin 18s linear infinite; }
+    .track{ animation:slide 38s linear infinite; }
+    .marquee:hover .track{ animation-play-state:paused; }
+    .work .lines path{ stroke-dasharray:1; animation:draw 4s ease-in-out both; }
+
+    @supports (animation-timeline: view()){
+      .reveal{ animation:up linear both; animation-timeline:view(); animation-range:entry 0% entry 55%; }
+      .bar .fill{ animation:grow linear both; animation-timeline:view(); animation-range:entry 60% cover 45%; }
+      .steps::after{ animation:growY linear both; animation-timeline:view(); animation-range:cover 15% cover 70%; }
+      .work .lines path{ animation:draw linear both; animation-timeline:view(); animation-range:entry 10% cover 60%; }
+    }
+  }
+
+  /* ---------- responsive ---------- */
+  @media (max-width:960px){
+    .links{ display:none; }
+    .dirs{ grid-template-columns:1fr; }
+    .case{ grid-template-columns:1fr; padding:28px; gap:28px; }
+    .steps-wrap, .about, .head{ grid-template-columns:1fr; }
+    .steps-intro{ position:static; }
+    .contacts{ grid-template-columns:1fr 1fr; }
+    .work{ grid-template-columns:1fr; padding:36px 28px; }
+  }
+  @media (max-width:720px){
+    .hero{ grid-template-columns:1fr; padding-block:40px 64px; gap:40px; }
+    .portrait-wrap{ width:min(300px,100%); order:-1; }
+    section.block{ padding-block:80px 0; }
+    .contacts{ grid-template-columns:1fr; }
+    .viz{ padding:20px; }
+    .bar, .scale{ grid-template-columns:76px 1fr 50px; gap:10px; }
+    dl.facts{ grid-template-columns:1fr; }
     .facts dt{ padding-bottom:0; border-bottom:0; }
     .facts dd{ padding-top:4px; }
-  }
-  @media (prefers-reduced-motion:no-preference){
-    .btn, .contact, a{ transition:border-color .2s, background .2s, color .2s; }
+    .nav .cta{ display:none; }
   }
 </style>
 
-<div class="wrap">
-
-  <header class="bar">
-    <a class="brand" href="#top" aria-label="Dr. Shapovalov — наверх">
+<nav class="nav" aria-label="Разделы">
+  <div class="nav-in">
+    <a class="brand" href="#top" aria-label="Наверх">
       <svg viewBox="0 0 100 100" aria-hidden="true">
         <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="2.4"/>
         <g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
@@ -171,134 +397,281 @@
       </svg>
       dr__shapovalov
     </a>
-    <nav class="nav" aria-label="Разделы">
-      <a href="#about">Обо мне</a>
+    <div class="links">
+      <a href="#directions">Направления</a>
       <a href="#cases">Кейсы</a>
-      <a href="#work">Где работаю</a>
+      <a href="#steps">Операция</a>
+      <a href="#about">Обо мне</a>
       <a href="#contacts">Контакты</a>
-    </nav>
-  </header>
+    </div>
+    <a class="cta" href="https://t.me/SHAPOVALOV_DR" target="_blank" rel="noopener">Telegram-канал</a>
+  </div>
+</nav>
 
-  <section class="hero" id="top" aria-label="Павел Шаповалов">
-    <div class="portrait"><img src="img/portrait.jpg" alt="Павел Шаповалов" width="560" height="560"></div>
+<main class="wrap" id="top">
+
+  <section class="hero" aria-label="Павел Шаповалов">
+    <svg class="hero-lines" viewBox="0 0 1600 700" preserveAspectRatio="none" aria-hidden="true">
+      <path class="l1" pathLength="1" d="M -20 640 C 240 600, 420 690, 700 640 S 1000 300, 1240 250 S 1520 330, 1640 200"/>
+      <path class="l2" pathLength="1" d="M -20 665 C 260 630, 440 705, 720 662 S 1020 340, 1260 292 S 1540 370, 1640 250"/>
+      <path class="l3" pathLength="1" d="M -20 688 C 280 660, 460 718, 740 684 S 1040 380, 1280 334 S 1560 410, 1640 300"/>
+    </svg>
+
     <div class="hero-text">
+      <p class="kicker">Челюстно-лицевой хирург · Москва</p>
       <img class="signature sig-light" src="img/signature-bronze.png" alt="Dr. Shapovalov" width="640" height="225">
       <img class="signature sig-dark" src="img/signature-gold.png" alt="" width="640" height="225">
-      <h1>Павел Шаповалов</h1>
-      <p class="role"><strong>Челюстно-лицевой хирург</strong>, кандидат медицинских наук. Детское отделение ФГБУ НМИЦ «ЦНИИСиЧЛХ», Москва.</p>
+      <h1>Павел <em>Шаповалов</em></h1>
+      <p class="lede"><strong>Кандидат медицинских наук.</strong> Детское отделение ФГБУ НМИЦ «ЦНИИСиЧЛХ». Показываю кейсы с цифрами: от 3D-планирования до результата.</p>
       <div class="actions">
-        <a class="btn primary" href="https://t.me/SHAPOVALOV_DR" target="_blank" rel="noopener">Telegram-канал</a>
+        <a class="btn primary" href="#cases">Смотреть кейсы
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
         <a class="btn ghost" href="https://www.instagram.com/dr__shapovalov/" target="_blank" rel="noopener">Instagram</a>
+      </div>
+    </div>
+
+    <div class="portrait-wrap">
+      <div class="ring"></div>
+      <div class="portrait"><img src="img/portrait.jpg" alt="Павел Шаповалов" width="560" height="560"></div>
+      <div class="badge"><b>к.м.н.</b><span>кандидат медицинских наук</span></div>
+    </div>
+  </section>
+
+  <div class="marquee" aria-hidden="true">
+    <div class="track">
+      <span>Дистракционный остеогенез <i></i> Краниофациальная микросомия <i></i> 3D-планирование <i></i> Работа с ортодонтом <i></i></span>
+      <span>Дистракционный остеогенез <i></i> Краниофациальная микросомия <i></i> 3D-планирование <i></i> Работа с ортодонтом <i></i></span>
+    </div>
+  </div>
+
+  <section class="block" id="directions">
+    <div class="head reveal">
+      <div>
+        <p class="kicker">Направления</p>
+        <h2>Три темы, <em>у каждой свой цвет</em></h2>
+      </div>
+      <p>Сложные термины подчёркнуты пунктиром. Нажмите на любой, чтобы прочитать короткое объяснение.</p>
+    </div>
+    <div class="dirs">
+      <a class="dir reveal" href="#case-2">
+        <svg class="curve" viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M2 52 C 60 52, 70 18, 130 18 S 200 52, 298 30"/></svg>
+        <span class="dot">Дистракция</span>
+        <h3>Дистракционный остеогенез</h3>
+        <p>Челюсть удлиняется постепенно, за счёт собственной кости пациента.</p>
+        <span class="more">Кейс: вместо ортогнатической операции <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </a>
+      <a class="dir micro reveal" href="#case-1">
+        <svg class="curve" viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M2 30 C 50 60, 110 60, 150 35 S 240 8, 298 46"/></svg>
+        <span class="dot">Врождённое</span>
+        <h3>Краниофациальная микросомия</h3>
+        <p>Врождённое недоразвитие нижней челюсти, в том числе с двух сторон.</p>
+        <span class="more">Кейс: удлинение на 21 мм <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </a>
+      <a class="dir plan reveal" href="#steps">
+        <svg class="curve" viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M2 44 C 70 10, 120 62, 170 40 S 250 14, 298 22"/></svg>
+        <span class="dot">Планирование</span>
+        <h3>3D-планирование и техника</h3>
+        <p>Тип аппаратов и величина дистракции выбираются до операции, по компьютерной модели.</p>
+        <span class="more">10 этапов операции <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </a>
+    </div>
+  </section>
+
+  <section class="block" id="cases">
+    <div class="head reveal">
+      <div>
+        <p class="kicker">Кейсы</p>
+        <h2>Результат <em>в миллиметрах</em></h2>
+      </div>
+      <p>Цифры на графиках отложены в масштабе. Фото «до и после» публикуются только в соцсетях и только с согласия пациентов и их законных представителей.</p>
+    </div>
+
+    <div class="cases">
+      <article class="case micro reveal" id="case-1">
+        <div class="case-text">
+          <div class="tagrow"><span class="tag c">Микросомия</span><span class="tag">12 лет</span><span class="tag">до и через 6 месяцев</span></div>
+          <h3>Двусторонняя микросомия: удлинение нижней челюсти</h3>
+          <ul>
+            <li>Двустороннее поражение: недоразвитие нижней челюсти с обеих сторон, деформация правой ушной раковины</li>
+            <li>Жалобы: нарушение прикуса и приёма пищи, ночной храп, эстетический недостаток</li>
+            <li>По <button class="term" type="button" data-term="plan">3D-планированию</button> подобраны криволинейные <button class="term" type="button" data-term="kda">КДА</button> «Conmet», радиус кривизны 50°</li>
+            <li>План: 15 мм. С учётом возраста и скачка роста выполнена <button class="term" type="button" data-term="hyper">гиперкоррекция</button>: <strong><button class="term" type="button" data-term="regen">регенерат</button> 21 мм с каждой стороны</strong></li>
+          </ul>
+        </div>
+        <div class="viz">
+          <div class="big">21<small>мм</small></div>
+          <p class="viz-cap">регенерат с каждой стороны</p>
+          <div class="bars" role="img" aria-label="Сагиттальная щель 14 мм, план дистракции 15 мм, регенерат 21 мм">
+            <div class="bar"><span class="name">Щель исходно</span><span class="rail"><span class="fill soft" style="--w:58.33%"></span></span><span class="val">14 мм</span></div>
+            <div class="bar"><span class="name">План</span><span class="rail"><span class="fill soft" style="--w:62.5%"></span></span><span class="val">15 мм</span></div>
+            <div class="bar"><span class="name">Регенерат</span><span class="rail"><span class="fill" style="--w:87.5%"></span></span><span class="val">21 мм</span></div>
+            <div class="scale"><span></span><span class="ticks"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></span><span></span></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="case reveal" id="case-2">
+        <div class="case-text">
+          <div class="tagrow"><span class="tag c">Дистракция</span><span class="tag">17 лет</span><span class="tag">аппараты сняты через 5 месяцев</span></div>
+          <h3>Дистракция вместо ортогнатической операции</h3>
+          <ul>
+            <li>Пациентка была кандидатом на <button class="term" type="button" data-term="ortho">ортогнатическую операцию</button></li>
+            <li>Вместе с ортодонтом выбрали <button class="term" type="button" data-term="dist">дистракционный остеогенез</button> нижней челюсти с двух сторон, КДА с радиусом кривизны 70°</li>
+            <li>План: справа 11 мм, слева 7 мм. Под контролем ортодонта дистракция остановлена досрочно, <strong>регенерат 7 мм с обеих сторон</strong></li>
+            <li>После завершающего ортодонтического лечения ортогнатическая операция <strong>не потребовалась</strong></li>
+          </ul>
+        </div>
+        <div class="viz">
+          <div class="big">7,93 <span class="arr">→</span> 2<small>мм</small></div>
+          <p class="viz-cap"><button class="term" type="button" data-term="overjet">сагиттальная щель</button> до и после лечения</p>
+          <div class="bars" role="img" aria-label="Сагиттальная щель: до 7,93 мм, после 2 мм">
+            <div class="bar"><span class="name">До</span><span class="rail"><span class="fill soft" style="--w:99.13%"></span></span><span class="val">7,93 мм</span></div>
+            <div class="bar"><span class="name">После</span><span class="rail"><span class="fill" style="--w:25%"></span></span><span class="val">2 мм</span></div>
+            <div class="scale"><span></span><span class="ticks"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span></span><span></span></div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="block" id="steps">
+    <div class="steps-wrap">
+      <div class="steps-intro reveal">
+        <p class="kicker">Как проходит операция</p>
+        <h2>Установка <em>дистракционного аппарата</em></h2>
+        <p>Этапы горизонтальной <button class="term" type="button" data-term="osteo">остеотомии</button> нижней челюсти с установкой криволинейного КДА Conmet R50. Интраоперационные фото — в Telegram-канале.</p>
+      </div>
+      <ol class="steps">
+        <li class="step reveal"><span class="n">1</span><p>Разметка линии разреза <span>раствором бриллиантового зелёного</span></p></li>
+        <li class="step reveal"><span class="n">2</span><p>Скелетирование <span>тела, угла и ветви нижней челюсти</span></p></li>
+        <li class="step reveal"><span class="n">3</span><p>Припасовка <span>хирургического шаблона для остеотомии</span></p></li>
+        <li class="step reveal"><span class="n">4</span><p>Частичная остеотомия</p></li>
+        <li class="step reveal"><span class="n">5</span><p>Припасовка <span>КДА</span></p></li>
+        <li class="step reveal"><span class="n">6</span><p>Разметка <span>места выхода привода на коже</span></p></li>
+        <li class="step reveal"><span class="n">7</span><p>Троакар <span>и выведение привода аппарата</span></p></li>
+        <li class="step reveal"><span class="n">8</span><p>Фиксация аппарата: <span>винты через троакар из отдельного прокола</span></p></li>
+        <li class="step reveal"><span class="n">9</span><p>Окончательная остеотомия</p></li>
+        <li class="step reveal"><span class="n">10</span><p>Контроль: <span>аппарат раскручивается до расхождения фрагментов</span></p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="block" id="about">
+    <div class="about">
+      <div class="txt reveal">
+        <p class="kicker">Обо мне</p>
+        <h2>Хирург <em>детского отделения</em></h2>
+        <p class="quote">Работаю в детском отделении Центрального НИИ стоматологии и челюстно-лицевой хирургии.</p>
+        <p>В блоге показываю реальные кейсы: планирование, этапы операций и результаты, с цифрами и терминами, понятными и пациентам, и коллегам.</p>
+      </div>
+      <dl class="facts reveal">
+        <dt>Учёная степень</dt><dd>Кандидат медицинских наук</dd>
+        <dt>Специальность</dt><dd>Челюстно-лицевая хирургия</dd>
+        <dt>Место работы</dt><dd>Детское отделение, ФГБУ НМИЦ «ЦНИИСиЧЛХ», Москва</dd>
+        <dt>Образование</dt><dd><span class="todo">Добавить: вуз, год выпуска, ординатура</span></dd>
+        <dt>Диссертация</dt><dd><span class="todo">Добавить: тема и год защиты</span></dd>
+        <dt>Стаж</dt><dd><span class="todo">Добавить: с какого года в специальности</span></dd>
+      </dl>
+    </div>
+  </section>
+
+  <section class="block" id="work">
+    <div class="work reveal">
+      <svg class="lines" viewBox="0 0 1000 400" preserveAspectRatio="none" aria-hidden="true">
+        <path pathLength="1" d="M -10 320 C 180 260, 300 380, 480 300 S 760 120, 1010 200"/>
+        <path pathLength="1" d="M -10 350 C 200 300, 320 400, 500 330 S 780 160, 1010 240"/>
+      </svg>
+      <div>
+        <p class="kicker">Где работаю</p>
+        <h2>ФГБУ НМИЦ <em>«ЦНИИСиЧЛХ»</em></h2>
+        <p style="margin-top:16px">Центральный научно-исследовательский институт стоматологии и челюстно-лицевой хирургии, детское отделение. Москва, Россия.</p>
+      </div>
+      <div class="side">
+        <a class="btn" href="https://cniis.ru" target="_blank" rel="noopener">Сайт института
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <span class="todo">Добавить адрес приёма и как записаться</span>
       </div>
     </div>
   </section>
 
-  <section id="about">
-    <p class="label">Обо мне</p>
-    <h2>Челюстно-лицевой хирург детского отделения</h2>
-    <p>Работаю в детском отделении Центрального НИИ стоматологии и челюстно-лицевой хирургии в Москве. В блоге показываю реальные кейсы: планирование, этапы операций и результаты «до и после», с цифрами и терминами, понятными и пациентам, и коллегам.</p>
-    <dl class="facts">
-      <dt>Учёная степень</dt><dd>Кандидат медицинских наук</dd>
-      <dt>Специальность</dt><dd>Челюстно-лицевая хирургия</dd>
-      <dt>Место работы</dt><dd>Детское отделение, ФГБУ НМИЦ «ЦНИИСиЧЛХ», Москва</dd>
-      <dt>Образование</dt><dd><span class="todo">Добавить: вуз, год выпуска, ординатура</span></dd>
-      <dt>Диссертация</dt><dd><span class="todo">Добавить: тема и год защиты</span></dd>
-      <dt>Стаж</dt><dd><span class="todo">Добавить: с какого года в специальности</span></dd>
-    </dl>
-  </section>
-
-  <section id="topics">
-    <p class="label">Чем занимаюсь</p>
-    <h2>Темы, которые разбираю в кейсах</h2>
-    <ul class="topics">
-      <li><b>Дистракционный остеогенез</b><span>Постепенное удлинение нижней челюсти аппаратом</span></li>
-      <li><b>Краниофациальная микросомия</b><span>Недоразвитие нижней челюсти с одной или двух сторон</span></li>
-      <li><b>Компьютерное 3D-планирование</b><span>Выбор аппаратов и величины дистракции до операции</span></li>
-      <li><b>Работа с ортодонтом</b><span>Совместный выбор метода и контроль во время дистракции</span></li>
-    </ul>
-  </section>
-
-  <section id="cases">
-    <p class="label">Кейсы</p>
-    <h2>Избранные случаи</h2>
-    <div class="cases">
-
-      <article class="case">
-        <div class="metric">
-          <div class="num">21&nbsp;мм</div>
-          <div class="cap">регенерат с каждой стороны при исходной сагиттальной щели 14&nbsp;мм</div>
-        </div>
-        <div class="case-body">
-          <h3>Краниофациальная микросомия: дистракция нижней челюсти с двух сторон</h3>
-          <div class="tags"><span class="tag">12 лет</span><span class="tag">Conmet, радиус 50°</span><span class="tag">до и через 6 месяцев</span></div>
-          <ul>
-            <li>Двустороннее поражение, деформация правой ушной раковины</li>
-            <li>Жалобы: нарушение прикуса, приёма пищи, ночной храп, эстетический недостаток</li>
-            <li>По плану 15&nbsp;мм; с учётом возраста и скачка роста выполнена <b>гиперкоррекция до 21&nbsp;мм</b></li>
-          </ul>
-        </div>
-      </article>
-
-      <article class="case">
-        <div class="metric">
-          <div class="num">7,93 <span class="arrow">→</span> 2</div>
-          <div class="cap">сагиттальная щель, мм</div>
-        </div>
-        <div class="case-body">
-          <h3>Дистракция вместо ортогнатической операции</h3>
-          <div class="tags"><span class="tag">17 лет</span><span class="tag">радиус 70°</span><span class="tag">аппараты сняты через 5 месяцев</span></div>
-          <ul>
-            <li>Пациентка была кандидатом на ортогнатическую операцию</li>
-            <li>Вместе с ортодонтом выбрали двустороннюю дистракцию нижней челюсти</li>
-            <li>По плану справа 11&nbsp;мм, слева 7&nbsp;мм; под контролем ортодонта остановлена досрочно, <b>регенерат 7&nbsp;мм</b> с обеих сторон</li>
-            <li>Ортогнатическая операция <b>не потребовалась</b></li>
-          </ul>
-        </div>
-      </article>
-
-      <article class="case">
-        <div class="metric">
-          <div class="num">10</div>
-          <div class="cap">этапов операции от разметки до контроля остеотомии</div>
-        </div>
-        <div class="case-body">
-          <h3>Как устанавливается дистракционный аппарат на нижнюю челюсть</h3>
-          <div class="tags"><span class="tag">горизонтальная остеотомия</span><span class="tag">КДА Conmet R50</span></div>
-          <ul>
-            <li>Хирургический шаблон для остеотомии</li>
-            <li>Привод выводится через троакар, винты фиксируются из отдельного прокола</li>
-            <li>Частичная, затем окончательная остеотомия и контроль расхождения фрагментов</li>
-          </ul>
-        </div>
-      </article>
-
+  <section class="block" id="contacts">
+    <div class="head reveal">
+      <div>
+        <p class="kicker">Контакты</p>
+        <h2>Где <em>меня найти</em></h2>
+      </div>
+      <p>Новые кейсы выходят в Telegram-канале и в Instagram.</p>
     </div>
-    <p class="note">Фотографии «до и после» публикуются только в соцсетях и только с согласия пациентов и их законных представителей.</p>
-  </section>
-
-  <section id="work">
-    <p class="label">Где работаю</p>
-    <h2>ФГБУ НМИЦ «ЦНИИСиЧЛХ»</h2>
-    <p>Центральный научно-исследовательский институт стоматологии и челюстно-лицевой хирургии, детское отделение. Москва, Россия.</p>
-    <dl class="facts">
-      <dt>Сайт института</dt><dd><a href="https://cniis.ru" target="_blank" rel="noopener">cniis.ru</a></dd>
-      <dt>Адрес приёма</dt><dd><span class="todo">Добавить адрес и как записаться</span></dd>
-    </dl>
-  </section>
-
-  <section id="contacts">
-    <p class="label">Контакты</p>
-    <h2>Где меня найти</h2>
     <div class="contacts">
-      <a class="contact" href="https://t.me/SHAPOVALOV_DR" target="_blank" rel="noopener"><small>Telegram</small><span>t.me/SHAPOVALOV_DR</span></a>
-      <a class="contact" href="https://www.instagram.com/dr__shapovalov/" target="_blank" rel="noopener"><small>Instagram</small><span>@dr__shapovalov</span></a>
-      <div class="contact"><small>X · GETTR · Parler</small><span class="todo">Добавить ссылки</span></div>
-      <div class="contact"><small>Почта для связи</small><span class="todo">Добавить, если нужна</span></div>
+      <a class="contact reveal" href="https://t.me/SHAPOVALOV_DR" target="_blank" rel="noopener">
+        <small>Telegram <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12L12 4M6 4h6v6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></small>
+        <span>SHAPOVALOV_DR</span>
+      </a>
+      <a class="contact reveal" href="https://www.instagram.com/dr__shapovalov/" target="_blank" rel="noopener">
+        <small>Instagram <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12L12 4M6 4h6v6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></small>
+        <span>@dr__shapovalov</span>
+      </a>
+      <div class="contact reveal"><small>X · GETTR · Parler</small><span class="todo">Добавить ссылки</span></div>
+      <div class="contact reveal"><small>Почта</small><span class="todo">Добавить, если нужна</span></div>
     </div>
   </section>
 
   <footer>
-    <p>© 2026 Павел Шаповалов. Информация на сайте носит ознакомительный характер и не заменяет очную консультацию врача.</p>
+    <div class="wordmark" aria-label="Shapovalov">S. H. A. P. O. V. A. L. O. V.</div>
+    <div class="foot">
+      <p>© 2026 Павел Шаповалов. Информация на сайте носит ознакомительный характер и не заменяет очную консультацию врача.</p>
+      <a href="#top">Наверх ↑</a>
+    </div>
   </footer>
+</main>
 
-</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+  const TERMS = {
+    dist:   ['Дистракционный остеогенез', 'Кость рассекают, а затем аппаратом постепенно разводят фрагменты. В промежутке между ними формируется новая ткань — регенерат.'],
+    regen:  ['Регенерат', 'Новая ткань, которая формируется в промежутке между разведёнными фрагментами кости во время дистракции.'],
+    kda:    ['КДА', 'Компрессионно-дистракционный аппарат: устройство, которым фрагменты кости постепенно разводят. Криволинейные КДА различаются радиусом кривизны.'],
+    hyper:  ['Гиперкоррекция', 'Удлинение больше, чем по плану, с запасом на дальнейший рост лицевого скелета у ребёнка.'],
+    ortho:  ['Ортогнатическая операция', 'Одномоментное перемещение челюстей в правильное положение.'],
+    overjet:['Сагиттальная щель', 'Оверджет: расстояние по горизонтали между режущими краями верхних и нижних резцов.'],
+    osteo:  ['Остеотомия', 'Рассечение кости. Частичная — до установки аппарата, окончательная — после его фиксации.'],
+    plan:   ['3D-планирование', 'Операцию моделируют на компьютере по данным КТ: выбирают тип аппаратов и рассчитывают величину дистракции.']
+  };
+  const tip = document.getElementById('tip');
+  let current = null;
+  function show(btn){
+    const t = TERMS[btn.dataset.term]; if(!t) return;
+    if(current && current !== btn) current.setAttribute('aria-expanded','false');
+    current = btn;
+    tip.innerHTML = '';
+    const b = document.createElement('b'); b.textContent = t[0];
+    tip.append(b, document.createTextNode(t[1]));
+    btn.setAttribute('aria-expanded','true');
+    const r = btn.getBoundingClientRect();
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    let left = Math.min(Math.max(16, r.left + r.width/2 - w/2), window.innerWidth - w - 16);
+    let top = r.bottom + 10;
+    if(top + h > window.innerHeight - 12) top = Math.max(12, r.top - h - 10);
+    tip.style.left = left + 'px'; tip.style.top = top + 'px';
+    tip.classList.add('on');
+  }
+  function hide(){
+    tip.classList.remove('on');
+    if(current){ current.setAttribute('aria-expanded','false'); current = null; }
+  }
+  document.querySelectorAll('.term').forEach(btn => {
+    btn.setAttribute('aria-expanded','false');
+    btn.setAttribute('aria-describedby','tip');
+    btn.addEventListener('click', e => { e.stopPropagation(); current === btn ? hide() : show(btn); });
+    btn.addEventListener('mouseenter', () => { if(matchMedia('(hover:hover)').matches) show(btn); });
+    btn.addEventListener('mouseleave', () => { if(matchMedia('(hover:hover)').matches) hide(); });
+    btn.addEventListener('focus', () => show(btn));
+    btn.addEventListener('blur', hide);
+  });
+  document.addEventListener('click', hide);
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') hide(); });
+  window.addEventListener('scroll', hide, {passive:true});
+</script>
