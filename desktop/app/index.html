@@ -2962,6 +2962,43 @@ function DistractionCalculator() {
   const [speechDisorder, setSpeechDisorder] = useState(false); // 0.4 — речь
   const [salivation, setSalivation] = useState(false); // 0.3 — слюнотечение
 
+  // ── ОБЪЕКТИВИЗАЦИЯ: числовые данные доп. методов (ЭМГ, полисомнография, T-scan…) ──
+  // Пусто → работает субъективная отметка (как раньше). Введено число → программа
+  // сама сверяет с нормой и решает, подтверждено ли нарушение (и начисляет балл).
+  const [objMeas, setObjMeas] = useState({});          // {ahi:'34', incisal:'22', emg:'18', ...}
+  const [objNotes, setObjNotes] = useState('');        // свободные заключения (ЭМГ/T-scan/стабилометрия)
+  // Пороги нормы по доп. методам. dir: 'gte' — патология при значении ≥ norm; 'lte'/'lt' — при ≤/<.
+  const FN_META = {
+    poly:    { mid:'ahi',     unit:'/час', hint:'ИАГ (апноэ/гипопноэ)',        norm:5,  dir:'gte', grade:v=> v>=30?1.3:v>=15?1.0:0.7 },
+    breath:  { mid:'spo2',    unit:'%',    hint:'SpO₂ min во сне',             norm:90, dir:'lte', grade:v=> v<=85?1.3:1.0 },
+    mouth:   { mid:'incisal', unit:'мм',   hint:'межрезцовое открывание',      norm:35, dir:'lt',  grade:v=> v<25?1.2:1.0 },
+    dys:     { mid:'eat10',   unit:'балл', hint:'EAT-10',                       norm:3,  dir:'gte', grade:v=> v>=15?1.2:1.0 },
+    snore:   { mid:'snoredb', unit:'дБ',   hint:'громкость храпа',             norm:40, dir:'gte', grade:v=> 1.0 },
+    chew:    { mid:'emg',     unit:'%',    hint:'ЭМГ: асимметрия жев. мышц',   norm:15, dir:'gte', grade:v=> v>=25?1.2:1.0 },
+    speech:  { mid:'speech',  unit:'%',    hint:'разборчивость речи',          norm:80, dir:'lt',  grade:v=> 1.0 },
+    saliva:  { mid:'saliva',  unit:'мл/мин', hint:'саливация',                  norm:7,  dir:'gte', grade:v=> 1.0 }
+  };
+  const FN_BASE = { poly:1.0, breath:0.8, mouth:0.7, dys:0.6, snore:0.5, chew:0.5, speech:0.4, saliva:0.3 };
+  function fnAbnormal(dir, v, norm){ return dir==='gte'? v>=norm : dir==='lte'? v<=norm : v<norm; }
+  // Единая оценка: по каждому нарушению возвращает {score, confirmed:true/false/null, detail}
+  function evalFunctional(states, meas){
+    const per={}; let score=0;
+    const keys=Object.keys(FN_BASE);
+    for(const k of keys){
+      const m=FN_META[k]; const raw=meas[m.mid]; const v=parseFloat(raw);
+      const has = raw!==undefined && raw!=='' && !isNaN(v);
+      if(has){
+        const bad=fnAbnormal(m.dir, v, m.norm);
+        if(bad){ const add=FN_BASE[k]*m.grade(v); score+=add; per[k]={confirmed:true, v, add, detail:`${m.hint}: ${v} ${m.unit} — вне нормы (норма ${m.dir==='gte'?'<':'≥'} ${m.norm})`}; }
+        else { per[k]={confirmed:false, v, add:0, detail:`${m.hint}: ${v} ${m.unit} — в пределах нормы, балл не начислен`}; }
+      } else {
+        if(states[k]){ score+=FN_BASE[k]; per[k]={confirmed:null, add:FN_BASE[k], detail:'по субъективной отметке (нет объективных данных)'}; }
+        else per[k]={confirmed:null, add:0, detail:''};
+      }
+    }
+    return { score, per };
+  }
+
   // Результаты
   const [result, setResult] = useState(null);
 
@@ -3050,19 +3087,9 @@ function DistractionCalculator() {
     return Math.sqrt(s * (s - a) * (s - b) * (s - c));
   };
 
-  // Расчет балла функциональных нарушений
-  const calculateFunctionalScore = () => {
-    let score = 0;
-    if (polysomnography) score += 1.0;
-    if (breathingDisorder) score += 0.8;
-    if (mouthOpening) score += 0.7;
-    if (dysphagia) score += 0.6;
-    if (snoring) score += 0.5;
-    if (chewingDisorder) score += 0.5;
-    if (speechDisorder) score += 0.4;
-    if (salivation) score += 0.3;
-    return score;
-  };
+  // Расчет балла функциональных нарушений (объективизация + субъективный резерв)
+  const fnStates = () => ({ poly:polysomnography, breath:breathingDisorder, mouth:mouthOpening, dys:dysphagia, snore:snoring, chew:chewingDisorder, speech:speechDisorder, saliva:salivation });
+  const calculateFunctionalScore = () => evalFunctional(fnStates(), objMeas).score;
 
   // Расчет ИА
   const calculateIA = () => {
@@ -3238,6 +3265,7 @@ function DistractionCalculator() {
     setChewingDisorder(false);
     setSpeechDisorder(false);
     setSalivation(false);
+    setObjMeas({}); setObjNotes('');
     setResult(null);
   };
   const handleCalculate = () => {
@@ -3281,7 +3309,12 @@ function DistractionCalculator() {
         chewingDisorder,
         speechDisorder,
         salivation
-      }
+      },
+      // Объективизация доп. методами (ЭМГ, полисомнография, T-scan…)
+      objMeas: { ...objMeas },
+      objNotes: objNotes,
+      integral: interpretation.integral,
+      affectedSide: interpretation.affectedSide
     };
     window.saveToArchive(archiveData);
     setResult({
@@ -3337,6 +3370,7 @@ function DistractionCalculator() {
     setChewingDisorder(false);
     setSpeechDisorder(false);
     setSalivation(false);
+    setObjMeas({}); setObjNotes('');
     setResult(null);
   };
 
@@ -3369,6 +3403,7 @@ function DistractionCalculator() {
       setSpeechDisorder(data.symptoms.speechDisorder || false);
       setSalivation(data.symptoms.salivation || false);
     }
+    setObjMeas(data.objMeas || {}); setObjNotes(data.objNotes || '');
     if (data.indexValue && data.severity) {
       // Создаем calculatedData для корректного отображения
       const calculatedData = {
@@ -4119,56 +4154,56 @@ function DistractionCalculator() {
   }, [{
     label: 'Нарушения дыхания во сне (ИАГ > 5)',
     score: 1.0,
-    state: polysomnography,
+    k: 'poly', state: polysomnography,
     setter: setPolysomnography,
     level: 'critical',
     tag: 'КРИТИЧЕС.'
   }, {
     label: 'Нарушения дыхания в покое / при нагрузке',
     score: 0.8,
-    state: breathingDisorder,
+    k: 'breath', state: breathingDisorder,
     setter: setBreathingDisorder,
     level: 'critical',
     tag: 'КРИТИЧЕС.'
   }, {
     label: 'Ограничение открывания рта',
     score: 0.7,
-    state: mouthOpening,
+    k: 'mouth', state: mouthOpening,
     setter: setMouthOpening,
     level: 'high',
     tag: 'ВЫСОКИЙ'
   }, {
     label: 'Нарушение глотания (дисфагия)',
     score: 0.6,
-    state: dysphagia,
+    k: 'dys', state: dysphagia,
     setter: setDysphagia,
     level: 'high',
     tag: 'ВЫСОКИЙ'
   }, {
     label: 'Храп',
     score: 0.5,
-    state: snoring,
+    k: 'snore', state: snoring,
     setter: setSnoring,
     level: 'medium',
     tag: 'СРЕДНИЙ'
   }, {
     label: 'Нарушение жевания / приёма пищи',
     score: 0.5,
-    state: chewingDisorder,
+    k: 'chew', state: chewingDisorder,
     setter: setChewingDisorder,
     level: 'medium',
     tag: 'СРЕДНИЙ'
   }, {
     label: 'Нарушение речи (дизартрия)',
     score: 0.4,
-    state: speechDisorder,
+    k: 'speech', state: speechDisorder,
     setter: setSpeechDisorder,
     level: 'medium',
     tag: 'СРЕДНИЙ'
   }, {
     label: 'Слюнотечение (сиалоррея)',
     score: 0.3,
-    state: salivation,
+    k: 'saliva', state: salivation,
     setter: setSalivation,
     level: 'low',
     tag: 'НИЗКИЙ'
@@ -4208,8 +4243,14 @@ function DistractionCalculator() {
       }
     };
     const col = colors[item.level];
-    return /*#__PURE__*/React.createElement("label", {
-      key: idx,
+    const meta = FN_META[item.k];
+    const ev = evalFunctional(fnStates(), objMeas).per[item.k] || {};
+    const badge = ev.confirmed === true
+      ? /*#__PURE__*/React.createElement("span", { style:{ fontSize:'10.5px', fontWeight:700, color:'#166534', background:'#dcfce7', padding:'2px 7px', borderRadius:'8px' } }, "\u2713 \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u043e +" + (ev.add||0).toFixed(1))
+      : ev.confirmed === false
+      ? /*#__PURE__*/React.createElement("span", { style:{ fontSize:'10.5px', fontWeight:700, color:'#64748b', background:'#f1f5f9', padding:'2px 7px', borderRadius:'8px' } }, "\u0432 \u043d\u043e\u0440\u043c\u0435 \u2014 \u0431\u0430\u043b\u043b \u0441\u043d\u044f\u0442")
+      : /*#__PURE__*/React.createElement("span", { style:{ fontSize:'10.5px', color:'#94a3b8' } }, "\u043d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445 \u2014 \u043f\u043e \u043e\u0442\u043c\u0435\u0442\u043a\u0435");
+    const labelEl = /*#__PURE__*/React.createElement("label", {
       className: "flex items-center gap-3 p-2.5 border-2 rounded-lg cursor-pointer transition-colors " + col.hover,
       style: {
         borderColor: item.state ? col.activeBorder : col.border,
@@ -4240,7 +4281,21 @@ function DistractionCalculator() {
     }, item.tag), /*#__PURE__*/React.createElement("span", {
       className: "text-xs font-bold text-gray-500 w-14 text-right"
     }, "+", item.score.toFixed(1), " \u0431."))));
-  }), /*#__PURE__*/React.createElement("div", {
+    const measEl = /*#__PURE__*/React.createElement("div", {
+      style:{ display:'flex', alignItems:'center', gap:'8px', padding:'5px 10px 2px 42px', flexWrap:'wrap' }
+    }, /*#__PURE__*/React.createElement("span", { style:{ fontSize:'11px', color:'#64748b', minWidth:'168px' } }, meta.hint),
+       /*#__PURE__*/React.createElement("input", { type:"number", step:"any", value: objMeas[meta.mid] || '', placeholder:'\u0437\u043d\u0430\u0447\u0435\u043d\u0438\u0435',
+         onChange: e => setObjMeas(prev => ({ ...prev, [meta.mid]: e.target.value })),
+         style:{ width:'88px', padding:'3px 7px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'12px' } }),
+       /*#__PURE__*/React.createElement("span", { style:{ fontSize:'11px', color:'#94a3b8', minWidth:'34px' } }, meta.unit),
+       badge);
+    return /*#__PURE__*/React.createElement("div", { key: idx, style:{ marginBottom:'4px' } }, labelEl, measEl);
+  }), /*#__PURE__*/React.createElement("div", { style:{ marginTop:'8px' } },
+    /*#__PURE__*/React.createElement("div", { style:{ fontSize:'11px', color:'#64748b', marginBottom:'4px' } }, "Доп. методы / заключения (ЭМГ, T-scan, стабилометрия) — свободно:"),
+    /*#__PURE__*/React.createElement("textarea", { value: objNotes, onChange: e => setObjNotes(e.target.value), rows: 2,
+      placeholder: "напр.: ЭМГ — асимметрия 22%; T-scan — перегрузка справа; стабилометрия — …",
+      style:{ width:'100%', padding:'7px 9px', border:'1px solid #cbd5e1', borderRadius:'8px', fontSize:'12px', resize:'vertical' } })
+  ), /*#__PURE__*/React.createElement("div", {
     className: "p-3 bg-blue-50 border border-blue-200 rounded-lg"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-sm text-blue-800"
