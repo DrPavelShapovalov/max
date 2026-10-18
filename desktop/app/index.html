@@ -1112,6 +1112,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
             <span>Пользователь: <b id="userName"></b></span>
         </div>
         <div class="bar-actions">
+            <button class="icon-btn" id="syncGear" onclick="openSyncSettings()" title="Синхронизация / Google Диск" aria-label="Синхронизация">⚙</button>
             <button class="icon-btn" id="themeToggle" onclick="toggleTheme()" title="Светлая / тёмная тема" aria-label="Переключить тему">◐</button>
             <button class="btn-ghost danger" onclick="logout()">Выйти</button>
         </div>
@@ -1121,6 +1122,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         <button id="calcTab" class="tab active" onclick="switchTab('calc')">Калькулятор</button>
         <button id="archiveTab" class="tab" onclick="switchTab('archive')">Архив · <span id="archiveCount" class="num">0</span></button>
         <button id="statsTab" class="tab" onclick="switchTab('stats')">Статистика</button>
+        <button id="cloudTab" class="tab" onclick="switchTab('cloud')">☁ Облако · <span id="cloudCount" class="num">0</span></button>
     </div>
     
     <div id="calcContent">
@@ -1228,7 +1230,60 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         </div>
     </div>
 
+    <div id="cloudContent" style="display:none;padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:16px;flex-wrap:wrap;">
+            <h1 class="h-title">Облачный архив КДО</h1>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <span id="cloudStatus" class="mono" style="font-size:12px;color:var(--ink-dim);"></span>
+                <button onclick="cloudPull()" class="btn-primary" style="width:auto;padding:9px 16px;">⟳ Обновить из облака</button>
+                <button onclick="cloudResync()" class="btn-ghost">Досинхронизировать мои</button>
+                <button onclick="openSyncSettings()" class="btn-ghost">⚙ Настройки</button>
+            </div>
+        </div>
+        <div id="cloudNotice" class="panel" style="padding:14px;margin-bottom:16px;display:none;"></div>
+        <div class="stat-grid" id="cloudKpi" style="margin-bottom:16px;"></div>
+        <div class="panel" style="overflow-x:auto;">
+          <table>
+            <thead><tr>
+              <th>Дата/Время</th><th>Врач</th><th>Компьютер</th><th>ФИО</th><th>Возраст</th>
+              <th>Индекс</th><th>Значение</th><th>Тяжесть</th><th>Рекомендация</th>
+            </tr></thead>
+            <tbody id="cloudTableBody"><tr><td colspan="9" style="text-align:center;color:var(--ink-dim);padding:24px;">Нет данных. Настройте синхронизацию (⚙) и нажмите «Обновить из облака».</td></tr></tbody>
+          </table>
+        </div>
+    </div>
+
 </div>
+</div>
+
+<!-- ═══ Модальное окно: Синхронизация с Google Диском ═══ -->
+<div id="syncModal" class="sync-modal-backdrop" style="display:none;" onclick="if(event.target===this)closeSyncSettings()">
+  <div class="sync-modal">
+    <div class="sync-modal-head">
+      <h2>Синхронизация архива · Google Диск</h2>
+      <button class="icon-btn" onclick="closeSyncSettings()" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="sync-modal-body">
+      <p class="sync-hint">Единая база КДО в вашем Google&nbsp;Диске (Google&nbsp;Таблица). Каждый расчёт с любого компьютера попадает в общий архив; на головном компьютере вы видите, кто и что измеряет.</p>
+      <label class="field-label">Адрес веб-приложения (Apps Script URL)</label>
+      <input id="cfgUrl" class="field" placeholder="https://script.google.com/macros/s/…/exec" style="margin-bottom:12px;">
+      <label class="field-label">Секретный ключ (token)</label>
+      <input id="cfgToken" class="field" placeholder="общий секрет (как в скрипте)" style="margin-bottom:12px;">
+      <label class="field-label">Имя этого компьютера / кабинета</label>
+      <input id="cfgDevice" class="field" placeholder="напр. Ординаторская-1 или Шаповалов-ПК" style="margin-bottom:12px;">
+      <label class="sync-check"><input type="checkbox" id="cfgEnabled"> <span>Включить автосинхронизацию (отправлять расчёты в облако)</span></label>
+      <label class="sync-check"><input type="checkbox" id="cfgSendFio"> <span>Отправлять ФИО пациента в облако</span></label>
+      <div class="sync-legal">⚠ Отправка ФИО и клинических данных в облако — под ответственность правообладателя (152-ФЗ о персональных данных). Без галки «Отправлять ФИО» в облако уходят инициалы + год рождения (псевдонимизация).</div>
+      <div class="sync-actions">
+        <button onclick="saveSyncSettings()" class="btn-primary" style="width:auto;padding:10px 18px;">Сохранить</button>
+        <button onclick="syncTest()" class="btn-ghost">Проверить связь</button>
+        <button onclick="showAppsScript()" class="btn-ghost">📋 Код для Google (Code.gs)</button>
+      </div>
+      <div id="syncTestResult" class="mono" style="font-size:12px;margin-top:10px;color:var(--ink-dim);"></div>
+      <pre id="appsScriptBox" style="display:none;white-space:pre-wrap;background:var(--void-2);border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:12px;font-size:11.5px;max-height:260px;overflow:auto;"></pre>
+      <div id="appsScriptSteps" style="display:none;margin-top:10px;font-size:12.5px;color:var(--ink-dim);line-height:1.6;"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1362,22 +1417,13 @@ function toggleTheme() {
 document.addEventListener('DOMContentLoaded', applyThemeIcon);
 
 function switchTab(tab) {
-    // Переключаем отображение контента
-    document.getElementById('calcContent').style.display = tab === 'calc' ? 'block' : 'none';
-    document.getElementById('archiveContent').style.display = tab === 'archive' ? 'block' : 'none';
-    document.getElementById('statsContent').style.display = tab === 'stats' ? 'block' : 'none';
-    
-    // Переключаем активные вкладки
-    document.getElementById('calcTab').classList.remove('active');
-    document.getElementById('archiveTab').classList.remove('active');
-    if (document.getElementById('statsTab')) {
-        document.getElementById('statsTab').classList.remove('active');
-    }
-    document.getElementById(tab + 'Tab').classList.add('active');
-    
+    const tabs = ['calc','archive','stats','cloud'];
+    tabs.forEach(t => { const c = document.getElementById(t + 'Content'); if (c) c.style.display = (t === tab) ? 'block' : 'none';
+        const b = document.getElementById(t + 'Tab'); if (b) b.classList.toggle('active', t === tab); });
     // Загружаем данные при открытии вкладок
     if (tab === 'archive') loadArchive();
     if (tab === 'stats') calculateStats();
+    if (tab === 'cloud' && window.renderCloud) window.renderCloud();
 }
 
 window.saveToArchive = function(data) {
@@ -1395,16 +1441,12 @@ window.saveToArchive = function(data) {
     archive.push(entry);
     localStorage.setItem('kdo_archive', JSON.stringify(archive));
     console.log('✅ Сохранено в архив:', data);
-    
+
     // Уведомить React о обновлении архива
     window.dispatchEvent(new Event('archiveUpdated'));
-    
-    // ============================================================
-    //  ПЕРСОНАЛЬНЫЕ ДАННЫЕ: автоматическая отправка на внешний
-    //  сервер (Google Sheets) УДАЛЕНА в целях защиты ПДн (152-ФЗ).
-    //  Данные хранятся только локально; выгрузка — исключительно
-    //  по явному нажатию кнопки экспорта самим пользователем.
-    // ============================================================
+
+    // ── Облачная синхронизация (Google Диск через Apps Script) ──
+    try { if (window.syncPush) window.syncPush(entry); } catch (e) { console.warn('sync push failed', e); }
 };
 
 
@@ -4679,6 +4721,186 @@ console.log('%cЭто приложение защищено авторским �
     });
     obs.observe(login, { attributes: true, attributeFilter: ['class'] });
     start();
+})();
+</script>
+
+<style>
+/* ── Модалка синхронизации + анимации v3 ── */
+.sync-modal-backdrop{position:fixed;inset:0;background:rgba(3,10,14,.72);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;z-index:9999;animation:kdoFade .22s ease}
+.sync-modal{width:min(560px,94vw);max-height:92vh;overflow:auto;background:var(--panel-solid,#0d1f27);
+  border:1px solid var(--line-strong,rgba(64,214,224,.32));border-radius:18px;
+  box-shadow:0 40px 120px -30px #000, 0 0 60px -30px var(--accent,#40d6e0);animation:kdoPop .28s cubic-bezier(.2,.9,.3,1.2)}
+.sync-modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line,rgba(64,214,224,.16))}
+.sync-modal-head h2{font-size:17px;margin:0;color:var(--ink,#e7fbfd)}
+.sync-modal-body{padding:18px 20px}
+.sync-hint{font-size:13px;color:var(--ink-dim,#8fb3bb);line-height:1.55;margin:0 0 16px}
+.sync-check{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--ink,#e7fbfd);margin:10px 0;cursor:pointer}
+.sync-check input{margin-top:2px;width:16px;height:16px;accent-color:var(--accent,#40d6e0)}
+.sync-legal{font-size:11.5px;color:var(--warn,#ffc24d);background:color-mix(in srgb,var(--warn,#ffc24d) 10%,transparent);
+  border:1px solid color-mix(in srgb,var(--warn,#ffc24d) 30%,transparent);border-radius:10px;padding:10px 12px;margin:12px 0;line-height:1.5}
+.sync-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:8px}
+@keyframes kdoFade{from{opacity:0}to{opacity:1}}
+@keyframes kdoPop{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes kdoRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes kdoPulse{0%,100%{opacity:.5}50%{opacity:1}}
+#calcContent,#archiveContent,#statsContent,#cloudContent{animation:kdoFade .32s ease}
+.stat-card{transition:transform .18s ease, box-shadow .18s ease}
+.stat-card:hover{transform:translateY(-3px)}
+.tab{transition:color .15s ease, border-color .15s ease, background .15s ease}
+.btn-primary,.btn-ghost,.icon-btn{transition:transform .12s ease, filter .12s ease, background .15s ease}
+.btn-primary:hover,.btn-ghost:hover{transform:translateY(-1px)}
+.cloud-live{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--good,#3ee08f);margin-right:6px;animation:kdoPulse 1.6s ease-in-out infinite}
+tbody tr{animation:kdoRise .3s ease both}
+</style>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  ОБЛАЧНАЯ СИНХРОНИЗАЦИЯ архива КДО (Google Диск · Apps Script)
+//  Единая база в Google-Таблице правообладателя. Работает из
+//  установленного .exe на любом компьютере (JSONP, без CORS/OAuth).
+// ══════════════════════════════════════════════════════════════
+(function(){
+  const CFG_KEY='kdo_sync_cfg', QUEUE_KEY='kdo_sync_queue', CLOUD_KEY='kdo_cloud_cache';
+  function cfg(){ try{ return JSON.parse(localStorage.getItem(CFG_KEY)||'{}'); }catch(e){ return {}; } }
+  function setCfg(c){ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }
+  function queue(){ try{ return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]'); }catch(e){ return []; } }
+  function setQueue(q){ localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); }
+
+  // JSONP: надёжно из любого origin (file://) без CORS
+  function jsonp(url, cb){
+    const name='__kdocb'+Math.random().toString(36).slice(2);
+    const s=document.createElement('script'); let done=false;
+    window[name]=(data)=>{ done=true; try{cb(null,data);}finally{ delete window[name]; s.remove(); } };
+    s.onerror=()=>{ if(done)return; done=true; delete window[name]; s.remove(); cb(new Error('Сеть недоступна')); };
+    s.src=url+(url.includes('?')?'&':'?')+'callback='+name;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){ done=true; try{s.remove();}catch(e){} delete window[name]; cb(new Error('Таймаут')); } }, 15000);
+  }
+  function pseudonym(fio, birthDate){
+    const parts=(fio||'').trim().split(/\s+/).filter(Boolean);
+    const init=parts.map(p=>p[0]?p[0].toUpperCase()+'.':'').join('');
+    const y=(birthDate||'').slice(0,4);
+    return (init||'—')+(y?(' '+y):'');
+  }
+  function toRecord(entry){
+    const c=cfg(); const sendFio=!!c.sendFio;
+    return {
+      id: entry.id, timestamp: entry.timestamp, datetime: entry.datetime,
+      user: entry.user||'', device: c.device||'',
+      fio: sendFio ? (entry.fio||'') : pseudonym(entry.fio, entry.birthDate),
+      age: entry.age||'', gender: entry.gender||'', defectType: entry.defectType||'',
+      indexType: entry.indexType||'', indexValue: entry.indexValue,
+      severity: entry.severity||'', recommendation: entry.recommendation||'',
+      rightArea: entry.rightArea||'', leftArea: entry.leftArea||'',
+      functionalScore: entry.functionalScore||''
+    };
+  }
+  function pushRecord(rec, cb){
+    const c=cfg(); if(!c.url||!c.token){ cb&&cb(new Error('Не настроено')); return; }
+    const u=c.url+'?token='+encodeURIComponent(c.token)+'&action=add&record='+encodeURIComponent(JSON.stringify(rec));
+    jsonp(u, (err,data)=> cb&&cb(err, data));
+  }
+  // Публичный API
+  window.syncPush=function(entry){
+    const c=cfg(); if(!c.enabled||!c.url||!c.token) return;
+    const rec=toRecord(entry);
+    pushRecord(rec, (err)=>{ if(err){ const q=queue(); q.push(rec); setQueue(q); setCloudStatus('нет связи — в очереди ('+q.length+')', true); }
+      else { setCloudStatus('отправлено в облако ✓'); } });
+  };
+  window.cloudResync=function(){
+    const q=queue(); if(!q.length){ setCloudStatus('очередь пуста'); return; }
+    let i=0, ok=0; (function next(){ if(i>=q.length){ setQueue(q.slice(ok)); setCloudStatus('досинхронизировано: '+ok+'/'+q.length); return; }
+      pushRecord(q[i], (err)=>{ if(!err) ok++; i++; next(); }); })();
+  };
+  window.cloudPull=function(){
+    const c=cfg(); if(!c.url||!c.token){ openSyncSettings(); return; }
+    setCloudStatus('загрузка…', false, true);
+    jsonp(c.url+'?token='+encodeURIComponent(c.token)+'&action=list', (err,data)=>{
+      if(err||!data||!data.ok){ setCloudStatus('ошибка: '+((data&&data.error)||(err&&err.message)||'нет данных'), true); return; }
+      localStorage.setItem(CLOUD_KEY, JSON.stringify(data.rows||[]));
+      setCloudStatus('обновлено '+new Date().toLocaleTimeString('ru-RU'));
+      renderCloud();
+    });
+  };
+  function setCloudStatus(txt, warn, live){ const el=document.getElementById('cloudStatus');
+    if(el) el.innerHTML=(live?'<span class="cloud-live"></span>':'')+escapeHtml(txt); if(el) el.style.color=warn?'var(--warn,#ffc24d)':'var(--ink-dim,#8fb3bb)'; }
+
+  window.renderCloud=function(){
+    let rows=[]; try{ rows=JSON.parse(localStorage.getItem(CLOUD_KEY)||'[]'); }catch(e){}
+    const body=document.getElementById('cloudTableBody'); const cnt=document.getElementById('cloudCount');
+    const notice=document.getElementById('cloudNotice'); const kpi=document.getElementById('cloudKpi');
+    const c=cfg();
+    if(notice){ if(!c.url||!c.token){ notice.style.display='block'; notice.innerHTML='Синхронизация не настроена. Нажмите <b>⚙ Настройки</b>, вставьте адрес Google-скрипта и ключ — расчёты со всех компьютеров будут собираться здесь.'; } else notice.style.display='none'; }
+    // первая строка — заголовки из таблицы, пропускаем если это шапка
+    let data=rows.slice(); if(data.length && String(data[0][0]).toLowerCase().includes('timestamp')) data=data.slice(1);
+    if(cnt) cnt.textContent=data.length;
+    // колонки: 0 ts,1 datetime,2 user,3 device,4 fio,5 age,6 gender,7 defectType,8 indexType,9 indexValue,10 severity,11 recommendation
+    if(kpi){ const total=data.length; const docs=new Set(data.map(r=>r[2])).size; const devs=new Set(data.map(r=>r[3])).size;
+      const doCnt=data.filter(r=>String(r[11]||'').toLowerCase().includes('дистрак')).length;
+      kpi.innerHTML=[['Записей всего',total],['Врачей',docs],['Компьютеров',devs],['Показан ДО',total?Math.round(doCnt/total*100)+'%':'0%']]
+        .map(k=>`<div class="stat-card reticle"><span class="rc-tr"></span><span class="rc-bl"></span><div class="stat-label">${k[0]}</div><div class="stat-value num">${k[1]}</div></div>`).join(''); }
+    if(body){ if(!data.length){ body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--ink-dim);padding:24px;">Нет данных. Настройте синхронизацию (⚙) и нажмите «Обновить из облака».</td></tr>'; return; }
+      body.innerHTML=data.slice().reverse().map(r=>`<tr>
+        <td class="mono">${escapeHtml(r[1]||r[0]||'')}</td><td>${escapeHtml(r[2]||'')}</td><td>${escapeHtml(r[3]||'')}</td>
+        <td>${escapeHtml(r[4]||'')}</td><td>${escapeHtml(r[5]||'')}</td><td>${escapeHtml(r[8]||'')}</td>
+        <td class="num">${escapeHtml(String(r[9]??''))}</td><td>${escapeHtml(r[10]||'')}</td><td>${escapeHtml(r[11]||'')}</td>
+      </tr>`).join(''); }
+  };
+
+  // ── Настройки (модалка) ──
+  window.openSyncSettings=function(){ const c=cfg(); const g=id=>document.getElementById(id);
+    g('cfgUrl').value=c.url||''; g('cfgToken').value=c.token||''; g('cfgDevice').value=c.device||'';
+    g('cfgEnabled').checked=!!c.enabled; g('cfgSendFio').checked=!!c.sendFio;
+    g('syncTestResult').textContent=''; g('appsScriptBox').style.display='none'; g('appsScriptSteps').style.display='none';
+    g('syncModal').style.display='flex'; };
+  window.closeSyncSettings=function(){ document.getElementById('syncModal').style.display='none'; };
+  window.saveSyncSettings=function(){ const g=id=>document.getElementById(id);
+    setCfg({ url:g('cfgUrl').value.trim(), token:g('cfgToken').value.trim(), device:g('cfgDevice').value.trim(),
+      enabled:g('cfgEnabled').checked, sendFio:g('cfgSendFio').checked });
+    g('syncTestResult').textContent='✓ Сохранено.'; setTimeout(closeSyncSettings, 600); };
+  window.syncTest=function(){ const g=id=>document.getElementById(id); const url=g('cfgUrl').value.trim(), token=g('cfgToken').value.trim();
+    if(!url||!token){ g('syncTestResult').textContent='Укажите URL и ключ.'; return; }
+    g('syncTestResult').textContent='Проверка…';
+    jsonp(url+'?token='+encodeURIComponent(token)+'&action=ping', (err,data)=>{
+      g('syncTestResult').textContent = (!err && data && data.ok) ? '✓ Связь установлена. Таблица доступна.' : ('✗ '+((data&&data.error)||(err&&err.message)||'нет ответа')); }); };
+  window.showAppsScript=function(){
+    const box=document.getElementById('appsScriptBox'), steps=document.getElementById('appsScriptSteps');
+    box.textContent=APPS_SCRIPT_CODE; box.style.display='block';
+    steps.style.display='block';
+    steps.innerHTML='<b>Как подключить Google Диск (один раз, на вашем аккаунте):</b><br>'+
+      '1. Создайте Google-Таблицу «Архив КДО» на Google Диске.<br>'+
+      '2. Меню <b>Расширения → Apps Script</b>. Удалите пустой код, вставьте код выше.<br>'+
+      '3. В начале кода впишите свой <b>TOKEN</b> (любой пароль) — тот же вставьте в поле «ключ» здесь.<br>'+
+      '4. <b>Развернуть → Новое развёртывание → Веб-приложение</b>. Доступ: <b>«Все»</b>. Выполнять от <b>вашего имени</b>.<br>'+
+      '5. Скопируйте выданный <b>URL (…/exec)</b> → вставьте в поле «Адрес веб-приложения».<br>'+
+      '6. На каждом компьютере введите этот URL + TOKEN, укажите имя кабинета, включите автосинхронизацию.';
+  };
+
+  const APPS_SCRIPT_CODE =
+'const TOKEN = "ПОСТАВЬТЕ_СВОЙ_СЕКРЕТ";  // тот же, что в приложении\n'+
+'function doGet(e){ return handle(e); }\n'+
+'function doPost(e){ return handle(e); }\n'+
+'function handle(e){\n'+
+'  var p = e.parameter || {};\n'+
+'  var cb = p.callback || "";\n'+
+'  function out(o){ var t = cb ? (cb+"("+JSON.stringify(o)+")") : JSON.stringify(o);\n'+
+'    return ContentService.createTextOutput(t).setMimeType(cb?ContentService.MimeType.JAVASCRIPT:ContentService.MimeType.JSON); }\n'+
+'  if (p.token !== TOKEN) return out({ok:false, error:"auth"});\n'+
+'  var ss = SpreadsheetApp.getActiveSpreadsheet();\n'+
+'  var sh = ss.getSheetByName("Архив") || ss.getSheets()[0];\n'+
+'  var HEAD = ["timestamp","datetime","user","device","fio","age","gender","defectType","indexType","indexValue","severity","recommendation","rightArea","leftArea","functionalScore","id"];\n'+
+'  if (sh.getLastRow()===0) sh.appendRow(HEAD);\n'+
+'  if (p.action==="ping") return out({ok:true});\n'+
+'  if (p.action==="add"){ var r=JSON.parse(p.record);\n'+
+'    sh.appendRow(HEAD.map(function(k){ return r[k]!==undefined ? r[k] : ""; }));\n'+
+'    return out({ok:true}); }\n'+
+'  if (p.action==="list"){ return out({ok:true, rows: sh.getDataRange().getValues()}); }\n'+
+'  return out({ok:false, error:"unknown action"});\n'+
+'}\n';
+
+  // авто-подтягивание облака при входе (для головного компьютера)
+  window.addEventListener('load', ()=>{ const c=cfg(); if(c.url&&c.token){ setTimeout(()=>{ try{ window.cloudPull&&window.cloudPull(); }catch(e){} }, 1500); } });
 })();
 </script>
 
