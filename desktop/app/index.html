@@ -2993,17 +2993,18 @@ function DistractionCalculator() {
       unit:'мм', normText:'Норма ≥ 35 мм (у детей ≥ 30 мм). Балл — при < 35 мм.',
       dir:'lt', norm:35, grade:v=> v<25?1.2:1.0 },
 
-    { key:'emg', base:0.6, chk:'chew',
-      title:'ЭМГ жевательных мышц — коэффициент асимметрии',
-      what:'Электромиография сравнивает силу жевательных мышц справа и слева. Чем больше разница, тем выраженнее перекос из-за недоразвития челюсти.',
-      source:'Из заключения ЭМГ — «коэффициент асимметрии» (As %). Если дан в долях — умножьте на 100.',
-      unit:'%', normText:'Норма ≤ 15 %. Балл — при асимметрии ≥ 15 %.',
+    { key:'emg', base:0.6, chk:'chew', dual:true,
+      rLabel:'справа (D)', lLabel:'слева (S)',
+      title:'ЭМГ жевательных мышц — асимметрия сторон',
+      what:'Электромиография показывает силу мышцы справа и слева. Введите два числа — программа сама посчитает асимметрию = |П−Л| / (П+Л) × 100 %.',
+      source:'Проба «Сжатие зубных рядов», строка «Площадь (мкВ·мс)». Возьмите пару с наибольшей разницей сторон: височные (1.temporalis D и 3.temporalis S) ИЛИ жевательные (2.masseter D и 4.masseter S). У Ефимова височные 32.34 / 75.06.',
+      unit:'%', normText:'Норма < 15 % разницы. Балл — при асимметрии ≥ 15 % (≥ 25 % — усиление).',
       dir:'gte', norm:15, grade:v=> v>=25?1.2:1.0 },
 
     { key:'tscan', base:0.5, chk:null,
       title:'T-scan — распределение окклюзионной нагрузки',
-      what:'Компьютерный анализ прикуса: какой процент силы смыкания приходится на перегруженную сторону. При одностороннем недоразвитии нагрузка смещается.',
-      source:'Из отчёта T-scan — больший из двух процентов нагрузки (left/right force %).',
+      what:'Компьютерный анализ прикуса: какой процент силы смыкания приходится на перегруженную сторону. При одностороннем недоразвитии нагрузка смещается в одну сторону.',
+      source:'Из отчёта T-scan — строка внизу «Левый … % / Право … %». Введите большее из двух чисел (у Ефимова — «Право 63.7 %»).',
       unit:'%', normText:'Норма 40–60 % на сторону. Балл — при перекосе ≥ 60 %.',
       dir:'gte', norm:60, grade:v=> v>=70?1.2:1.0 },
 
@@ -3029,21 +3030,29 @@ function DistractionCalculator() {
       dir:'gte', norm:7, grade:v=> 1.0 },
 
     { key:'stab', base:0, chk:null, aux:true,
-      title:'Стабилометрия — площадь статокинезиограммы (справочно)',
-      what:'Оценка равновесия и постурального баланса. При челюстно-лицевой асимметрии может быть повышена, но прямого балла показаний к КДО не формирует.',
-      source:'Из заключения стабилометрии — «площадь статокинезиограммы», мм² (глаза закрыты).',
-      unit:'мм²', normText:'Ориентир нормы < 100 мм². В сумму баллов не входит.',
-      dir:'gte', norm:100, grade:v=> 0 }
+      title:'Стабилометрия — площадь статокинезиограммы S (справочно)',
+      what:'Оценка равновесия и постурального баланса. При челюстно-лицевой асимметрии бывает повышена, но прямого балла показаний к КДО не формирует.',
+      source:'Таблица «Балансировочные параметры», столбец «S (з), мм²» — глаза закрыты (у Ефимова — 426.5).',
+      unit:'мм²', normText:'Референс бланка < 99.5 мм². Выше — нарушение функции равновесия. В сумму баллов не входит.',
+      dir:'gte', norm:99.5, grade:v=> 0 }
   ];
   const SPEECH_BASE = 0.4;
-  // Вердикт по одному числовому методу
-  function methodVerdict(m, raw){
-    const v = parseFloat(raw);
-    const has = raw!==undefined && raw!=='' && !isNaN(v);
-    if(!has) return { has:false, v:null, bad:null, add:0 };
+  // Вердикт по одному числовому методу (meas — весь объект objMeas)
+  function methodVerdict(m, meas){
+    let v, has, r, l;
+    if(m.dual){
+      r = parseFloat(meas[m.key+'_r']); l = parseFloat(meas[m.key+'_l']);
+      has = !isNaN(r) && !isNaN(l) && (r+l) > 0;
+      v = has ? +(Math.abs(r-l)/(r+l)*100).toFixed(1) : null;
+    } else {
+      const raw = meas[m.key];
+      v = parseFloat(raw);
+      has = raw!==undefined && raw!=='' && !isNaN(v);
+    }
+    if(!has) return { has:false, v:null, bad:null, add:0, r, l };
     const bad = m.dir==='gte' ? v>=m.norm : m.dir==='lte' ? v<=m.norm : v<m.norm;
     const add = (m.aux || !bad) ? 0 : +(m.base*m.grade(v)).toFixed(2);
-    return { has:true, v, bad, add };
+    return { has:true, v, bad, add, r, l };
   }
   // «Нейросетевой» (эвристический) разбор заключения логопеда по ключевым словам
   function analyzeSpeech(text){
@@ -3071,10 +3080,10 @@ function DistractionCalculator() {
   function evalFunctional(states, meas, speech){
     const per={}; let score=0;
     for(const m of METHODS){
-      const vv = methodVerdict(m, meas[m.key]);
+      const vv = methodVerdict(m, meas);
       if(vv.has){
         if(vv.add>0) score += vv.add;
-        per[m.key] = { source:'num', confirmed: m.aux? null : vv.bad, v:vv.v, add:vv.add };
+        per[m.key] = { source:'num', confirmed: m.aux? null : vv.bad, bad: vv.bad, v:vv.v, add:vv.add, r:vv.r, l:vv.l };
       } else {
         const st = m.chk && states[m.chk];
         if(!m.aux && st){ score += m.base; per[m.key]={ source:'sub', confirmed:null, add:m.base }; }
@@ -3748,10 +3757,10 @@ function DistractionCalculator() {
                               METHODS.forEach(m => {
                                 const per = ev.per[m.key] || {};
                                 if (m.aux) {
-                                  if (per.source === 'num') rows.push(row(m.base, true, m.title, (per.confirmed ? 'выше ориентира' : 'в пределах') + ': ' + per.v + ' ' + m.unit, 'справочно'));
+                                  if (per.source === 'num') rows.push(row(m.base, true, m.title, (per.bad ? 'выше ориентира' : 'в пределах') + ': ' + per.v + ' ' + m.unit, 'справочно'));
                                   return;
                                 }
-                                if (per.source === 'num' && per.confirmed === true) rows.push(row(m.base, false, m.title, 'объективно: ' + per.v + ' ' + m.unit, '+' + (per.add || 0).toFixed(1) + ' б.'));
+                                if (per.source === 'num' && per.confirmed === true) rows.push(row(m.base, false, m.title, m.dual ? ('асимметрия ' + per.v + ' % (П ' + per.r + ' / Л ' + per.l + ')') : ('объективно: ' + per.v + ' ' + m.unit), '+' + (per.add || 0).toFixed(1) + ' б.'));
                                 else if (per.source === 'sub') rows.push(row(m.base, false, m.title, 'субъективно (без цифры)', '+' + (per.add || 0).toFixed(1) + ' б.'));
                               });
                               const sp = ev.per.speech || {};
@@ -4271,7 +4280,7 @@ function DistractionCalculator() {
       let badge;
       if (m.aux) {
         badge = hasNum
-          ? /*#__PURE__*/React.createElement("span", { style:{ ...bst, color:'#475569', background:'#f1f5f9' } }, (per.confirmed ? '⚠ выше ориентира' : '✓ в пределах') + ' · в балл не входит')
+          ? /*#__PURE__*/React.createElement("span", { style:{ ...bst, color: per.bad ? '#b45309' : '#475569', background: per.bad ? '#fef3c7' : '#f1f5f9' } }, (per.bad ? '⚠ выше ориентира' : '✓ в пределах') + ' · в балл не входит')
           : /*#__PURE__*/React.createElement("span", { style:{ fontSize:'10.5px', color:'#94a3b8' } }, "справочно");
       } else if (hasNum && per.confirmed === true) {
         badge = /*#__PURE__*/React.createElement("span", { style:{ ...bst, color:'#166534', background:'#dcfce7' } }, "✓ подтверждено +" + (per.add || 0).toFixed(1));
@@ -4294,10 +4303,22 @@ function DistractionCalculator() {
         /*#__PURE__*/React.createElement("div", { style:{ fontSize:'11px', color:'#64748b', marginTop:'3px', lineHeight:1.4 } }, "📄 Откуда цифра: " + m.source),
         /*#__PURE__*/React.createElement("div", { style:{ fontSize:'11px', fontWeight:600, color:'#0f766e', marginTop:'3px' } }, "📏 " + m.normText),
         /*#__PURE__*/React.createElement("div", { style:{ display:'flex', alignItems:'center', gap:'8px', marginTop:'7px', flexWrap:'wrap' } },
-          /*#__PURE__*/React.createElement("input", { type:"number", step:"any", value: objMeas[m.key] || '', placeholder:'введите число',
-            onChange: e => setObjMeas(prev => ({ ...prev, [m.key]: e.target.value })),
-            style:{ width:'110px', padding:'5px 8px', border:'1.5px solid ' + col.border, borderRadius:'7px', fontSize:'13px' } }),
-          /*#__PURE__*/React.createElement("span", { style:{ fontSize:'11px', color:'#94a3b8' } }, m.unit),
+          m.dual
+            ? /*#__PURE__*/React.createElement("div", { style:{ display:'flex', alignItems:'center', gap:'6px', flexWrap:'wrap' } },
+                /*#__PURE__*/React.createElement("span", { style:{ fontSize:'10.5px', color:'#64748b' } }, m.rLabel + ':'),
+                /*#__PURE__*/React.createElement("input", { type:"number", step:"any", value: objMeas[m.key+'_r'] || '', placeholder:'П',
+                  onChange: e => setObjMeas(prev => ({ ...prev, [m.key+'_r']: e.target.value })),
+                  style:{ width:'78px', padding:'5px 8px', border:'1.5px solid ' + col.border, borderRadius:'7px', fontSize:'13px' } }),
+                /*#__PURE__*/React.createElement("span", { style:{ fontSize:'10.5px', color:'#64748b' } }, m.lLabel + ':'),
+                /*#__PURE__*/React.createElement("input", { type:"number", step:"any", value: objMeas[m.key+'_l'] || '', placeholder:'Л',
+                  onChange: e => setObjMeas(prev => ({ ...prev, [m.key+'_l']: e.target.value })),
+                  style:{ width:'78px', padding:'5px 8px', border:'1.5px solid ' + col.border, borderRadius:'7px', fontSize:'13px' } }),
+                hasNum ? /*#__PURE__*/React.createElement("span", { style:{ fontSize:'11px', fontWeight:700, color:'#0f766e' } }, "→ асимметрия " + per.v + " %") : null
+              )
+            : /*#__PURE__*/React.createElement("input", { type:"number", step:"any", value: objMeas[m.key] || '', placeholder:'введите число',
+                onChange: e => setObjMeas(prev => ({ ...prev, [m.key]: e.target.value })),
+                style:{ width:'110px', padding:'5px 8px', border:'1.5px solid ' + col.border, borderRadius:'7px', fontSize:'13px' } }),
+          m.dual ? null : /*#__PURE__*/React.createElement("span", { style:{ fontSize:'11px', color:'#94a3b8' } }, m.unit),
           m.chk ? /*#__PURE__*/React.createElement("label", { style:{ display:'flex', alignItems:'center', gap:'4px', fontSize:'10.5px', color:'#64748b', cursor:'pointer' } },
             /*#__PURE__*/React.createElement("input", { type:"checkbox", checked: chkState, onChange: e => chkSetter(e.target.checked), style:{ width:'14px', height:'14px', accentColor:col.bar } }),
             "нет цифры — отметить вручную") : null,
