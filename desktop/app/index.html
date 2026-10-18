@@ -3164,16 +3164,52 @@ function DistractionCalculator() {
         color = 'green';
       }
     }
+    const extra = computeExtra(index, indexValue, severity, functionalScore);
+    let extraText = ` · Интегральный показатель к ДО: ${extra.integral}/100.`;
+    if (extra.inchRight !== undefined) extraText += ` Недоразвитие справа ${extra.inchRight.toFixed(1)}%, слева ${extra.inchLeft.toFixed(1)}% (поражённая сторона — ${extra.affectedSide}).`;
+    if (extra.dynamics) extraText += ` Динамика: было ${extra.dynamics.prevValue}% (${extra.dynamics.prevDate}), стало ${indexValue}% — Δ ${extra.dynamics.delta}%.`;
     return {
       index,
       indexValue,
       severity,
       recommendation,
-      rationale,
+      rationale: rationale + extraText,
       color,
       functionalScore: functionalScore.toFixed(1),
-      age
+      age,
+      ...extra
     };
+  };
+
+  // ── ДОРАБОТКА ФОРМУЛЫ: пофланговое недоразвитие, интегральный показатель, динамика ──
+  const computeExtra = (index, indexValue, severity, functionalScore) => {
+    const extra = {};
+    const aR = calculateArea(parseFloat(rightAB), parseFloat(rightBC), parseFloat(rightCA));
+    const aL = calculateArea(parseFloat(leftAB), parseFloat(leftBC), parseFloat(leftCA));
+    const aRef = calculateArea(parseFloat(refAB), parseFloat(refBC), parseFloat(refCA));
+    // Пофланговый индекс недоразвития относительно эталона (видно, какая сторона и насколько отстаёт)
+    if (isFinite(aRef) && aRef > 0) {
+      extra.inchRight = ((aR - aRef) / aRef * 100);
+      extra.inchLeft = ((aL - aRef) / aRef * 100);
+    }
+    // Сторона поражения
+    extra.affectedSide = aR < aL ? 'правая' : (aL < aR ? 'левая' : 'симметрично');
+    // Интегральный морфо-функциональный показатель к дистракции (0–100)
+    const sevPts = severity === 'выраженное' ? 75 : severity === 'умеренное' ? 42 :
+                   severity === 'гипермегалия' ? 55 : 8;
+    extra.integral = Math.max(0, Math.min(100, Math.round(sevPts + functionalScore * 12)));
+    // Динамика: сравнение с предыдущей записью того же пациента (результат дистракции)
+    try {
+      const arch = JSON.parse(localStorage.getItem('kdo_archive') || '[]');
+      const prior = arch.filter(e => (e.fio || '').trim().toLowerCase() === (fio || '').trim().toLowerCase() && (e.fio || '').trim())
+                        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      if (prior.length) {
+        const prev = prior[prior.length - 1];
+        const dIdx = (parseFloat(indexValue) - parseFloat(prev.indexValue));
+        extra.dynamics = { prevValue: prev.indexValue, prevDate: prev.datetime, delta: dIdx.toFixed(1), prevIndex: prev.indexType };
+      }
+    } catch (e) {}
+    return extra;
   };
 
   // Функция очистки формы
