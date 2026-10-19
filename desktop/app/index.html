@@ -1277,10 +1277,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       <div class="sync-actions">
         <button onclick="saveSyncSettings()" class="btn-primary" style="width:auto;padding:10px 18px;">Сохранить</button>
         <button onclick="syncTest()" class="btn-ghost">Проверить связь</button>
-        <button onclick="showAppsScript()" class="btn-ghost">📋 Код для Google (Code.gs)</button>
+        <button onclick="showAppsScript()" class="btn-ghost">📋 Показать код для Google</button>
+        <button onclick="downloadAppsScript()" class="btn-ghost">⬇ Скачать Code.gs</button>
       </div>
       <div id="syncTestResult" class="mono" style="font-size:12px;margin-top:10px;color:var(--ink-dim);"></div>
-      <pre id="appsScriptBox" style="display:none;white-space:pre-wrap;background:var(--void-2);border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:12px;font-size:11.5px;max-height:260px;overflow:auto;"></pre>
+      <pre id="appsScriptBox" style="display:none;white-space:pre-wrap;user-select:text;-webkit-user-select:text;cursor:text;background:var(--void-2);border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:12px;font-size:11.5px;max-height:260px;overflow:auto;"></pre>
       <div id="appsScriptSteps" style="display:none;margin-top:10px;font-size:12.5px;color:var(--ink-dim);line-height:1.6;"></div>
     </div>
   </div>
@@ -5025,6 +5026,21 @@ tbody tr{animation:kdoRise .3s ease both}
       '4. <b>Развернуть → Новое развёртывание → Веб-приложение</b>. Доступ: <b>«Все»</b>. Выполнять от <b>вашего имени</b>.<br>'+
       '5. Скопируйте выданный <b>URL (…/exec)</b> → вставьте в поле «Адрес веб-приложения».<br>'+
       '6. На каждом компьютере введите этот URL + TOKEN, укажите имя кабинета, включите автосинхронизацию.';
+  };
+
+  // Скачать серверный код как файл Code.gs (на случай, если копирование из окна недоступно)
+  window.downloadAppsScript=function(){
+    try{
+      var blob=new Blob([APPS_SCRIPT_CODE], {type:'text/plain;charset=utf-8'});
+      var url=URL.createObjectURL(blob);
+      var a=document.createElement('a');
+      a.href=url; a.download='Code.gs';
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+      var r=document.getElementById('syncTestResult'); if(r) r.textContent='✓ Файл Code.gs скачан — откройте его, скопируйте весь текст в Apps Script.';
+    }catch(err){
+      var r2=document.getElementById('syncTestResult'); if(r2) r2.textContent='Не удалось скачать файл: '+err.message;
+    }
   };
 
   const APPS_SCRIPT_CODE =
