@@ -1090,6 +1090,43 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         }
         input, textarea { -webkit-user-select: text; user-select: text; }
 
+        /* ── Калькулятор: единый визуальный стиль с экраном входа ───── */
+        #calcContent .bg-white {
+            border-radius: 18px !important;
+            border: 1px solid color-mix(in srgb, var(--accent) 12%, #e9eef0) !important;
+            box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 16px 40px -24px color-mix(in srgb, var(--accent) 60%, transparent) !important;
+        }
+        #calcContent .rounded-xl { border-radius: 18px !important; }
+        #calcContent .rounded-lg { border-radius: 12px !important; }
+        #calcContent button.rounded-xl, #calcContent button.rounded-lg { border-radius: 14px !important; }
+        /* поля ввода — единый фокус под бренд */
+        #calcContent input[type="number"], #calcContent input[type="text"], #calcContent input[type="date"], #calcContent select {
+            border-radius: 11px !important; transition: border-color .15s, box-shadow .15s !important;
+        }
+        #calcContent input:focus, #calcContent select:focus {
+            outline: none !important; border-color: var(--accent) !important;
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent) !important;
+        }
+        /* брендовые градиенты вместо сине-фиолетовых и сине-зелёных */
+        #calcContent [class*="from-blue-600"][class*="to-purple-600"],
+        #calcContent [class*="from-green-600"][class*="to-teal-600"] {
+            background-image: linear-gradient(135deg, var(--accent), var(--accent-2)) !important;
+            box-shadow: 0 14px 34px -14px color-mix(in srgb, var(--accent) 65%, transparent) !important;
+        }
+        #calcContent [class*="from-blue-50"][class*="to-purple-50"] {
+            background-image: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, white), color-mix(in srgb, var(--accent-2) 12%, white)) !important;
+        }
+        /* акцентные цвета → бренд (teal/blue) */
+        #calcContent .text-blue-600 { color: var(--accent-2) !important; }
+        #calcContent .text-purple-600 { color: var(--accent) !important; }
+        #calcContent .text-blue-800 { color: color-mix(in srgb, var(--accent) 70%, #0c2b31) !important; }
+        #calcContent .bg-blue-50, #calcContent .bg-purple-50 { background-color: color-mix(in srgb, var(--accent) 8%, white) !important; }
+        #calcContent .border-blue-200 { border-color: color-mix(in srgb, var(--accent) 22%, white) !important; }
+        #calcContent .border-purple-300 { border-color: color-mix(in srgb, var(--accent) 35%, white) !important; }
+        #calcContent .border-blue-500 { border-color: var(--accent) !important; }
+        #calcContent .focus\:ring-blue-500, #calcContent .focus\:ring-purple-500 { --tw-ring-color: color-mix(in srgb, var(--accent) 40%, transparent) !important; }
+        #calcContent input[type="radio"] { accent-color: var(--accent); }
+
     </style>
     <meta name="author" content="Шаповалов П.И.">
     <meta name="copyright" content="© 2026 Шаповалов П.И. Все права защищены">
