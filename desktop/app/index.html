@@ -3014,6 +3014,7 @@ function DistractionCalculator() {
   const [objMeas, setObjMeas] = useState({});          // {ahi:'34', emg:'18', tscan:'68', ...}
   const [objNotes, setObjNotes] = useState('');        // произвольный комментарий врача
   const [logoText, setLogoText] = useState('');        // заключение логопеда (свободный текст)
+  const [subj, setSubj] = useState({});                // субъективные галки-резерв по ключу метода, если цифры/текста нет
   // Конфигурация методов. Каждое окно = конкретный параметр из бланка (с тем же названием).
   // dir: 'gte' — патология при значении ≥ norm; 'lte' — при ≤ norm; 'lt' — при < norm.
   // aux:true — метод справочный, в сумму баллов не входит (но показывает вердикт).
@@ -3136,23 +3137,31 @@ function DistractionCalculator() {
     if(other && !skeletal) return { status:'other', add:0, text:'Нарушение речи обусловлено иной причиной (неврология / слух / дислалия и т. п.), не связанной с недоразвитием челюсти → балл не начислен.' };
     return { status:'uncertain', add:+(SPEECH_BASE/2).toFixed(2), text:'Причина нарушения речи из текста неоднозначна → половинный балл (+'+(SPEECH_BASE/2)+'). Уточните заключение.' };
   }
-  // Единая оценка функционального блока
-  function evalFunctional(states, meas, speech){
+  // Единая оценка функционального блока.
+  // subjChecks — галки-резерв по ключу метода (используются, только если цифры/текста нет).
+  function evalFunctional(subjChecks, meas, speech){
+    const sc = subjChecks || {};
     const per={}; let score=0;
     for(const m of METHODS){
       const vv = methodVerdict(m, meas);
       if(vv.has){
         if(vv.add>0) score += vv.add;
         per[m.key] = { source:'num', confirmed: m.aux? null : vv.bad, bad: vv.bad, v:vv.v, add:vv.add, r:vv.r, l:vv.l };
+      } else if(!m.aux && sc[m.key]){
+        score += m.base; per[m.key]={ source:'sub', confirmed:null, add:m.base };
       } else {
-        const st = m.chk && states[m.chk];
-        if(!m.aux && st){ score += m.base; per[m.key]={ source:'sub', confirmed:null, add:m.base }; }
-        else per[m.key]={ source:'none', confirmed:null, add:0 };
+        per[m.key]={ source:'none', confirmed:null, add:0 };
       }
     }
+    // Речь: есть текст → анализ текста; нет текста, но стоит галка → субъективно
     const sp = speech || { status:'none', add:0 };
-    if(sp.add>0) score += sp.add;
-    per.speech = { source:'text', status:sp.status, add:sp.add, text:sp.text };
+    if(sp.status === 'none' && sc.speech){
+      score += SPEECH_BASE;
+      per.speech = { source:'sub', status:'sub', add:SPEECH_BASE, text:'Нарушение речи отмечено вручную (без заключения) → балл начислен (+'+SPEECH_BASE+').' };
+    } else {
+      if(sp.add>0) score += sp.add;
+      per.speech = { source:'text', status:sp.status, add:sp.add, text:sp.text };
+    }
     return { score:+score.toFixed(2), per };
   }
 
@@ -3245,8 +3254,7 @@ function DistractionCalculator() {
   };
 
   // Расчет балла функциональных нарушений (объективизация + субъективный резерв)
-  const fnStates = () => ({ poly:polysomnography, breath:breathingDisorder, mouth:mouthOpening, dys:dysphagia, snore:snoring, chew:chewingDisorder, saliva:salivation });
-  const fnEval = () => evalFunctional(fnStates(), objMeas, analyzeSpeech(logoText));
+  const fnEval = () => evalFunctional(subj, objMeas, analyzeSpeech(logoText));
   const calculateFunctionalScore = () => fnEval().score;
 
   // Расчет ИА
@@ -3423,7 +3431,7 @@ function DistractionCalculator() {
     setChewingDisorder(false);
     setSpeechDisorder(false);
     setSalivation(false);
-    setObjMeas({}); setObjNotes(''); setLogoText('');
+    setObjMeas({}); setObjNotes(''); setLogoText(''); setSubj({});
     setResult(null);
   };
   const handleCalculate = () => {
@@ -3472,6 +3480,7 @@ function DistractionCalculator() {
       objMeas: { ...objMeas },
       objNotes: objNotes,
       logoText: logoText,
+      subj: { ...subj },
       integral: interpretation.integral,
       affectedSide: interpretation.affectedSide
     };
@@ -3529,7 +3538,7 @@ function DistractionCalculator() {
     setChewingDisorder(false);
     setSpeechDisorder(false);
     setSalivation(false);
-    setObjMeas({}); setObjNotes(''); setLogoText('');
+    setObjMeas({}); setObjNotes(''); setLogoText(''); setSubj({});
     setResult(null);
   };
 
@@ -3562,7 +3571,7 @@ function DistractionCalculator() {
       setSpeechDisorder(data.symptoms.speechDisorder || false);
       setSalivation(data.symptoms.salivation || false);
     }
-    setObjMeas(data.objMeas || {}); setObjNotes(data.objNotes || ''); setLogoText(data.logoText || '');
+    setObjMeas(data.objMeas || {}); setObjNotes(data.objNotes || ''); setLogoText(data.logoText || ''); setSubj(data.subj || {});
     if (data.indexValue && data.severity) {
       // Создаем calculatedData для корректного отображения
       const calculatedData = {
@@ -3824,7 +3833,7 @@ function DistractionCalculator() {
                                 else if (per.source === 'sub') rows.push(row(m.base, false, m.title, 'субъективно (без цифры)', '+' + (per.add || 0).toFixed(1) + ' б.'));
                               });
                               const sp = ev.per.speech || {};
-                              if (sp.add > 0) rows.push(row(0.4, false, 'Нарушение речи (логопед)', sp.status === 'confirmed' ? 'связано с челюстью/прикусом' : 'частично связано с челюстью', '+' + sp.add.toFixed(1) + ' б.'));
+                              if (sp.add > 0) rows.push(row(0.4, false, 'Нарушение речи (логопед)', sp.status === 'confirmed' ? 'связано с челюстью/прикусом' : sp.status === 'sub' ? 'отмечено вручную' : 'частично связано с челюстью', '+' + sp.add.toFixed(1) + ' б.'));
                               if (rows.length === 0) return '<div style="padding: 4px 0; color: #16a34a; font-weight:600;">● Функциональные нарушения объективно не подтверждены</div>';
                               return rows.join('');
                             })()}
@@ -4324,7 +4333,6 @@ function DistractionCalculator() {
     className: "space-y-2"
   }, (() => {
     const ev = fnEval();
-    const chkMap = { poly:[polysomnography, setPolysomnography], breath:[breathingDisorder, setBreathingDisorder], mouth:[mouthOpening, setMouthOpening], dys:[dysphagia, setDysphagia], snore:[snoring, setSnoring], chew:[chewingDisorder, setChewingDisorder], saliva:[salivation, setSalivation] };
     const colorFor = (base, aux) => aux ? { bar:'#94a3b8', bg:'#f8fafc', border:'#e2e8f0', tag:'СПРАВОЧНО', tagC:'#475569', tagBg:'#f1f5f9' }
       : base >= 0.8 ? { bar:'#dc2626', bg:'#fef2f2', border:'#fecaca', tag:'КРИТИЧЕС.', tagC:'#dc2626', tagBg:'#fee2e2' }
       : base >= 0.6 ? { bar:'#ea580c', bg:'#fff7ed', border:'#fed7aa', tag:'ВЫСОКИЙ', tagC:'#ea580c', tagBg:'#ffedd5' }
@@ -4340,8 +4348,8 @@ function DistractionCalculator() {
       const col = colorFor(m.base, m.aux);
       const per = ev.per[m.key] || {};
       const hasNum = per.source === 'num';
-      const chk = m.chk ? chkMap[m.chk] : [false, () => {}];
-      const chkState = chk[0]; const chkSetter = chk[1];
+      const chkState = !!subj[m.key];
+      const chkSetter = (val) => setSubj(prev => ({ ...prev, [m.key]: val }));
       let badge;
       if (m.aux) {
         badge = hasNum
@@ -4385,19 +4393,20 @@ function DistractionCalculator() {
                 onChange: e => setObjMeas(prev => ({ ...prev, [m.key]: e.target.value })),
                 style:{ width:'110px', padding:'5px 8px', border:'1.5px solid ' + col.border, borderRadius:'7px', fontSize:'13px' } }),
           m.dual ? null : /*#__PURE__*/React.createElement("span", { style:{ fontSize:'11px', color:'#94a3b8' } }, m.unit),
-          m.chk ? /*#__PURE__*/React.createElement("label", { style:{ display:'flex', alignItems:'center', gap:'4px', fontSize:'10.5px', color:'#64748b', cursor:'pointer' } },
-            /*#__PURE__*/React.createElement("input", { type:"checkbox", checked: chkState, onChange: e => chkSetter(e.target.checked), style:{ width:'14px', height:'14px', accentColor:col.bar } }),
-            "нет цифры — отметить вручную") : null,
+          !m.aux ? /*#__PURE__*/React.createElement("label", { title: hasNum ? 'Есть цифра — галка не нужна' : 'Если исследование не делали — отметьте вручную', style:{ display:'flex', alignItems:'center', gap:'4px', fontSize:'10.5px', color: hasNum ? '#cbd5e1' : '#64748b', cursor: hasNum ? 'default' : 'pointer', opacity: hasNum ? 0.5 : 1 } },
+            /*#__PURE__*/React.createElement("input", { type:"checkbox", checked: chkState, disabled: hasNum, onChange: e => chkSetter(e.target.checked), style:{ width:'14px', height:'14px', accentColor:col.bar } }),
+            "нет данных — отметить вручную") : null,
           badge
         )
       ));
     });
     const sp = ev.per.speech || {};
-    const spCol = sp.status === 'confirmed' ? { c:'#166534', bg:'#dcfce7', b:'#86efac' }
+    const spCol = (sp.status === 'confirmed' || sp.status === 'sub') ? { c:'#166534', bg:'#dcfce7', b:'#86efac' }
       : sp.status === 'uncertain' ? { c:'#854d0e', bg:'#fef9c3', b:'#fde047' }
       : (sp.status === 'other' || sp.status === 'normal') ? { c:'#475569', bg:'#f1f5f9', b:'#cbd5e1' }
       : { c:'#94a3b8', bg:'#f8fafc', b:'#e2e8f0' };
-    const spIcon = sp.status === 'confirmed' ? '✓ ' : sp.status === 'uncertain' ? '≈ ' : (sp.status === 'other' || sp.status === 'normal') ? '— ' : '';
+    const spIcon = (sp.status === 'confirmed' || sp.status === 'sub') ? '✓ ' : sp.status === 'uncertain' ? '≈ ' : (sp.status === 'other' || sp.status === 'normal') ? '— ' : '';
+    const logoHasText = (logoText || '').trim().length > 0;
     const speechCard = /*#__PURE__*/React.createElement("div", { key:'speech', style:{ border:'1.5px solid #fde68a', background:'#fffbeb', borderRadius:'12px', padding:'10px 12px' } },
       /*#__PURE__*/React.createElement("div", { style:{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'8px' } },
         /*#__PURE__*/React.createElement("span", { style:{ fontSize:'13px', fontWeight:700, color:'#1e293b', lineHeight:1.3 } }, "Заключение логопеда — анализ причины нарушения речи"),
@@ -4412,6 +4421,9 @@ function DistractionCalculator() {
         placeholder: "напр.: Межзубное произношение свистящих, обусловленное открытым прикусом и недоразвитием нижней челюсти…",
         style:{ width:'100%', marginTop:'7px', padding:'7px 9px', border:'1.5px solid #fde68a', borderRadius:'8px', fontSize:'12px', resize:'vertical' } }),
       /*#__PURE__*/React.createElement("div", { style:{ marginTop:'6px', fontSize:'11.5px', fontWeight:600, color:spCol.c, background:spCol.bg, border:'1px solid ' + spCol.b, borderRadius:'8px', padding:'7px 9px', lineHeight:1.4 } }, spIcon + (sp.text || '')),
+      /*#__PURE__*/React.createElement("label", { title: logoHasText ? 'Есть текст — галка не нужна' : 'Если заключения нет — отметьте нарушение речи вручную', style:{ display:'flex', alignItems:'center', gap:'5px', marginTop:'6px', fontSize:'10.5px', color: logoHasText ? '#cbd5e1' : '#64748b', cursor: logoHasText ? 'default' : 'pointer', opacity: logoHasText ? 0.5 : 1 } },
+        /*#__PURE__*/React.createElement("input", { type:"checkbox", checked: !!subj.speech, disabled: logoHasText, onChange: e => setSubj(prev => ({ ...prev, speech: e.target.checked })), style:{ width:'14px', height:'14px', accentColor:'#ca8a04' } }),
+        "нет заключения — отметить нарушение речи вручную"),
       /*#__PURE__*/React.createElement("div", { style:{ fontSize:'9.5px', color:'#b45309', marginTop:'4px', fontStyle:'italic' } }, "Эвристический разбор по ключевым словам — вспомогательная подсказка, окончательное решение за врачом.")
     );
     return [...cards, speechCard];
