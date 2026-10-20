@@ -2536,6 +2536,46 @@ function TriangleViz({
   }, asym.toFixed(1), "%")));
 }
 
+// ── MOFI — композитный индекс (морфология + функция), анимированная карточка ──
+function MofiCard({ data }) {
+  const [t, setT] = React.useState(0);
+  const mofi = data ? data.mofi : 0;
+  const key = data ? (data.mofi + '|' + data.m + '|' + data.F) : '';
+  React.useEffect(() => {
+    if (!data) return;
+    let raf, start = null;
+    const dur = 1050;
+    const ease = x => 1 - Math.pow(1 - x, 3);
+    const step = ts => { if (start === null) start = ts; const p = Math.min(1, (ts - start) / dur); setT(ease(p)); if (p < 1) raf = requestAnimationFrame(step); };
+    setT(0);
+    raf = requestAnimationFrame(step);
+    return () => { if (raf) cancelAnimationFrame(raf); };
+  }, [key]);
+  if (!data) return null;
+  const h = React.createElement;
+  const num = Math.round(mofi * t);
+  const band = data.band;
+  const pct = x => Math.round(x * 100);
+  const names = { ahi: 'ИАГ', odi: 'ODI', spo2: 'SpO₂', snore: 'Храп', emg: 'ЭМГ', tscan: 'T-scan', incisal: 'Открыв. рта', eat10: 'EAT-10', saliva: 'Саливация', speech: 'Речь' };
+  const bar = (label, frac, color) => h("div", { style: { marginTop: 7 } },
+    h("div", { style: { display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--ink-soft)', marginBottom: 3 } },
+      h("span", null, label), h("span", { style: { fontWeight: 700, color: 'var(--ink)' } }, pct(frac) + '%')),
+    h("div", { style: { height: '8px', borderRadius: '5px', background: 'color-mix(in srgb, var(--ink) 10%, transparent)', overflow: 'hidden' } },
+      h("div", { style: { height: '100%', width: (pct(frac) * t) + '%', borderRadius: '5px', background: color } })));
+  return h("div", { className: "gauge-card", style: { padding: '18px 16px 14px', background: 'var(--panel)', border: '1px solid color-mix(in srgb, var(--accent) 14%, var(--line))', borderRadius: 18, marginBottom: 16, boxShadow: '0 1px 2px rgba(16,24,40,.04), 0 18px 44px -26px color-mix(in srgb, var(--accent) 60%, transparent)' } },
+    h("div", { className: "mono-label", style: { marginBottom: 8 } }, "MOFI · Mandibular Osteo-Functional Index"),
+    h("div", { style: { display: 'flex', alignItems: 'baseline', gap: '10px', justifyContent: 'center' } },
+      h("span", { style: { fontSize: '52px', fontWeight: 800, letterSpacing: '-0.03em', color: band.c, lineHeight: 1, fontFamily: 'var(--font-sans)' } }, num),
+      h("span", { style: { fontSize: '18px', fontWeight: 700, color: 'var(--ink-faint)' } }, "/ 100")),
+    h("div", { style: { textAlign: 'center', marginTop: 6, fontSize: '13px', fontWeight: 700, color: band.c, textTransform: 'uppercase', letterSpacing: '0.04em' } }, band.t),
+    bar("Морфология (ИА/ИНЧ) · вес 0.6", data.m, 'linear-gradient(90deg,var(--accent),var(--accent-2))'),
+    bar("Функция · вес 0.4", data.F, 'linear-gradient(90deg,#ea580c,#f59e0b)'),
+    (data.parts && data.parts.length) ? h("div", { style: { display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: 10 } },
+      data.parts.slice(0, 5).map((p, i) => h("span", { key: i, style: { fontSize: '10.5px', fontWeight: 600, color: 'var(--ink-soft)', background: 'color-mix(in srgb, var(--accent) 9%, transparent)', border: '1px solid var(--line)', borderRadius: '8px', padding: '2px 7px' } }, (names[p.key] || p.key) + ' ' + pct(p.s) + '%'))) : null,
+    h("div", { style: { marginTop: 10, fontSize: '10px', color: 'var(--ink-faint)', lineHeight: 1.5 } }, "MOFI = 0.6·морфология + 0.4·функция. Функция — объединение показателей (вес × объективная тяжесть каждого). Вспомогательный ориентир, решение за врачом.")
+  );
+}
+
 // ── 2. HUD-шкала индекса с зонами порогов ────────────────
 function IndexGauge({
   index,
@@ -3054,28 +3094,28 @@ function DistractionCalculator() {
       what:'Сколько остановок/ослаблений дыхания во сне приходится на 1 час. Главный маркёр ночного апноэ при недоразвитии нижней челюсти.',
       source:'В заключении ПСГ или в блоке «Индекс эпизодов нарушения дыхания» — строка «А+Г» (апноэ+гипопноэ). У Горбатенко — 0,87.',
       unit:'эп./час', normText:'Норма < ' + ahiNorm + (ageN > 0 && ageN < 14 ? ' (ребёнок)' : '') + '. Балл — при ИАГ ≥ ' + ahiNorm + '.',
-      dir:'gte', norm:ahiNorm, grade:v=> v>=30?1.3 : v>=15?1.0 : v>=5?0.9 : 0.7 },
+      dir:'gte', norm:ahiNorm, severe:30, grade:v=> v>=30?1.3 : v>=15?1.0 : v>=5?0.9 : 0.7 },
 
     { key:'odi', base:0.7, group:'Полисомнография (сон)',
       title:'Индекс десатураций (ODI), эп./час',
       what:'Сколько раз за час кислород крови падает на ≥ 3–4 %. Отражает кислородное голодание из-за ночной обструкции.',
       source:'В таблице десатурации — строка «Количество десатураций на один час сна (индекс)». У Горбатенко — 0,25.',
       unit:'эп./час', normText:'Норма < 5. Балл — при ODI ≥ 5.',
-      dir:'gte', norm:5, grade:v=> v>=15?1.2:1.0 },
+      dir:'gte', norm:5, severe:30, grade:v=> v>=15?1.2:1.0 },
 
     { key:'spo2', base:0.8, group:'Полисомнография (сон)',
       title:'Минимальная сатурация SpO₂ за время сна, %',
       what:'Самый низкий уровень кислорода за ночь. Чем ниже — тем тяжелее ночная гипоксия.',
       source:'В сводной таблице десатурации — строка «Минимальный уровень сатурации за время сна, %». У Горбатенко — 76.',
       unit:'%', normText:'Норма ≥ 90 %. Балл — при SpO₂ min ≤ 90 % (≤ 85 % — тяжёлая).',
-      dir:'lte', norm:90, grade:v=> v<=85?1.3:1.0 },
+      dir:'lte', norm:90, severe:80, grade:v=> v<=85?1.3:1.0 },
 
     { key:'snore', base:0.5, group:'Полисомнография (сон)',
       title:'Индекс храпа, эп./час',
       what:'Сколько эпизодов храпа в час. Высокий индекс = постоянный храп, косвенный признак сужения дыхательных путей.',
       source:'В блоке «Анализ храпа во время сна» — строка «Количество эпизодов храпа в час (индекс)», столбец NREM+REM. У Горбатенко — 192,6.',
       unit:'эп./час', normText:'Практический порог: норма < 30. Балл — при индексе ≥ 30.',
-      dir:'gte', norm:30, grade:v=> v>=100?1.2:1.0 },
+      dir:'gte', norm:30, severe:300, grade:v=> v>=100?1.2:1.0 },
 
     // ───── ЭМГ ЖЕВАТЕЛЬНЫХ МЫШЦ ─────
     { key:'emg', base:0.6, group:'ЭМГ жевательных мышц', dual:true,
@@ -3084,7 +3124,7 @@ function DistractionCalculator() {
       what:'Сила мышцы справа и слева. Введите два числа — программа посчитает асимметрию = |П−Л| / (П+Л) × 100 %.',
       source:'Проба «Сжатие зубных рядов», строка «Площадь (мкВ·мс)». Берите пару с наибольшей разницей: височные (1.temporalis D / 3.temporalis S) или жевательные (2.masseter D / 4.masseter S). У Ефимова височные 32,34 / 75,06.',
       unit:'%', normText:'Норма < 15 % разницы. Балл — при асимметрии ≥ 15 % (≥ 25 % — усиление).',
-      dir:'gte', norm:15, grade:v=> v>=25?1.2:1.0 },
+      dir:'gte', norm:15, severe:40, grade:v=> v>=25?1.2:1.0 },
 
     // ───── ОККЛЮЗИЯ ─────
     { key:'tscan', base:0.5, group:'Окклюзия (T-scan)',
@@ -3092,7 +3132,7 @@ function DistractionCalculator() {
       what:'Какой процент силы смыкания приходится на одну сторону. При одностороннем недоразвитии нагрузка смещается.',
       source:'Внизу отчёта T-scan — «Левый … % / Право … %». Введите большее из двух. У Ефимова — «Право 63,7 %».',
       unit:'%', normText:'Норма 40–60 % на сторону. Балл — при перекосе ≥ 60 %.',
-      dir:'gte', norm:60, grade:v=> v>=70?1.2:1.0 },
+      dir:'gte', norm:60, severe:80, grade:v=> v>=70?1.2:1.0 },
 
     // ───── КЛИНИЧЕСКИЕ ПОКАЗАТЕЛИ ─────
     { key:'incisal', base:0.7, group:'Клинические показатели',
@@ -3100,21 +3140,21 @@ function DistractionCalculator() {
       what:'Расстояние между режущими краями верхних и нижних резцов при максимально открытом рте.',
       source:'Измеряется линейкой между резцами, в мм.',
       unit:'мм', normText:'Норма ≥ 35 мм (у детей ≥ 30 мм). Балл — при < 35 мм.',
-      dir:'lt', norm:35, grade:v=> v<25?1.2:1.0 },
+      dir:'lt', norm:35, severe:20, grade:v=> v<25?1.2:1.0 },
 
     { key:'eat10', base:0.6, group:'Клинические показатели',
       title:'Дисфагия — сумма баллов опросника EAT-10',
       what:'Стандартный опросник из 10 вопросов о трудностях глотания (0–40 баллов).',
       source:'Сумма баллов опросника EAT-10, заполненного пациентом.',
       unit:'балл', normText:'Норма < 3. Балл — при сумме ≥ 3.',
-      dir:'gte', norm:3, grade:v=> v>=15?1.2:1.0 },
+      dir:'gte', norm:3, severe:15, grade:v=> v>=15?1.2:1.0 },
 
     { key:'saliva', base:0.3, group:'Клинические показатели',
       title:'Слюнотечение — саливация, мл/мин',
       what:'Объём не удерживаемой во рту слюны; связан с нарушением смыкания губ при микрогении.',
       source:'Сиалометрия — нестимулированная саливация, мл/мин.',
       unit:'мл/мин', normText:'Норма ≤ 7 мл/мин. Балл — при ≥ 7 мл/мин.',
-      dir:'gte', norm:7, grade:v=> 1.0 },
+      dir:'gte', norm:7, severe:20, grade:v=> 1.0 },
 
     // ───── РАВНОВЕСИЕ (справочно) ─────
     { key:'stab', base:0, group:'Равновесие (стабилометрия)', aux:true,
@@ -3284,6 +3324,48 @@ function DistractionCalculator() {
   const fnEval = () => evalFunctional(subj, objMeas, analyzeSpeech(logoText));
   const calculateFunctionalScore = () => fnEval().score;
 
+  // ── MOFI — Mandibular Osteo-Functional Index (0–100) ──
+  // Каждый показатель → объективная тяжесть s∈[0..1] (норма=0, «тяжёлое»=1),
+  // вклад c = вес·s; функция собирается «объединением» (noisy-OR), затем связка с ИА/ИНЧ.
+  const methodSeverity = (m, meas, subjChecks, speechRes) => {
+    if (m.aux) return { has: false, s: 0 };
+    const vv = methodVerdict(m, meas);
+    if (vv.has) {
+      if (!vv.bad || m.severe == null) return { has: true, s: 0 };
+      const s = m.dir === 'gte' ? (vv.v - m.norm) / (m.severe - m.norm) : (m.norm - vv.v) / (m.norm - m.severe);
+      return { has: true, s: Math.max(0, Math.min(1, s)) };
+    }
+    if (subjChecks && subjChecks[m.key]) return { has: true, s: 0.5 }; // есть по галке, но не измерено
+    return { has: false, s: 0 };
+  };
+  const morphoSeverity = (index, val) => {
+    const x = parseFloat(val);
+    if (isNaN(x)) return 0;
+    if (index === 'ИА') return Math.max(0, Math.min(1, (x - 3) / (20 - 3)));
+    return Math.max(0, Math.min(1, (-5 - x) / 25)); // ИНЧ: недоразвитие (отрицательное)
+  };
+  const mofiBand = v => v >= 70 ? { t: 'явные показания к ДО', c: 'var(--crit)' }
+    : v >= 45 ? { t: 'выраженные показания', c: '#ea580c' }
+    : v >= 20 ? { t: 'умеренные показания', c: 'var(--warn)' }
+    : { t: 'показания минимальны', c: 'var(--good)' };
+  const computeMOFI = (index, indexValue) => {
+    const sp = analyzeSpeech(logoText);
+    const parts = [];
+    let prod = 1;
+    for (const m of METHODS) {
+      if (m.aux) continue;
+      const { has, s } = methodSeverity(m, objMeas, subj, sp);
+      if (has && s > 0) { const c = m.base * s; prod *= (1 - c); parts.push({ key: m.key, title: m.title, w: m.base, s, c }); }
+    }
+    const ss = sp.status === 'confirmed' ? 1 : sp.status === 'sub' ? 0.6 : sp.status === 'uncertain' ? 0.5 : 0;
+    if (ss > 0) { const c = SPEECH_BASE * ss; prod *= (1 - c); parts.push({ key: 'speech', title: 'Нарушение речи', w: SPEECH_BASE, s: ss, c }); }
+    const F = 1 - prod;
+    const m = morphoSeverity(index, indexValue);
+    const mofi = Math.max(0, Math.min(100, Math.round(100 * (0.6 * m + 0.4 * F))));
+    parts.sort((a, b) => b.c - a.c);
+    return { mofi, m, F, band: mofiBand(mofi), parts };
+  };
+
   // Расчет ИА
   const calculateIA = () => {
     const aRight = parseFloat(rightAB);
@@ -3385,7 +3467,7 @@ function DistractionCalculator() {
       }
     }
     const extra = computeExtra(index, indexValue, severity, functionalScore);
-    let extraText = ` · Интегральный показатель к ДО: ${extra.integral}/100.`;
+    let extraText = ` · MOFI: ${extra.integral}/100 (${extra.mofi ? extra.mofi.band.t : ''}).`;
     if (extra.inchRight !== undefined) extraText += ` Недоразвитие справа ${extra.inchRight.toFixed(1)}%, слева ${extra.inchLeft.toFixed(1)}% (поражённая сторона — ${extra.affectedSide}).`;
     if (extra.dynamics) extraText += ` Динамика: было ${extra.dynamics.prevValue}% (${extra.dynamics.prevDate}), стало ${indexValue}% — Δ ${extra.dynamics.delta}%.`;
     return {
@@ -3414,10 +3496,9 @@ function DistractionCalculator() {
     }
     // Сторона поражения
     extra.affectedSide = aR < aL ? 'правая' : (aL < aR ? 'левая' : 'симметрично');
-    // Интегральный морфо-функциональный показатель к дистракции (0–100)
-    const sevPts = severity === 'выраженное' ? 75 : severity === 'умеренное' ? 42 :
-                   severity === 'гипермегалия' ? 55 : 8;
-    extra.integral = Math.max(0, Math.min(100, Math.round(sevPts + functionalScore * 12)));
+    // MOFI — морфо-функциональный индекс (0–100), принципиальная формула
+    extra.mofi = computeMOFI(index, indexValue);
+    extra.integral = extra.mofi.mofi; // обратная совместимость (архив/поля)
     // Динамика: сравнение с предыдущей записью того же пациента (результат дистракции)
     try {
       const arch = JSON.parse(localStorage.getItem('kdo_archive') || '[]');
@@ -3871,6 +3952,20 @@ function DistractionCalculator() {
                             </div>
                         </div>
                     </div>
+
+                    <!-- MOFI -->
+                    ${result.mofi ? (() => {
+                      const v = result.mofi.mofi;
+                      const c = v >= 70 ? '#dc2626' : v >= 45 ? '#ea580c' : v >= 20 ? '#ca8a04' : '#16a34a';
+                      return `<div style="margin-bottom:18px; background:#f8fafc; border-radius:10px; overflow:hidden; border:1px solid #e2e8f0;">
+                            <div style="background:#0c2b31; padding:8px 14px;"><span style="color:#dcf5f7; font-size:12px; font-weight:700; letter-spacing:1px;">MOFI · MANDIBULAR OSTEO-FUNCTIONAL INDEX</span></div>
+                            <div style="padding:12px 14px;">
+                                <div style="display:flex; align-items:baseline; gap:10px;"><span style="font-size:34px; font-weight:800; color:${c};">${v}</span><span style="font-size:14px; color:#94a3b8;">/ 100</span><span style="font-size:13px; font-weight:700; color:${c}; text-transform:uppercase; margin-left:6px;">${result.mofi.band.t}</span></div>
+                                <div style="margin-top:8px; font-size:12px; color:#475569;">Морфология (ИА/ИНЧ): <strong>${Math.round(result.mofi.m * 100)}%</strong> · Функция: <strong>${Math.round(result.mofi.F * 100)}%</strong></div>
+                                <div style="margin-top:4px; font-size:11px; color:#94a3b8;">MOFI = 0.6·морфология + 0.4·функция. Вспомогательный ориентир, окончательное решение за врачом.</div>
+                            </div>
+                        </div>`;
+                    })() : ''}
 
                     <!-- РЕЗУЛЬТАТЫ: ИНДЕКС + ШКАЛА -->
                     <div style="margin-bottom: 18px; background: #f8fafc; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0;">
@@ -4505,9 +4600,9 @@ function DistractionCalculator() {
     className: "p-3 bg-blue-50 border border-blue-200 rounded-lg"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-sm text-blue-800"
-  }, /*#__PURE__*/React.createElement("strong", null, "\u0421\u0443\u043C\u043C\u0430\u0440\u043D\u044B\u0439 \u0431\u0430\u043B\u043B: ", calculateFunctionalScore().toFixed(1)), /*#__PURE__*/React.createElement("p", {
+  }, /*#__PURE__*/React.createElement("strong", null, "\u0424\u0443\u043D\u043A\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0439 \u043A\u043E\u043C\u043F\u043E\u043D\u0435\u043D\u0442 \u0424: ", Math.round(100 * computeMOFI('\u0418\u0410', '0').F), " / 100"), /*#__PURE__*/React.createElement("p", {
     className: "text-xs mt-1"
-  }, "\u22651.5 \u0431\u0430\u043B\u043B\u043E\u0432 = \u044F\u0432\u043D\u043E\u0435 \u043F\u043E\u043A\u0430\u0437\u0430\u043D\u0438\u0435 \u043A \u041A\u0414\u041E"))))), /*#__PURE__*/React.createElement("div", {
+  }, "\u0421\u043A\u043B\u0430\u0434\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0438\u0437 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043D\u043D\u044B\u0445 \u043D\u0430\u0440\u0443\u0448\u0435\u043D\u0438\u0439 (\u043E\u0431\u044A\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435) \u0438 \u0432\u0445\u043E\u0434\u0438\u0442 \u0432 MOFI \u0441 \u0432\u0435\u0441\u043E\u043C 0.4."))))), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-3"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: handleCalculate,
@@ -4539,7 +4634,9 @@ function DistractionCalculator() {
     className: "w-full mt-4 bg-gradient-to-r from-green-600 to-teal-600 text-white py-3 px-6 rounded-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
   }, /*#__PURE__*/React.createElement(Download, {
     className: "w-5 h-5"
-  }), "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u0430 \u0432 PDF")), /*#__PURE__*/React.createElement(IndexGauge, {
+  }), "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u0430 \u0432 PDF")), /*#__PURE__*/React.createElement(MofiCard, {
+    data: result.mofi
+  }), /*#__PURE__*/React.createElement(IndexGauge, {
     index: result.index,
     value: result.indexValue
   }), /*#__PURE__*/React.createElement(DistractionPlan, {
