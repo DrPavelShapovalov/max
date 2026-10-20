@@ -2635,61 +2635,67 @@ function IndexGauge({
 function TrendSparkline({
   history
 }) {
+  const n = (history && history.length) || 0;
+  const stamp = history && history[0] && history[0].timestamp;
+  const [t, setT] = React.useState(0);
+  React.useEffect(() => {
+    if (n < 2) return;
+    let raf, start = null;
+    const dur = 950;
+    const ease = x => 1 - Math.pow(1 - x, 3);
+    const step = ts => {
+      if (start === null) start = ts;
+      const p = Math.min(1, (ts - start) / dur);
+      setT(ease(p));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    setT(0);
+    raf = requestAnimationFrame(step);
+    return () => { if (raf) cancelAnimationFrame(raf); };
+  }, [n, stamp]);
   if (!history || history.length < 2) return null;
-  const vals = history.map(h => parseFloat(h.indexValue)).filter(x => !isNaN(x));
+  const vals = history.map(hh => parseFloat(hh.indexValue)).filter(x => !isNaN(x));
   if (vals.length < 2) return null;
-  const W = 260,
-    H = 64,
-    PAD = 8;
-  const min = Math.min(...vals),
-    max = Math.max(...vals),
-    span = max - min || 1;
-  const X = i => PAD + i * (W - 2 * PAD) / (vals.length - 1);
-  const Y = v => H - PAD - (v - min) / span * (H - 2 * PAD);
-  const pts = vals.map((v, i) => `${X(i)},${Y(v)}`).join(' ');
-  const last = vals[vals.length - 1],
-    first = vals[0];
+  const W = 280, H = 96, PX = 12, PT = 16, PB = 20;
+  const min = Math.min(...vals), max = Math.max(...vals), span = (max - min) || 1;
+  const X = i => PX + i * (W - 2 * PX) / (vals.length - 1);
+  const Y = v => PT + (1 - (v - min) / span) * (H - PT - PB);
+  const full = vals.map((v, i) => ({ x: X(i), y: Y(v) }));
+  const segs = vals.length - 1;
+  const prog = t * segs;
+  const fi = Math.min(segs, Math.floor(prog));
+  const frac = Math.min(1, prog - fi);
+  const vis = full.slice(0, fi + 1).map(p => ({ x: p.x, y: p.y }));
+  if (fi < segs) { const a = full[fi], b = full[fi + 1]; vis.push({ x: a.x + (b.x - a.x) * frac, y: a.y + (b.y - a.y) * frac }); }
+  const linePts = vis.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const areaPts = `${PX},${H - PB} ` + linePts + ` ${vis[vis.length - 1].x.toFixed(1)},${H - PB}`;
+  const last = vals[vals.length - 1], first = vals[0];
   const arrow = last < first ? '↓' : last > first ? '↑' : '→';
-  return /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: 16,
-      background: 'var(--panel-2)',
-      border: '1px solid var(--line-strong)',
-      borderRadius: 'var(--r-md)',
-      marginBottom: 16
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "mono-label",
-    style: {
-      marginBottom: 8,
-      display: 'flex',
-      justifyContent: 'space-between'
-    }
-  }, /*#__PURE__*/React.createElement("span", null, "\u0422\u0440\u0435\u043D\u0434 ", history[0] && history[0].indexType ? history[0].indexType : '', " \xB7 ", history.length, " \u0438\u0437\u043C\u0435\u0440\u0435\u043D\u0438\u0439"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: 'var(--accent)'
-    }
-  }, first.toFixed(1), " \u2192 ", last.toFixed(1), " ", arrow)), /*#__PURE__*/React.createElement("svg", {
-    width: "100%",
-    viewBox: `0 0 ${W} ${H}`,
-    style: {
-      display: 'block'
-    }
-  }, /*#__PURE__*/React.createElement("polyline", {
-    points: pts,
-    fill: "none",
-    stroke: "var(--accent)",
-    strokeWidth: "2",
-    style: {
-      filter: 'drop-shadow(0 0 5px var(--glow))'
-    }
-  }), vals.map((v, i) => /*#__PURE__*/React.createElement("circle", {
-    key: i,
-    cx: X(i),
-    cy: Y(v),
-    r: i === vals.length - 1 ? 4 : 2.5,
-    fill: i === vals.length - 1 ? 'var(--accent)' : 'var(--ink-faint)'
-  }))));
+  const better = Math.abs(last) < Math.abs(first);
+  const trendColor = last === first ? 'var(--ink-soft)' : (better ? 'var(--good)' : 'var(--crit)');
+  const h = React.createElement;
+  return h("div", {
+    className: "gauge-card",
+    style: { padding: '16px 16px 12px', background: 'var(--panel)', border: '1px solid color-mix(in srgb, var(--accent) 14%, var(--line))', borderRadius: 18, marginBottom: 16, boxShadow: '0 1px 2px rgba(16,24,40,.04), 0 18px 44px -26px color-mix(in srgb, var(--accent) 60%, transparent)' }
+  },
+    h("div", { className: "mono-label", style: { marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+      h("span", null, "Динамика ", history[0] && history[0].indexType ? history[0].indexType : '', " · ", history.length, " измерений"),
+      h("span", { style: { color: trendColor, fontWeight: 700, fontFamily: 'var(--font-sans)', fontSize: '12px' } }, first.toFixed(1), " → ", last.toFixed(1), " ", arrow)),
+    h("svg", { width: "100%", viewBox: `0 0 ${W} ${H}`, style: { display: 'block', overflow: 'visible' } },
+      h("defs", null,
+        h("linearGradient", { id: "trendArea", x1: "0", y1: "0", x2: "0", y2: "1" },
+          h("stop", { offset: "0%", stopColor: "var(--accent)", stopOpacity: "0.28" }),
+          h("stop", { offset: "100%", stopColor: "var(--accent)", stopOpacity: "0" })),
+        h("linearGradient", { id: "trendLine", x1: "0", y1: "0", x2: "1", y2: "0" },
+          h("stop", { offset: "0%", stopColor: "var(--accent)" }),
+          h("stop", { offset: "100%", stopColor: "var(--accent-2)" }))),
+      h("line", { x1: PX, y1: H - PB, x2: W - PX, y2: H - PB, stroke: "color-mix(in srgb, var(--ink) 10%, transparent)", strokeWidth: "1" }),
+      h("polygon", { points: areaPts, fill: "url(#trendArea)", opacity: t }),
+      h("polyline", { points: linePts, fill: "none", stroke: "url(#trendLine)", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round" }),
+      (t >= 1) ? h("circle", { className: "gauge-glow", cx: full[vals.length - 1].x, cy: full[vals.length - 1].y, r: "9", fill: "var(--accent-2)", opacity: "0.5", style: { filter: 'blur(3px)' } }) : null,
+      full.map((p, i) => (i <= fi) ? h("circle", { key: i, cx: p.x, cy: p.y, r: i === vals.length - 1 ? 4.5 : 3, fill: i === vals.length - 1 ? 'var(--accent-2)' : 'var(--panel)', stroke: i === vals.length - 1 ? '#fff' : 'var(--accent)', strokeWidth: i === vals.length - 1 ? 2 : 1.5 }) : null)
+    )
+  );
 }
 
 // ── Тип КДА по ИА (из диссертации) ──────────────────────
