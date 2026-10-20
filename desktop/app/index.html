@@ -861,53 +861,73 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         #loginScreen {
             position: fixed; inset: 0; z-index: 9999; overflow: hidden;
             display: flex; justify-content: center; align-items: center; padding: 24px;
-            background: var(--void);
+            background:
+                radial-gradient(900px 620px at 16% 8%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 62%),
+                radial-gradient(900px 700px at 86% 94%, color-mix(in srgb, var(--accent-2) 28%, transparent), transparent 62%),
+                var(--void);
         }
         #loginScreen.hidden { display: none; }
-        #hudCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-        #loginScreen::after { /* виньетка поверх канваса */
-            content:""; position:absolute; inset:0; pointer-events:none;
-            background: radial-gradient(120% 90% at 50% 50%, transparent 55%, var(--void) 100%);
+        #hudCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity:.30; z-index:0; }
+        #loginScreen::before { /* плавающие цветовые пятна (aurora) */
+            content:""; position:absolute; inset:-25%; pointer-events:none; z-index:0;
+            background:
+                radial-gradient(36% 40% at 24% 28%, color-mix(in srgb, var(--accent) 60%, transparent), transparent 70%),
+                radial-gradient(42% 46% at 78% 74%, color-mix(in srgb, var(--accent-2) 58%, transparent), transparent 70%),
+                radial-gradient(32% 36% at 70% 18%, color-mix(in srgb, var(--accent) 34%, transparent), transparent 70%);
+            filter: blur(46px) saturate(1.25); opacity:.55;
+            animation: auroraFloat 18s ease-in-out infinite alternate;
+        }
+        @keyframes auroraFloat {
+            0%   { transform: translate3d(-3%,-2%,0) scale(1); }
+            50%  { transform: translate3d(3%,2%,0) scale(1.09); }
+            100% { transform: translate3d(-2%,3%,0) scale(1.03); }
+        }
+        #loginScreen::after { /* виньетка поверх */
+            content:""; position:absolute; inset:0; pointer-events:none; z-index:1;
+            background: radial-gradient(135% 100% at 50% 50%, transparent 56%, color-mix(in srgb, var(--void) 88%, transparent) 100%);
         }
         .login-card {
-            position: relative; z-index: 2; width: 400px; max-width: 100%;
-            padding: 40px 34px 30px;
-            background: var(--panel); backdrop-filter: blur(16px) saturate(1.3);
-            -webkit-backdrop-filter: blur(16px) saturate(1.3);
-            border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+            position: relative; z-index: 2; width: 410px; max-width: 100%;
+            padding: 0; overflow: hidden; text-align: center;
+            background: color-mix(in srgb, var(--panel) 90%, transparent);
+            backdrop-filter: blur(22px) saturate(1.4); -webkit-backdrop-filter: blur(22px) saturate(1.4);
+            border: 1px solid var(--line-strong); border-radius: 24px;
             box-shadow:
-                inset 0 1px 0 rgba(255,255,255,.08),
-                0 0 0 1px rgba(0,0,0,.3),
-                0 40px 90px -30px rgba(0,0,0,.85),
-                0 0 60px -12px var(--glow);
+                inset 0 1px 0 rgba(255,255,255,.12),
+                0 40px 100px -34px rgba(0,0,0,.6),
+                0 0 80px -22px var(--glow);
             animation: cardRise .6s cubic-bezier(.2,.7,.2,1) both;
         }
-        @keyframes cardRise { from { opacity:0; transform: translateY(14px) scale(.985); } to { opacity:1; transform:none; } }
+        @keyframes cardRise { from { opacity:0; transform: translateY(16px) scale(.985); } to { opacity:1; transform:none; } }
+        .login-head {
+            position: relative; padding: 32px 34px 22px;
+            background: radial-gradient(130% 130% at 50% -20%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 62%);
+            border-bottom: 1px solid var(--line);
+        }
+        .login-body { padding: 24px 34px 26px; text-align: left; }
         .login-mark {
-            width: 50px; height: 50px; border-radius: 13px; margin-bottom: 22px;
-            display: grid; place-items: center; color: var(--accent);
-            background: radial-gradient(circle at 35% 30%, var(--glow-soft), transparent 70%), var(--panel-2);
-            border: 1px solid var(--line-strong);
-            box-shadow: 0 0 24px -6px var(--glow), inset 0 0 12px -4px var(--glow);
+            width: 64px; height: 64px; border-radius: 19px; margin: 0 auto 16px;
+            display: grid; place-items: center; color: #fff;
+            background: linear-gradient(145deg, var(--accent), var(--accent-2));
+            box-shadow: 0 14px 34px -10px var(--glow), inset 0 1px 0 rgba(255,255,255,.4);
         }
         .login-eyebrow {
             font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .22em;
-            text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
-            text-shadow: 0 0 12px var(--glow-soft);
+            text-transform: uppercase; color: var(--accent); margin-bottom: 9px;
         }
         .login-title {
-            font-size: 24px; font-weight: 700; letter-spacing: -.01em; line-height: 1.15;
-            margin-bottom: 8px; color: var(--ink); text-wrap: balance;
+            font-size: 25px; font-weight: 800; letter-spacing: -.02em; line-height: 1.12;
+            margin: 0 0 7px; color: var(--ink); text-wrap: balance;
         }
-        .login-sub { font-size: 13.5px; color: var(--ink-soft); margin-bottom: 26px; line-height: 1.55; }
+        .login-sub { font-size: 13px; color: var(--ink-soft); margin: 0 auto; max-width: 320px; line-height: 1.5; }
         .field-label {
             display:block; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
             letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 7px 2px;
         }
         .field {
-            width: 100%; box-sizing: border-box; padding: 12px 14px;
+            width: 100%; box-sizing: border-box; padding: 13px 15px;
             background: var(--panel-2); color: var(--ink);
-            border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+            border: 1px solid var(--line-strong); border-radius: 12px;
             font-size: 15px; font-family: inherit; transition: border-color .16s, box-shadow .16s, background .16s;
         }
         .field::placeholder { color: var(--ink-faint); }
@@ -917,18 +937,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
             background: color-mix(in srgb, var(--panel-2) 80%, var(--accent) 4%);
         }
         .btn-primary {
-            position: relative; width: 100%; padding: 13px 16px; margin-top: 4px; overflow: hidden;
-            background: linear-gradient(180deg, var(--accent), var(--accent-dim));
-            color: var(--accent-ink); border: 1px solid color-mix(in srgb, var(--accent) 60%, white 10%);
-            border-radius: var(--r-sm); font-size: 14.5px; font-weight: 700; letter-spacing: .02em;
+            position: relative; width: 100%; padding: 14px 16px; margin-top: 4px; overflow: hidden;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            color: #fff; border: 1px solid color-mix(in srgb, var(--accent) 60%, white 10%);
+            border-radius: 12px; font-size: 14.5px; font-weight: 700; letter-spacing: .02em;
             font-family: inherit; cursor: pointer; transition: box-shadow .18s, transform .05s, filter .18s;
-            box-shadow: 0 0 26px -8px var(--glow), inset 0 1px 0 rgba(255,255,255,.3);
+            box-shadow: 0 10px 28px -10px var(--glow), inset 0 1px 0 rgba(255,255,255,.3);
         }
-        .btn-primary:hover { box-shadow: 0 0 40px -6px var(--glow), inset 0 1px 0 rgba(255,255,255,.4); filter: brightness(1.06); }
+        .btn-primary:hover { box-shadow: 0 16px 38px -10px var(--glow), inset 0 1px 0 rgba(255,255,255,.4); filter: brightness(1.06); }
         .btn-primary:active { transform: translateY(1px); }
-        .btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--glow-soft), 0 0 30px -6px var(--glow); }
+        .btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--glow-soft), 0 10px 30px -8px var(--glow); }
         .login-foot {
-            margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line);
+            margin-top: 22px; padding-top: 15px; border-top: 1px solid var(--line);
             font-family: var(--font-mono); font-size: 10px; letter-spacing: .04em;
             color: var(--ink-faint); line-height: 1.7; text-align:center;
         }
@@ -937,20 +957,32 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         #mainApp { display: none; }
         #mainApp.visible { display: block; }
         .user-bar {
-            background: var(--panel); backdrop-filter: blur(14px) saturate(1.2);
+            background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 94%, var(--accent) 7%), var(--panel));
+            backdrop-filter: blur(14px) saturate(1.2);
             -webkit-backdrop-filter: blur(14px) saturate(1.2);
             border-bottom: 1px solid var(--line-strong);
-            padding: 12px 22px; display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 20px; display: flex; justify-content: space-between; align-items: center;
             gap: 16px; position: sticky; top: 0; z-index: 40;
         }
         .user-id { display:flex; align-items:center; gap:11px; font-family: var(--font-mono);
             font-size:12px; letter-spacing:.04em; color:var(--ink-soft); text-transform: uppercase; }
         .user-id .avatar {
             width: 32px; height: 32px; border-radius: 9px; display:grid; place-items:center;
-            background: var(--panel-2); color: var(--accent); font-weight:700; font-size:13px; font-family: var(--font-sans);
-            border:1px solid var(--line-strong); box-shadow: 0 0 16px -6px var(--glow), inset 0 0 10px -4px var(--glow);
+            background: linear-gradient(145deg, var(--accent), var(--accent-2)); color:#fff; font-weight:700; font-size:13px; font-family: var(--font-sans);
+            border:1px solid color-mix(in srgb, var(--accent) 50%, transparent); box-shadow: 0 6px 16px -8px var(--glow);
         }
         .user-id b { color: var(--ink); font-weight: 700; }
+        .brand { display:flex; align-items:center; gap:10px; min-width:0; }
+        .brand-mark {
+            width: 34px; height: 34px; border-radius: 10px; display:grid; place-items:center; color:#fff; flex:none;
+            background: linear-gradient(145deg, var(--accent), var(--accent-2));
+            box-shadow: 0 8px 20px -8px var(--glow), inset 0 1px 0 rgba(255,255,255,.35);
+        }
+        .brand-name { display:flex; flex-direction:column; line-height:1.1; min-width:0; }
+        .brand-name .bn-1 { font-size:14px; font-weight:800; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; }
+        .brand-name .bn-2 { font-family:var(--font-mono); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin-top:2px; }
+        .brand-sep { width:1px; height:26px; background:var(--line-strong); margin:0 2px; flex:none; }
+        @media (max-width: 640px){ .brand-name, .brand-sep, .user-id > span:last-child { display:none; } }
         .bar-actions { display:flex; align-items:center; gap:8px; }
         .icon-btn {
             width: 38px; height: 38px; border-radius: var(--r-sm);
@@ -981,11 +1013,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
             font-family: var(--font-mono); font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase;
             font-weight: 600; color: var(--ink-faint); cursor: pointer; transition: color .15s;
         }
-        .tab:hover { color: var(--ink-soft); }
-        .tab.active { color: var(--accent); }
+        .tab { border-radius: 10px 10px 0 0; transition: color .15s, background .15s; }
+        .tab:hover { color: var(--ink-soft); background: color-mix(in srgb, var(--panel-2) 55%, transparent); }
+        .tab.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 11%, transparent); }
         .tab.active::after {
-            content:""; position:absolute; left:12px; right:12px; bottom:-1px; height:2px;
-            background: var(--accent); box-shadow: 0 0 12px 1px var(--glow); border-radius: 2px;
+            content:""; position:absolute; left:10px; right:10px; bottom:-1px; height:3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2)); box-shadow: 0 0 12px 1px var(--glow); border-radius: 3px 3px 0 0;
         }
         #archiveTab, #statsTab { display: none; }
 
@@ -1078,38 +1111,49 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
 <div id="loginScreen">
     <canvas id="hudCanvas" aria-hidden="true"></canvas>
-    <div class="login-card reticle">
-        <span class="rc-tr"></span><span class="rc-bl"></span>
-        <div class="login-mark" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 7h16"/><path d="M4 7v10"/><path d="M20 7v10"/>
-                <path d="M7 7v3"/><path d="M11 7v4"/><path d="M15 7v3"/><path d="M9 7v2"/><path d="M13 7v2"/><path d="M17 7v2"/>
-                <path d="M4 17h16"/>
-            </svg>
+    <div class="login-card">
+        <div class="login-head">
+            <div class="login-mark" aria-hidden="true">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 7h16"/><path d="M4 7v10"/><path d="M20 7v10"/>
+                    <path d="M7 7v3"/><path d="M11 7v4"/><path d="M15 7v3"/><path d="M9 7v2"/><path d="M13 7v2"/><path d="M17 7v2"/>
+                    <path d="M4 17h16"/>
+                </svg>
+            </div>
+            <div class="login-eyebrow">ЦНИИСиЧЛХ · Морфометрия</div>
+            <h1 class="login-title">Анализатор показаний к ДО</h1>
+            <p class="login-sub">Функционально-морфометрическая оценка недоразвития нижней челюсти</p>
         </div>
-        <div class="login-eyebrow">ЦНИИСиЧЛХ · Морфометрия</div>
-        <h1 class="login-title">Анализатор показаний к ДО</h1>
-        <p class="login-sub">Функционально-морфометрическая оценка недоразвития нижней челюсти. Вход для авторизованного персонала.</p>
+        <div class="login-body">
+            <label class="field-label" for="loginInput">Логин</label>
+            <input type="text" id="loginInput" placeholder="Имя пользователя" autocomplete="username" class="field" style="margin-bottom:16px;">
 
-        <label class="field-label" for="loginInput">Логин</label>
-        <input type="text" id="loginInput" placeholder="Имя пользователя" autocomplete="username" class="field" style="margin-bottom:16px;">
+            <label class="field-label" for="passwordInput">Пароль</label>
+            <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password" class="field" style="margin-bottom:20px;">
 
-        <label class="field-label" for="passwordInput">Пароль</label>
-        <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password" class="field" style="margin-bottom:20px;">
+            <button id="loginBtn" class="btn-primary">Войти в систему</button>
 
-        <button id="loginBtn" class="btn-primary">Войти в систему</button>
-
-        <div class="login-foot">
-            Программа для ЭВМ · Свид. RU 2026614230<br>© 2026 Шаповалов П.И. Все права защищены
+            <div class="login-foot">
+                Программа для ЭВМ · Свид. RU 2026614230<br>© 2026 Шаповалов П.И. Все права защищены
+            </div>
         </div>
     </div>
 </div>
 
 <div id="mainApp">
     <div class="user-bar">
-        <div class="user-id">
-            <span class="avatar" id="userAvatar" aria-hidden="true">—</span>
-            <span>Пользователь: <b id="userName"></b></span>
+        <div style="display:flex;align-items:center;gap:14px;min-width:0;">
+            <div class="brand">
+                <span class="brand-mark" aria-hidden="true">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M4 7v10"/><path d="M20 7v10"/><path d="M8 7v3"/><path d="M12 7v4"/><path d="M16 7v3"/><path d="M4 17h16"/></svg>
+                </span>
+                <span class="brand-name"><span class="bn-1">Анализатор КДО</span><span class="bn-2">ЦНИИСиЧЛХ</span></span>
+            </div>
+            <span class="brand-sep"></span>
+            <div class="user-id">
+                <span class="avatar" id="userAvatar" aria-hidden="true">—</span>
+                <span>Пользователь: <b id="userName"></b></span>
+            </div>
         </div>
         <div class="bar-actions">
             <button class="icon-btn" id="syncGear" onclick="openSyncSettings()" title="Синхронизация / Google Диск" aria-label="Синхронизация">⚙</button>
