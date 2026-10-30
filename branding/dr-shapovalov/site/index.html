@@ -114,7 +114,19 @@
   .marquee-track span{display:flex; align-items:center; gap:26px; padding-right:26px; white-space:nowrap; font-family:var(--mono); font-size:13px; letter-spacing:.04em; color:var(--mist)}
   .marquee-track i{width:5px; height:5px; border-radius:50%; background:var(--gold); display:inline-block}
 
-  section.block{padding-block:120px 0; scroll-margin-top:90px}
+  /* section tabs: one panel open at a time */
+  .tabbar-wrap{position:sticky; top:calc(env(safe-area-inset-top,0px) + 84px); z-index:20; display:flex; justify-content:center; margin-top:56px}
+  .tabbar{position:relative; display:flex; gap:2px; padding:6px; border-radius:999px; max-width:100%; overflow-x:auto; scrollbar-width:none}
+  .tabbar::-webkit-scrollbar{display:none}
+  .tabbar button{position:relative; z-index:1; flex:none; white-space:nowrap; font:600 15px var(--text); color:var(--mist); background:none; border:0;
+    padding:11px 20px; border-radius:999px; cursor:pointer; transition:color .35s}
+  .tabbar button:hover{color:var(--ivory)}
+  .tabbar button[aria-selected="true"]{color:#140f06}
+  .tab-ink{position:absolute; z-index:0; top:6px; bottom:6px; left:0; width:0; border-radius:999px;
+    background:linear-gradient(180deg,var(--gold-hi),var(--gold-lo)); box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+  .stage{padding-top:48px; min-height:70vh; scroll-margin-top:150px}
+  .tabpanel{scroll-margin-top:160px}
+  .sub-block{padding-top:96px; scroll-margin-top:160px}
   .head{display:grid; grid-template-columns:1fr 1fr; gap:24px 56px; align-items:end; margin-bottom:44px}
   .head > *{min-width:0}
   .head p{color:var(--mist); max-width:52ch}
@@ -249,7 +261,7 @@
   .foot p{max-width:80ch}
 
   @media (prefers-reduced-motion:no-preference){
-    .marquee-track{animation:slide 40s linear infinite}
+    .tab-ink{transition:left .5s cubic-bezier(.2,.8,.2,1), width .5s cubic-bezier(.2,.8,.2,1)}
     .ambient i:nth-child(1){animation:drift1 28s ease-in-out infinite alternate}
     .ambient i:nth-child(2){animation:drift2 34s ease-in-out infinite alternate}
     .ambient i:nth-child(3){animation:drift1 40s ease-in-out infinite alternate-reverse}
@@ -282,7 +294,9 @@
     .timeline li{grid-template-columns:1fr; gap:4px}
     .panel,.diss{padding:24px}
     .pub{grid-template-columns:1fr; gap:10px}
-    section.block{padding-block:88px 0}
+    .tabbar-wrap{top:calc(env(safe-area-inset-top,0px) + 78px); margin-inline:-20px; padding-inline:12px; margin-top:40px}
+    .tabbar button{padding:10px 15px; font-size:14px}
+    .sub-block{padding-top:72px}
   }
 </style>
 
@@ -327,13 +341,21 @@
 
   <div class="readings" id="readings"></div>
 
-  <div class="marquee" aria-hidden="true">
-    <div class="marquee-track" id="marquee"></div>
+  <div class="tabbar-wrap" id="tabbar-wrap">
+    <div class="tabbar glass" id="tabbar" role="tablist" aria-label="Разделы сайта">
+      <span class="tab-ink" id="tab-ink" aria-hidden="true"></span>
+      <button type="button" role="tab" id="tab-about" data-tab="about" aria-controls="about" aria-selected="true">Обо мне</button>
+      <button type="button" role="tab" id="tab-directions" data-tab="directions" aria-controls="directions" aria-selected="false">Направления</button>
+      <button type="button" role="tab" id="tab-cases" data-tab="cases" aria-controls="cases" aria-selected="false">Кейсы</button>
+      <button type="button" role="tab" id="tab-science" data-tab="science" aria-controls="science" aria-selected="false">Наука</button>
+      <button type="button" role="tab" id="tab-contacts" data-tab="contacts" aria-controls="contacts" aria-selected="false">Контакты</button>
+    </div>
   </div>
 
-  <section class="block" id="about">
+  <div class="stage" id="stage">
+    <section class="tabpanel" id="about" role="tabpanel" aria-labelledby="tab-about">
     <div class="head reveal">
-      <div><p class="label">01 · Обо мне</p><h2 id="about-h"></h2></div>
+      <div><p class="label">Обо мне</p><h2 id="about-h"></h2></div>
       <p>Образование, курсы и то, где я работаю сейчас.</p>
     </div>
     <div class="about-grid">
@@ -341,25 +363,23 @@
       <div class="panel glass reveal"><h3>Образование</h3><ol class="timeline" id="edu"></ol></div>
       <div class="panel glass courses reveal" id="courses-panel"><h3>Курсы и повышение квалификации</h3><div class="course-grid" id="courses"></div></div>
     </div>
-  </section>
+    </section>
 
-  <section class="block" id="directions">
+    <section class="tabpanel" id="directions" role="tabpanel" aria-labelledby="tab-directions" hidden>
     <div class="head reveal">
-      <div><p class="label">02 · Направления</p><h2>Чем я <em>занимаюсь</em></h2></div>
+      <div><p class="label">Направления</p><h2>Чем я <em>занимаюсь</em></h2></div>
       <p>Термины подчёркнуты пунктиром. Нажмите на любой, чтобы прочитать короткое объяснение.</p>
     </div>
     <div class="dirs" id="dirs"></div>
-  </section>
+    </section>
 
-  <section class="block" id="cases">
+    <section class="tabpanel" id="cases" role="tabpanel" aria-labelledby="tab-cases" hidden>
     <div class="head reveal">
-      <div><p class="label">03 · Клинические случаи</p><h2>Результат <em>в миллиметрах</em></h2></div>
+      <div><p class="label">Клинические случаи</p><h2>Результат <em>в миллиметрах</em></h2></div>
       <p>Полосы на графиках отложены в масштабе. Фото «до и после» публикуются только в соцсетях и только с согласия пациентов и их законных представителей.</p>
     </div>
     <div class="cases" id="case-list"></div>
-  </section>
-
-  <section class="block" id="steps">
+      <div class="sub-block" id="steps">
     <div class="steps-wrap">
       <div class="steps-intro reveal">
         <p class="label">Как проходит операция</p>
@@ -368,11 +388,12 @@
       </div>
       <ol class="steps glass" id="step-list"></ol>
     </div>
-  </section>
+      </div>
+    </section>
 
-  <section class="block" id="science">
+    <section class="tabpanel" id="science" role="tabpanel" aria-labelledby="tab-science" hidden>
     <div class="head reveal">
-      <div><p class="label">04 · Наука</p><h2>Диссертация <em>и статьи</em></h2></div>
+      <div><p class="label">Наука</p><h2>Диссертация <em>и статьи</em></h2></div>
       <p id="sci-intro"></p>
     </div>
     <div class="sci">
@@ -384,22 +405,22 @@
         <div class="pubs" id="soft" data-panel="soft" hidden></div>
       </div>
     </div>
-  </section>
+    </section>
 
-  <section class="block" id="work">
-    <div class="work glass reveal">
-      <div><p class="label">05 · Где работаю</p><h2 id="work-h"></h2><p id="work-text"></p></div>
-      <div class="side" id="work-side"></div>
-    </div>
-  </section>
-
-  <section class="block" id="contacts">
+    <section class="tabpanel" id="contacts" role="tabpanel" aria-labelledby="tab-contacts" hidden>
     <div class="head reveal">
-      <div><p class="label">06 · Контакты</p><h2>Где <em>меня найти</em></h2></div>
+      <div><p class="label">Контакты</p><h2>Где <em>меня найти</em></h2></div>
       <p>Новые кейсы выходят в Telegram-канале и в Instagram.</p>
     </div>
     <div class="contacts" id="contact-list"></div>
-  </section>
+      <div class="sub-block" id="work">
+    <div class="work glass reveal">
+      <div><p class="label">Где работаю</p><h2 id="work-h"></h2><p id="work-text"></p></div>
+      <div class="side" id="work-side"></div>
+    </div>
+      </div>
+    </section>
+  </div>
 
   <footer>
     <div class="wordmark" aria-label="Shapovalov">S. H. A. P. O. V. A. L. O. V.</div>
@@ -450,7 +471,7 @@
 
     const dirs = c.directions || [];
     const mq = `<span>${dirs.map((d) => esc(d.title)).join(' <i></i> ')} <i></i> Работа с ортодонтом <i></i></span>`;
-    $('marquee').innerHTML = mq + mq;
+    if ($('marquee')) $('marquee').innerHTML = mq + mq;
 
     const a = c.about || {};
     $('about-h').innerHTML = rich(a.heading);
@@ -564,32 +585,96 @@
     });
   }
 
-  /* ---------- плавная прокрутка и анимации ---------- */
+  /* ---------- плавная прокрутка ---------- */
   const hasGsap = window.gsap && window.ScrollTrigger;
+  let lenis = null;
   if (!reduce && window.Lenis) {
-    const lenis = new Lenis({ anchors: { offset: -80 }, allowNestedScroll: true, autoRaf: !hasGsap });
+    lenis = new Lenis({ anchors: false, allowNestedScroll: true, autoRaf: !hasGsap });
     if (hasGsap) { lenis.on('scroll', ScrollTrigger.update); gsap.ticker.add((t) => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0); }
   }
+  if (hasGsap) gsap.registerPlugin(ScrollTrigger);
+  const scrollToEl = (el, offset = -150) => {
+    if (!el) return;
+    if (lenis) lenis.scrollTo(el, { offset, duration: 1.1 });
+    else scrollTo({ top: el.getBoundingClientRect().top + scrollY + offset, behavior: reduce ? 'auto' : 'smooth' });
+  };
+
+  /* ---------- вкладки разделов ---------- */
+  const tabs = [...document.querySelectorAll('#tabbar [role="tab"]')];
+  const ink = $('tab-ink');
+  let currentTab = 'about', busy = false, stepsFx = false;
+  function placeInk() {
+    const t = tabs.find((x) => x.dataset.tab === currentTab); if (!t) return;
+    ink.style.left = t.offsetLeft + 'px'; ink.style.width = t.offsetWidth + 'px';
+    const bar = $('tabbar');            // прокрутка только внутри панели вкладок, страница не двигается
+    if (bar.scrollWidth > bar.clientWidth) bar.scrollTo({ left: t.offsetLeft - (bar.clientWidth - t.offsetWidth) / 2, behavior: reduce ? 'auto' : 'smooth' });
+  }
+  function panelFx(panel) {
+    if (!hasGsap || reduce) return;
+    gsap.fromTo(panel.querySelectorAll('.reveal'), { autoAlpha: 0, y: 34, scale: 0.985 },
+      { autoAlpha: 1, y: 0, scale: 1, duration: 0.8, stagger: 0.08, ease: 'power3.out', delay: 0.12, clearProps: 'transform' });
+    gsap.fromTo(panel.querySelectorAll('.fill'), { scaleX: 0 }, { scaleX: 1, duration: 1.4, stagger: 0.08, ease: 'expo.out', delay: 0.35 });
+    if (panel.id === 'cases' && !stepsFx) {
+      stepsFx = true;
+      gsap.fromTo('.steps .prog', { scaleY: 0 }, { scaleY: 1, ease: 'none', scrollTrigger: { trigger: '.steps', start: 'top 70%', end: 'bottom 60%', scrub: true } });
+    }
+  }
+  function openTab(id, focus, scroll = true) {
+    const inn = $(id); if (!inn || busy) return;
+    const target = focus && focus !== inn ? focus : null;
+    if (id === currentTab) { if (scroll) scrollToEl(target || $('stage')); return; }
+    const out = $(currentTab);
+    currentTab = id;
+    tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === id)));
+    placeInk();
+    try { history.replaceState(null, '', '#' + id); } catch (e) {}
+    const swap = () => {
+      out.hidden = true; inn.hidden = false;
+      if (hasGsap && !reduce) {
+        gsap.fromTo(inn, { autoAlpha: 0, y: 26, clipPath: 'inset(0% 0% 100% 0%)' },
+          { autoAlpha: 1, y: 0, clipPath: 'inset(0% 0% 0% 0%)', duration: 0.75, ease: 'power3.out', clearProps: 'clipPath,transform,opacity,visibility', onComplete: () => { busy = false; } });
+        panelFx(inn); ScrollTrigger.refresh();
+      } else busy = false;
+      if (scroll) scrollToEl(target || $('stage'), target ? -170 : -150);
+    };
+    if (hasGsap && !reduce) { busy = true; gsap.to(out, { autoAlpha: 0, y: -14, duration: 0.24, ease: 'power2.in', onComplete: () => { gsap.set(out, { clearProps: 'all' }); swap(); } }); }
+    else swap();
+  }
+  tabs.forEach((t) => t.addEventListener('click', () => openTab(t.dataset.tab)));
+  $('tabbar').addEventListener('keydown', (e) => {
+    const i = tabs.findIndex((t) => t.dataset.tab === currentTab);
+    const j = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : -1;
+    if (j >= 0 && j < tabs.length) { e.preventDefault(); tabs[j].focus(); openTab(tabs[j].dataset.tab); }
+  });
+  addEventListener('resize', placeInk);
+  // ссылки #about, #case-1, #steps… открывают нужную вкладку; #top — наверх
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#"]'); if (!a) return;
+    const id = a.getAttribute('href').slice(1);
+    if (!id || id === 'top') { e.preventDefault(); if (lenis) lenis.scrollTo(0, { duration: 1.1 }); else scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    const el = document.getElementById(id); if (!el) return;
+    const panel = el.closest('.tabpanel'); e.preventDefault();
+    if (panel) openTab(panel.id, el); else scrollToEl(el);
+  });
+
   function animate() {
     if (!hasGsap || reduce) return;
-    gsap.registerPlugin(ScrollTrigger);
-    const below = (el) => el.getBoundingClientRect().top > innerHeight * 0.95;
-    gsap.utils.toArray('.reveal').forEach((el, i) => {
-      if (!below(el)) return;
-      gsap.set(el, { autoAlpha: 0, y: 40, scale: 0.985 });
-      ScrollTrigger.create({ trigger: el, start: 'top 90%', once: true,
-        onEnter: () => gsap.to(el, { autoAlpha: 1, y: 0, scale: 1, duration: 1.05, ease: 'power3.out', delay: (i % 3) * 0.07 }) });
-    });
-    gsap.utils.toArray('.fill').forEach((el) => ScrollTrigger.create({ trigger: el, start: 'top 92%', once: true,
-      onEnter: () => gsap.fromTo(el, { scaleX: 0 }, { scaleX: 1, duration: 1.4, ease: 'expo.out' }) }));
     gsap.utils.toArray('.count').forEach((el) => {
       const raw = el.dataset.to, to = num(raw); if (isNaN(to)) return;
       const dec = (raw.split(/[.,]/)[1] || '').length, o = { v: 0 };
       ScrollTrigger.create({ trigger: el, start: 'top 95%', once: true,
         onEnter: () => gsap.to(o, { v: to, duration: 1.6, ease: 'power2.out', onUpdate: () => { el.textContent = o.v.toFixed(dec).replace('.', ','); } }) });
     });
-    gsap.fromTo('.steps .prog', { scaleY: 0 }, { scaleY: 1, ease: 'none', scrollTrigger: { trigger: '.steps', start: 'top 70%', end: 'bottom 60%', scrub: true } });
     gsap.to('.hero-in', { yPercent: -12, autoAlpha: 0.2, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
+  }
+  function startTabs() {
+    const hash = decodeURIComponent(location.hash.slice(1));
+    const el = hash && hash !== 'preview' ? document.getElementById(hash) : null;
+    const panel = el && el.closest('.tabpanel');
+    placeInk();
+    if (panel && panel.id !== 'about') openTab(panel.id, el, true);
+    else if (panel) setTimeout(() => scrollToEl(el === panel ? $('stage') : el), 300);
+    if (hasGsap && !reduce) panelFx($(currentTab));
   }
 
   /* ---------- пояснения к терминам ---------- */
@@ -622,7 +707,7 @@
   addEventListener('message', (e) => {
     if (e.data && e.data.type === 'shapovalov:content') { PREVIEW = true; render(e.data.content); if (hasGsap) ScrollTrigger.refresh(); }
   });
-  fetch('content.json', { cache: 'no-store' }).then((r) => r.json()).then((c) => { render(c); animate(); if (parent !== window) parent.postMessage({ type: 'shapovalov:ready' }, '*'); })
+  fetch('content.json', { cache: 'no-store' }).then((r) => r.json()).then((c) => { render(c); animate(); startTabs(); if (parent !== window) parent.postMessage({ type: 'shapovalov:ready' }, '*'); })
     .catch(() => { document.body.insertAdjacentHTML('afterbegin', '<p style="position:fixed;z-index:99;bottom:16px;left:16px;right:16px;padding:12px 16px;border-radius:12px;background:#2a2416;color:#e6c987;font-size:14px">Не удалось загрузить content.json. Откройте сайт через веб-сервер, а не как файл.</p>'); });
 })();
 </script>
