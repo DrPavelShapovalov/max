@@ -330,7 +330,7 @@
 
   /* ---------- публикация на GitHub ---------- */
   function renderPublish(box) {
-    const gh = store.get(GH) || { owner: 'DrPavelShapovalov', repo: '', branch: 'main', dir: '', token: '' };
+    const gh = store.get(GH) || { owner: 'DrPavelShapovalov', repo: 'dr-shapovalov-site', branch: 'main', dir: '', token: '' };
     const f = (k, l, t = 'text', sub) => { const w = el('div', { className: 'field' }, el('label', { htmlFor: 'gh-' + k }, l),
       el('input', { id: 'gh-' + k, type: t, value: gh[k] || '', autocomplete: 'off', on: { input: (e) => { gh[k] = e.target.value.trim(); store.set(GH, gh); } } }));
       if (sub) w.append(el('span', { className: 'sub' }, sub)); return w; };

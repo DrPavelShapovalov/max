@@ -23,6 +23,7 @@ def main():
     for name in ('admin.html', 'content.json'):
         shutil.copy2(HERE / name, DIST / name)
     shutil.copytree(HERE / 'img', DIST / 'img')
+    (DIST / '.nojekyll').touch()                    # GitHub Pages: отдавать файлы как есть, без Jekyll
     print('ok', DIST)
 
 
