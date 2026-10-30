@@ -17,9 +17,16 @@
         "source": "github",
         "repo": "pbakaus/impeccable"
       }
+    },
+    "gsap-skills": {
+      "source": {
+        "source": "github",
+        "repo": "greensock/gsap-skills"
+      }
     }
   },
   "enabledPlugins": {
-    "impeccable@impeccable": true
+    "impeccable@impeccable": true,
+    "gsap-skills@gsap-skills": true
   }
 }
