@@ -174,10 +174,15 @@
     { g: 'Наука' },
     { id: 'diss', title: 'Диссертация', path: 'science.dissertation', fields: [
       F('title', 'Название', 'area'), F('degree', 'Степень'), F('specialty', 'Специальность', 'text', { sub: 'Шифр и название' }),
-      F('year', 'Год защиты'), F('place', 'Где защищена'), F('link', 'Ссылка на диссертацию', 'url')] },
+      F('supervisor', 'Научный руководитель'), F('year', 'Защита и присуждение степени'), F('place', 'Где защищена'), F('link', 'Ссылка на диссертацию', 'url')] },
+    { id: 'profiles', title: 'Научные профили', path: 'science.profiles', list: true, item: 'Профиль', titleKey: 'label', fields: [F('label', 'Название', 'text', { sub: 'ORCID, РИНЦ SPIN, ИСТИНА…' }), F('value', 'Номер или ник'), F('url', 'Ссылка', 'url')] },
     { id: 'sciIntro', title: 'Наука: вступление', path: 'science', fields: [F('intro', 'Текст под заголовком', 'area')] },
     { id: 'pubs', title: 'Статьи', path: 'science.publications', list: true, item: 'Статья', titleKey: 'title', fields: [
       F('title', 'Название', 'area'), F('authors', 'Авторы'), F('journal', 'Журнал, год, номер, страницы'), F('doi', 'DOI'), F('link', 'Ссылка', 'url')] },
+    { id: 'talks', title: 'Доклады', path: 'science.talks', list: true, item: 'Доклад', titleKey: 'title', fields: [
+      F('year', 'Год'), F('type', 'Тип', 'text', { sub: 'устный или стендовый' }), F('title', 'Название', 'area'), F('authors', 'Авторы'), F('event', 'Конференция, город, даты', 'area')] },
+    { id: 'software', title: 'Программы для ЭВМ', path: 'science.software', list: true, item: 'Программа', titleKey: 'title', fields: [
+      F('title', 'Название', 'area'), F('authors', 'Авторы'), F('number', 'Номер и дата свидетельства')] },
     { g: 'Контакты и прочее' },
     { id: 'contacts', title: 'Контакты', path: 'contacts', list: true, item: 'Контакт', titleKey: 'label', fields: [F('label', 'Название'), F('value', 'Что показать'), F('url', 'Ссылка', 'url')] },
     { id: 'terms', title: 'Словарь терминов', path: 'terms', list: true, item: 'Термин', titleKey: 'title', fields: [

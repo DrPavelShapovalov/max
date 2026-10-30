@@ -41,7 +41,7 @@
   .wrap{max-width:1160px; margin:0 auto; position:relative; z-index:1}
   h1,h2,h3{font-family:var(--display); margin:0; text-wrap:balance; letter-spacing:-.01em}
   h2{font-weight:500; font-size:clamp(30px,4.4vw,52px); line-height:1.05}
-  h2 em{font-style:normal; color:var(--gold)}
+  h2 em,h2 strong{font-style:normal; font-weight:inherit; color:var(--gold)}
   .label{margin:0 0 14px; font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--gold)}
 
   /* ambient light under the whole page: what the glass refracts */
@@ -217,6 +217,19 @@
   .pub .au{display:block; margin-top:8px; color:var(--soft); font-size:14px}
   .pub .src{display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; font-family:var(--mono); font-size:12px; color:var(--mist)}
   .pub .src .lnk{color:var(--gold-hi)}
+  .pub .num{min-width:2ch}
+  .tabs{display:flex; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; gap:8px; margin-bottom:14px; padding:6px; border-radius:999px; width:max-content; max-width:100%;
+    background:rgba(12,26,23,.42); border:1px solid rgba(237,232,222,.13); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px)}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs button{flex:none; white-space:nowrap; font:inherit; font-size:14px; font-weight:600; color:var(--mist); background:none; border:0; cursor:pointer; padding:8px 14px; border-radius:999px; display:flex; gap:8px; align-items:center; transition:background .25s, color .25s}
+  .tabs button span{font-family:var(--mono); font-size:12px; color:var(--gold)}
+  .tabs button[aria-selected="true"]{background:linear-gradient(180deg,var(--gold-hi),var(--gold-lo)); color:#140f06}
+  .tabs button[aria-selected="true"] span{color:#140f06}
+  .profiles{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px}
+  .chip{display:inline-flex; flex-direction:column; gap:2px; padding:9px 14px; border-radius:14px; border:1px solid var(--line); background:rgba(255,255,255,.03); font-family:var(--mono); font-size:13px}
+  .chip small{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--mist)}
+  a.chip:hover{border-color:var(--gold); color:var(--gold-hi)}
+  [hidden]{display:none!important}
 
   /* work + contacts */
   .work{padding:48px; display:grid; grid-template-columns:1.2fr .8fr; gap:36px; align-items:end;
@@ -364,7 +377,12 @@
     </div>
     <div class="sci">
       <article class="diss glass reveal" id="diss"></article>
-      <div class="pubs" id="pubs"></div>
+      <div>
+        <div class="tabs reveal" id="sci-tabs" role="tablist" aria-label="Научные работы"></div>
+        <div class="pubs" id="pubs" data-panel="pubs"></div>
+        <div class="pubs" id="talks" data-panel="talks" hidden></div>
+        <div class="pubs" id="soft" data-panel="soft" hidden></div>
+      </div>
     </div>
   </section>
 
@@ -435,7 +453,7 @@
     $('marquee').innerHTML = mq + mq;
 
     const a = c.about || {};
-    $('about-h').innerHTML = esc(a.heading).replace(/(детского отделения)/, '<em>$1</em>');
+    $('about-h').innerHTML = rich(a.heading);
     $('about-text').innerHTML = rich(a.text);
     $('about-facts').innerHTML = (a.facts || []).filter((f) => f.value || PREVIEW).map((f) => `<dt>${esc(f.label)}</dt><dd>${val(f.value, String(f.label).toLowerCase())}</dd>`).join('');
     $('edu').innerHTML = (a.education || []).filter((e) => e.place || e.degree || PREVIEW).map((e) => `
@@ -444,8 +462,10 @@
     $('courses').innerHTML = courses.map((k) => `<div class="course"><span class="y">${val(k.year, 'год')}</span><b>${val(k.title, 'название курса')}</b><span>${val(k.org, 'где проходил')}</span></div>`).join('');
     $('courses-panel').hidden = !courses.length;
 
-    $('dirs').innerHTML = dirs.map((d) => `
-      <a class="dir glass reveal" href="${esc(safeUrl(d.link) || '#cases')}"><span class="idx">${esc(d.code)}</span><h3>${esc(d.title)}</h3><p>${rich(d.text)}</p>${d.linkLabel ? `<span class="go">${esc(d.linkLabel)} →</span>` : ''}</a>`).join('');
+    $('dirs').innerHTML = dirs.map((d) => {
+      const u = safeUrl(d.link), tag = u ? 'a' : 'div';
+      return `<${tag} class="dir glass reveal"${u ? ` href="${esc(u)}"${ext(u)}` : ''}><span class="idx">${esc(d.code)}</span><h3>${esc(d.title)}</h3>${d.text ? `<p>${rich(d.text)}</p>` : ''}${u && d.linkLabel ? `<span class="go">${esc(d.linkLabel)} →</span>` : ''}</${tag}>`;
+    }).join('');
 
     $('case-list').innerHTML = (c.cases || []).map((k) => {
       const max = +k.scaleMax || Math.max(...(k.bars || []).map((b) => +b.value || 0), 1);
@@ -470,10 +490,20 @@
     $('sci-intro').innerHTML = rich(sc.intro);
     $('diss').innerHTML = `<span class="deg">${esc(d.degree || 'Кандидатская диссертация')}</span>
       <h3>${d.title ? esc(d.title) : (todo('название диссертации') || 'Кандидатская диссертация')}</h3>
-      <dl>${[['Специальность', d.specialty, 'шифр и название'], ['Год', d.year, 'год защиты'], ['Где', d.place, 'диссертационный совет']]
+      <dl>${[['Специальность', d.specialty, 'шифр и название'], ['Руководитель', d.supervisor, 'научный руководитель'], ['Защита', d.year, 'год защиты'], ['Где', d.place, 'где защищена']]
         .filter(([, v]) => v || PREVIEW).map(([k, v, w]) => `<dt>${k}</dt><dd>${val(v, w)}</dd>`).join('')}</dl>
-      ${safeUrl(d.link) ? `<a class="pill" href="${esc(safeUrl(d.link))}"${ext(d.link)}>Открыть диссертацию →</a>` : todo('ссылку на диссертацию')}`;
-    $('pubs').innerHTML = (sc.publications || []).filter((p) => p.title).map((p, i) => {
+      ${safeUrl(d.link) ? `<a class="pill" href="${esc(safeUrl(d.link))}"${ext(d.link)}>Открыть диссертацию →</a>` : todo('ссылку на диссертацию')}
+      ${(sc.profiles || []).length ? `<div class="profiles">${sc.profiles.map((p) => { const u = safeUrl(p.url);
+        return `<${u ? 'a' : 'span'} class="chip"${u ? ` href="${esc(u)}"${ext(u)}` : ''}><small>${esc(p.label)}</small>${esc(p.value)}</${u ? 'a' : 'span'}>`; }).join('')}</div>` : ''}`;
+    const pubs = (sc.publications || []).filter((p) => p.title), talks = (sc.talks || []).filter((t) => t.title), soft = (sc.software || []).filter((t) => t.title);
+    $('sci-tabs').innerHTML = [['pubs', 'Статьи', pubs.length], ['talks', 'Доклады', talks.length], ['soft', 'Программы для ЭВМ', soft.length]]
+      .filter(([, , n]) => n).map(([k, l, n], i) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${i === 0}">${l}<span>${n}</span></button>`).join('');
+    $('talks').innerHTML = talks.map((t) => `<div class="pub glass"><span class="num">${esc(t.year)}</span><div><b>${esc(t.title)}</b><span class="au">${esc(t.authors)}</span>
+      <span class="src"><span>${esc(t.event)}</span>${t.type ? `<span class="lnk">${esc(t.type)} доклад</span>` : ''}</span></div></div>`).join('');
+    $('soft').innerHTML = soft.map((t) => `<div class="pub glass"><span class="num">ЭВМ</span><div><b>${esc(t.title)}</b><span class="au">${esc(t.authors)}</span>
+      <span class="src"><span>${esc(t.number)}</span></span></div></div>`).join('');
+    bindTabs();
+    $('pubs').innerHTML = pubs.map((p, i) => {
       const u = safeUrl(p.link) || (p.doi ? `https://doi.org/${p.doi}` : '');
       const tag = u ? 'a' : 'div';
       return `<${tag} class="pub glass reveal"${u ? ` href="${esc(u)}"${ext(u)}` : ''}><span class="num">${String(i + 1).padStart(2, '0')}</span>
@@ -509,6 +539,18 @@
   const stopWaves = () => { if (fx) { fx.destroy(); fx = null; } };
   if ('IntersectionObserver' in window) new IntersectionObserver(([e]) => e.isIntersecting ? startWaves() : stopWaves(), { threshold: 0.02 }).observe(document.querySelector('.hero'));
   else startWaves();
+
+  /* ---------- вкладки в разделе «Наука» ---------- */
+  function bindTabs() {
+    const tabs = [...document.querySelectorAll('#sci-tabs button')];
+    tabs.forEach((t) => t.addEventListener('click', () => {
+      tabs.forEach((x) => x.setAttribute('aria-selected', String(x === t)));
+      document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== t.dataset.tab; });
+      const shown = document.querySelector(`[data-panel="${t.dataset.tab}"]`);
+      if (window.gsap && !reduce) gsap.fromTo(shown.children, { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: .5, stagger: .05, ease: 'power2.out' });
+      if (window.ScrollTrigger) ScrollTrigger.refresh();
+    }));
+  }
 
   /* ---------- блик жидкого стекла за указателем ---------- */
   function bindGlass() {
