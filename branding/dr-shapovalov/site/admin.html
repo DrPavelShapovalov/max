@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Админка сайта</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: a calm editing desk in the site's colours. Sections on the left, one form in the middle,
+     the real site live on the right. Edits autosave as a draft; "Опубликовать" commits content.json. */
+  :root{
+    --bg:#070b0c; --panel:#0d1615; --panel-2:#122120; --line:rgba(237,232,222,.11); --line-2:rgba(237,232,222,.2);
+    --ink:#ede8de; --mist:#97a49f; --gold:#d6b266; --gold-hi:#f0d48e; --gold-lo:#a77e34; --ok:#7fc8a9; --err:#e98a7a;
+    --text:'Manrope','Segoe UI',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{height:100%}
+  body{margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 var(--text); -webkit-font-smoothing:antialiased}
+  button,input,textarea,select{font:inherit; color:inherit}
+  :focus-visible{outline:2px solid var(--gold); outline-offset:2px}
+  .app{display:grid; grid-template-columns:250px minmax(0,1fr) minmax(0,440px); grid-template-rows:auto 1fr; height:100%}
+  header{grid-column:1/-1; display:flex; align-items:center; gap:14px; padding:12px 18px;
+    padding-top:calc(12px + env(safe-area-inset-top,0px)); border-bottom:1px solid var(--line);
+    background:rgba(13,22,21,.8); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px)}
+  .logo{display:flex; align-items:center; gap:10px; font-weight:800}
+  .logo svg{width:26px; height:26px; color:var(--gold)}
+  .logo small{font-family:var(--mono); font-weight:400; color:var(--mist); font-size:12px}
+  .status{margin-left:auto; font-size:13px; color:var(--mist); display:flex; align-items:center; gap:8px; min-width:0}
+  .status i{width:8px; height:8px; border-radius:50%; background:var(--mist); flex:none}
+  .status.dirty i{background:var(--gold)} .status.ok i{background:var(--ok)} .status.err i{background:var(--err)}
+  .btn{display:inline-flex; align-items:center; gap:8px; padding:9px 16px; border-radius:999px; border:1px solid var(--line-2);
+    background:transparent; cursor:pointer; font-weight:700; font-size:13px; white-space:nowrap}
+  .btn:hover{border-color:var(--gold); color:var(--gold-hi)}
+  .btn.primary{background:linear-gradient(180deg,var(--gold-hi),var(--gold-lo)); color:#140f06; border-color:transparent}
+  .btn.primary:hover{filter:brightness(1.07); color:#140f06}
+  .btn.sm{padding:5px 11px; font-size:12px}
+  .btn.icon{padding:5px 9px}
+  .btn:disabled{opacity:.45; cursor:not-allowed}
+
+  nav.side{border-right:1px solid var(--line); overflow:auto; padding:14px 10px 30px}
+  .grp{font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); margin:18px 10px 6px}
+  .grp:first-child{margin-top:4px}
+  nav.side button{display:flex; width:100%; justify-content:space-between; align-items:center; gap:8px; text-align:left;
+    padding:8px 10px; border-radius:10px; border:0; background:none; cursor:pointer; color:var(--mist)}
+  nav.side button:hover{background:var(--panel-2); color:var(--ink)}
+  nav.side button[aria-current="true"]{background:var(--panel-2); color:var(--ink); box-shadow:inset 2px 0 0 var(--gold)}
+  nav.side .cnt{font-family:var(--mono); font-size:11px; color:var(--mist)}
+  .mobile-nav{display:none}
+
+  main.form{overflow:auto; padding:26px 28px 80px}
+  .form-in{max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:18px}
+  .form-in h1{margin:0; font-size:24px; font-weight:800}
+  .hint{color:var(--mist); font-size:13.5px}
+  .hint code{font-family:var(--mono); font-size:12.5px; color:var(--gold-hi); background:rgba(214,178,102,.1); padding:1px 6px; border-radius:6px}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:18px; display:flex; flex-direction:column; gap:14px}
+  .card-h{display:flex; align-items:center; gap:8px}
+  .card-h .num{font-family:var(--mono); font-size:12px; color:var(--gold); flex:none}
+  .card-h .ttl{font-weight:700; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; cursor:pointer}
+  .card-h .tools{display:flex; gap:6px; flex:none}
+  .card.closed > :not(.card-h){display:none}
+  .field{display:flex; flex-direction:column; gap:6px; min-width:0}
+  .field > label{font-size:13px; font-weight:600; color:var(--mist)}
+  .field .sub{font-size:12px; color:var(--mist); opacity:.8}
+  .row{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px}
+  input[type=text],input[type=url],input[type=number],input[type=password],textarea{
+    width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--line-2); background:#0a1110; outline:none}
+  input:focus,textarea:focus{border-color:var(--gold)}
+  textarea{min-height:84px; resize:vertical}
+  .empty input,.empty textarea{border-style:dashed; border-color:rgba(214,178,102,.5)}
+  .bad input{border-color:var(--err)}
+  .chk{display:flex; align-items:center; gap:8px; font-size:14px}
+  .strings{display:flex; flex-direction:column; gap:8px}
+  .strings .it{display:flex; gap:8px; align-items:flex-start}
+  .strings .it > :first-child{flex:1; min-width:0}
+  .add{align-self:flex-start}
+  .img-field{display:flex; gap:12px; align-items:center}
+  .img-field img{width:64px; height:64px; border-radius:50%; object-fit:cover; border:1px solid var(--line-2); background:#0a1110; flex:none}
+  .img-field .grow{flex:1; display:flex; flex-direction:column; gap:8px; min-width:0}
+
+  aside.preview{border-left:1px solid var(--line); display:flex; flex-direction:column; min-width:0; background:#05080a}
+  .pv-bar{display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line); font-size:13px; color:var(--mist)}
+  .pv-bar .btn{margin-left:auto}
+  .pv-wrap{flex:1; overflow:auto; display:flex; justify-content:center}
+  .pv-wrap iframe{border:0; width:100%; height:100%; background:#05080a}
+  .pv-wrap.phone iframe{width:390px; max-width:100%}
+
+  .toast{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%) translateY(20px); opacity:0;
+    background:var(--panel-2); border:1px solid var(--line-2); border-radius:14px; padding:10px 14px; display:flex; gap:12px; align-items:center;
+    transition:.25s; z-index:50; max-width:calc(100vw - 32px)}
+  .toast.on{opacity:1; transform:translateX(-50%)}
+  .note-box{border:1px solid rgba(214,178,102,.35); background:rgba(214,178,102,.06); border-radius:14px; padding:14px 16px; font-size:13.5px; color:#d9cfb8}
+  .note-box b{color:var(--gold-hi)}
+  .note-box ol{margin:6px 0 0; padding-left:20px}
+  pre.json{margin:0; max-height:300px; overflow:auto; font:12px/1.5 var(--mono); background:#0a1110; border:1px solid var(--line); border-radius:12px; padding:12px; color:var(--mist)}
+
+  @media (max-width:1200px){
+    .app{grid-template-columns:230px minmax(0,1fr)}
+    aside.preview{position:fixed; inset:0; z-index:40; display:none}
+    aside.preview.open{display:flex}
+  }
+  @media (max-width:760px){
+    .app{grid-template-columns:1fr; grid-template-rows:auto auto 1fr}
+    nav.side{display:none}
+    .mobile-nav{display:block; padding:10px 16px; border-bottom:1px solid var(--line)}
+    .mobile-nav select{width:100%; padding:10px 12px; border-radius:12px; background:#0a1110; border:1px solid var(--line-2)}
+    main.form{padding:18px 16px 90px}
+    .status span{display:none}
+    header{flex-wrap:wrap}
+  }
+  @media (min-width:1201px){ #pv-toggle,#pv-close{display:none} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="3"/><g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><path d="M31 29V62"/><path d="M48 29V62"/><path d="M65 29V62"/><path d="M25 64H71"/></g><circle cx="76" cy="71" r="5" fill="currentColor"/></svg>
+      Админка <small>dr__shapovalov</small>
+    </div>
+    <div class="status" id="status" role="status"><i></i><span id="status-text">Загружаю…</span></div>
+    <button class="btn" id="pv-toggle" type="button">Предпросмотр</button>
+    <button class="btn primary" id="publish" type="button">Опубликовать</button>
+  </header>
+  <div class="mobile-nav"><label class="hint" for="msel">Раздел</label><select id="msel"></select></div>
+  <nav class="side" id="side" aria-label="Разделы"></nav>
+  <main class="form" id="form"><div class="form-in" id="form-in"></div></main>
+  <aside class="preview" id="preview" aria-label="Предпросмотр сайта">
+    <div class="pv-bar">Живой предпросмотр
+      <button class="btn sm" id="pv-phone" type="button">Телефон</button>
+      <button class="btn sm" id="pv-close" type="button">Закрыть</button>
+    </div>
+    <div class="pv-wrap" id="pv-wrap"><iframe id="pv" title="Сайт" src="index.html#preview"></iframe></div>
+  </aside>
+</div>
+<div class="toast" id="toast" role="status"><span id="toast-text"></span><button class="btn sm" id="toast-undo" type="button" hidden>Вернуть</button></div>
+
+<script>
+(() => {
+  /* ---------- схема: какие поля в каком разделе ---------- */
+  const F = (k, l, t = 'text', extra = {}) => ({ k, l, t, ...extra });
+  const SCHEMA = [
+    { g: 'Главная' },
+    { id: 'hero', title: 'Первый экран', path: 'hero', fields: [
+      F('firstName', 'Имя'), F('lastName', 'Фамилия'), F('lede', 'Текст под именем', 'area'),
+      F('cardLine1', 'Карточка у фото, строка 1'), F('cardLine2', 'Карточка у фото, строка 2'), F('portrait', 'Фото', 'image')] },
+    { id: 'readings', title: 'Цифры под первым экраном', path: 'readings', list: true, item: 'Цифра', titleKey: 'label', fields: [
+      F('from', 'Было (необязательно)', 'text', { sub: 'Например 7,93 — тогда покажется «7,93 → 2»' }), F('to', 'Значение'), F('unit', 'Единица'), F('label', 'Подпись')] },
+    { id: 'meta', title: 'Ссылки в шапке', path: 'meta', fields: [F('handle', 'Ник в шапке'), F('telegram', 'Telegram', 'url'), F('instagram', 'Instagram', 'url')] },
+    { g: 'Обо мне' },
+    { id: 'about', title: 'О себе', path: 'about', fields: [F('heading', 'Заголовок'), F('text', 'Текст', 'area')] },
+    { id: 'facts', title: 'Факты', path: 'about.facts', list: true, item: 'Факт', titleKey: 'label', fields: [F('label', 'Название'), F('value', 'Значение')] },
+    { id: 'education', title: 'Образование', path: 'about.education', list: true, item: 'Ступень', titleKey: 'degree', fields: [F('years', 'Годы'), F('degree', 'Что окончил'), F('place', 'Вуз или организация')] },
+    { id: 'courses', title: 'Курсы', path: 'about.courses', list: true, item: 'Курс', titleKey: 'title', fields: [F('year', 'Год'), F('title', 'Название курса'), F('org', 'Где проходил')] },
+    { g: 'Работа' },
+    { id: 'directions', title: 'Направления', path: 'directions', list: true, item: 'Направление', titleKey: 'title', fields: [
+      F('code', 'Короткий код', 'text', { sub: 'Три-четыре буквы сверху карточки' }), F('title', 'Название'), F('text', 'Описание', 'area'),
+      F('linkLabel', 'Текст ссылки'), F('link', 'Куда ведёт', 'text', { sub: 'Например #case-1 или https://…' })] },
+    { id: 'cases', title: 'Клинические случаи', path: 'cases', list: true, item: 'Случай', titleKey: 'title', fields: [
+      F('title', 'Заголовок'), F('id', 'Метка для ссылок', 'text', { sub: 'Латиницей, например case-3' }),
+      F('tags', 'Ярлыки', 'strings', { sub: 'Первый ярлык подсвечивается золотом' }),
+      F('points', 'Пункты', 'strings', { area: true }),
+      F('metric', 'Главная цифра', 'text', { sub: 'Например 21 или 7,93 → 2' }), F('metricUnit', 'Единица'), F('metricCaption', 'Подпись под цифрой'),
+      F('scaleMax', 'Конец шкалы', 'number', { sub: 'Самое большое значение на оси' }),
+      F('bars', 'Полосы графика', 'sublist', { item: 'Полоса', fields: [F('name', 'Название'), F('value', 'Значение', 'number'), F('unit', 'Единица'), F('accent', 'Выделить золотом', 'bool')] })] },
+    { id: 'steps', title: 'Этапы операции: текст', path: 'steps', fields: [F('heading', 'Заголовок'), F('intro', 'Описание', 'area')] },
+    { id: 'stepItems', title: 'Этапы операции: список', path: 'steps.items', list: true, item: 'Этап', titleKey: 'title', fields: [F('title', 'Этап'), F('detail', 'Уточнение (серым)')] },
+    { id: 'work', title: 'Где работаю', path: 'work', fields: [F('name', 'Название'), F('text', 'Описание', 'area'), F('address', 'Адрес приёма')] },
+    { id: 'workLinks', title: 'Где работаю: ссылки', path: 'work.links', list: true, item: 'Ссылка', titleKey: 'label', fields: [F('label', 'Текст'), F('url', 'Адрес', 'url')] },
+    { g: 'Наука' },
+    { id: 'diss', title: 'Диссертация', path: 'science.dissertation', fields: [
+      F('title', 'Название', 'area'), F('degree', 'Степень'), F('specialty', 'Специальность', 'text', { sub: 'Шифр и название' }),
+      F('year', 'Год защиты'), F('place', 'Где защищена'), F('link', 'Ссылка на диссертацию', 'url')] },
+    { id: 'sciIntro', title: 'Наука: вступление', path: 'science', fields: [F('intro', 'Текст под заголовком', 'area')] },
+    { id: 'pubs', title: 'Статьи', path: 'science.publications', list: true, item: 'Статья', titleKey: 'title', fields: [
+      F('title', 'Название', 'area'), F('authors', 'Авторы'), F('journal', 'Журнал, год, номер, страницы'), F('doi', 'DOI'), F('link', 'Ссылка', 'url')] },
+    { g: 'Контакты и прочее' },
+    { id: 'contacts', title: 'Контакты', path: 'contacts', list: true, item: 'Контакт', titleKey: 'label', fields: [F('label', 'Название'), F('value', 'Что показать'), F('url', 'Ссылка', 'url')] },
+    { id: 'terms', title: 'Словарь терминов', path: 'terms', list: true, item: 'Термин', titleKey: 'title', fields: [
+      F('key', 'Ключ', 'text', { sub: 'Латиницей. В тексте: [[ключ|слово]]' }), F('title', 'Термин'), F('text', 'Объяснение', 'area')] },
+    { id: 'footer', title: 'Подвал', path: 'footer', fields: [F('note', 'Текст в подвале', 'area')] },
+    { g: 'Сервис' },
+    { id: 'publish', title: 'Публикация', special: 'publish' }
+  ];
+  const SECTIONS = SCHEMA.filter((s) => s.id);
+
+  /* ---------- состояние ---------- */
+  const DRAFT = 'shp-admin-draft', GH = 'shp-admin-github';
+  const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+                  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+                  del(k) { try { localStorage.removeItem(k); } catch (e) {} } };
+  let data = null, published = '', current = 'hero', undoSnap = null;
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, attrs = {}, ...kids) => { const n = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'on') for (const [e, f] of Object.entries(v)) n.addEventListener(e, f); else if (k in n && k !== 'list') n[k] = v; else n.setAttribute(k, v); }
+    kids.flat().forEach((c) => c != null && n.append(c)); return n; };
+  // путь вида "about.education"; последний шаг — список, если раздел списочный
+  const getPath = (o, p, list = false) => { const ks = p.split('.'); return ks.reduce((a, k, i) => (a[k] ??= (i === ks.length - 1 && list ? [] : {})), o); };
+  const isUrlOk = (v) => !v || /^(https?:\/\/|#|mailto:|tel:)/i.test(v.trim());
+
+  function setStatus(kind, text) { $('status').className = 'status ' + kind; $('status-text').textContent = text; }
+  function dirty() {
+    const now = JSON.stringify(data);
+    if (now === published) { setStatus('ok', 'Всё опубликовано'); store.del(DRAFT); }
+    else { setStatus('dirty', 'Есть неопубликованные изменения (черновик сохранён в этом браузере)'); store.set(DRAFT, { at: Date.now(), data }); }
+    schedulePreview(); updateCounts();
+  }
+  let toastT;
+  function toast(text, undo) {
+    $('toast-text').textContent = text; $('toast-undo').hidden = !undo; $('toast').classList.add('on');
+    clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.remove('on'), undo ? 6000 : 3000);
+  }
+  $('toast-undo').addEventListener('click', () => { if (undoSnap) { data = undoSnap; undoSnap = null; renderForm(); dirty(); toast('Вернул'); } });
+
+  /* ---------- боковое меню ---------- */
+  function renderNav() {
+    const side = $('side'); side.innerHTML = ''; const sel = $('msel'); sel.innerHTML = '';
+    let og = null;
+    SCHEMA.forEach((s) => {
+      if (s.g) { side.append(el('div', { className: 'grp' }, s.g)); og = el('optgroup', { label: s.g }); sel.append(og); return; }
+      side.append(el('button', { type: 'button', 'data-id': s.id, 'aria-current': String(s.id === current), on: { click: () => go(s.id) } },
+        el('span', {}, s.title), el('span', { className: 'cnt', 'data-cnt': s.id })));
+      og.append(el('option', { value: s.id, selected: s.id === current }, s.title));
+    });
+    sel.onchange = () => go(sel.value);
+    updateCounts();
+  }
+  function updateCounts() {
+    SECTIONS.forEach((s) => { const c = document.querySelector(`[data-cnt="${s.id}"]`); if (c && s.list) c.textContent = getPath(data, s.path, true).length; });
+  }
+  function go(id) {
+    current = id; document.querySelectorAll('nav.side button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.id === id)));
+    $('msel').value = id; renderForm(); $('form').scrollTop = 0;
+  }
+
+  /* ---------- поля ---------- */
+  function input(obj, f) {
+    const v = obj[f.k];
+    const wrap = el('div', { className: 'field' });
+    const id = 'f' + Math.random().toString(36).slice(2, 8);
+    const mark = () => wrap.classList.toggle('empty', f.t !== 'bool' && (v === undefined || String(obj[f.k] ?? '').trim() === ''));
+    if (f.t === 'bool') {
+      wrap.append(el('label', { className: 'chk' }, el('input', { type: 'checkbox', checked: !!v, on: { change: (e) => { obj[f.k] = e.target.checked; dirty(); } } }), f.l));
+      return wrap;
+    }
+    wrap.append(el('label', { htmlFor: id }, f.l));
+    if (f.t === 'strings') {
+      const arr = (obj[f.k] ||= []);
+      const box = el('div', { className: 'strings' });
+      const draw = () => { box.innerHTML = ''; arr.forEach((s, i) => box.append(el('div', { className: 'it' },
+        el(f.area ? 'textarea' : 'input', { type: 'text', value: s, rows: 2, on: { input: (e) => { arr[i] = e.target.value; dirty(); } } }),
+        el('button', { type: 'button', className: 'btn icon', title: 'Удалить', 'aria-label': 'Удалить', on: { click: () => { arr.splice(i, 1); draw(); dirty(); } } }, '✕'))));
+        box.append(el('button', { type: 'button', className: 'btn sm add', on: { click: () => { arr.push(''); draw(); dirty(); box.querySelector('.it:last-of-type input, .it:last-of-type textarea')?.focus(); } } }, '+ Добавить')); };
+      draw(); wrap.append(box);
+    } else if (f.t === 'sublist') {
+      const arr = (obj[f.k] ||= []);
+      const box = el('div', { className: 'strings' });
+      const draw = () => { box.innerHTML = ''; arr.forEach((it, i) => box.append(itemCard(arr, i, f, draw, true)));
+        box.append(el('button', { type: 'button', className: 'btn sm add', on: { click: () => { arr.push(blank(f.fields)); draw(); dirty(); } } }, `+ ${f.item}`)); };
+      draw(); wrap.append(box);
+    } else if (f.t === 'image') {
+      const img = el('img', { src: v || '', alt: '' });
+      const txt = el('input', { type: 'text', id, value: v || '', on: { input: (e) => { obj[f.k] = e.target.value; img.src = e.target.value; dirty(); } } });
+      const file = el('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', hidden: true, on: { change: (e) => upload(e.target.files[0], obj, f.k, txt, img) } });
+      wrap.append(el('div', { className: 'img-field' }, img, el('div', { className: 'grow' }, txt,
+        el('div', {}, el('button', { type: 'button', className: 'btn sm', on: { click: () => file.click() } }, 'Загрузить новое фото'), file))));
+      wrap.append(el('span', { className: 'sub' }, 'JPG или PNG, квадратное, от 800×800. Загружается в папку img/ при подключённом GitHub.'));
+    } else {
+      const tag = f.t === 'area' ? 'textarea' : 'input';
+      const n = el(tag, { id, value: v ?? '', type: f.t === 'number' ? 'number' : f.t === 'url' ? 'url' : 'text', step: 'any',
+        on: { input: (e) => { obj[f.k] = f.t === 'number' ? (e.target.value === '' ? '' : +e.target.value) : e.target.value;
+          mark(); if (f.t === 'url') wrap.classList.toggle('bad', !isUrlOk(e.target.value)); dirty(); } } });
+      wrap.append(n);
+      if (f.t === 'url') wrap.classList.toggle('bad', !isUrlOk(v || ''));
+    }
+    if (f.sub) wrap.append(el('span', { className: 'sub' }, f.sub));
+    mark();
+    return wrap;
+  }
+  const blank = (fields) => Object.fromEntries(fields.map((f) => [f.k, f.t === 'strings' || f.t === 'sublist' ? [] : f.t === 'bool' ? false : '']));
+
+  function itemCard(arr, i, s, redraw, nested) {
+    const it = arr[i], key = s.titleKey || s.fields[0].k;
+    const head = (it[key] && String(it[key]).trim()) || `${s.item} без названия`;
+    const card = el('div', { className: 'card' + (nested ? '' : (arr.length > 3 ? ' closed' : '')) });
+    const ttl = el('span', { className: 'ttl', title: 'Свернуть или развернуть', on: { click: () => card.classList.toggle('closed') } }, head);
+    const move = (d) => { const j = i + d; if (j < 0 || j >= arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]]; redraw(); dirty(); };
+    card.append(el('div', { className: 'card-h' }, el('span', { className: 'num' }, String(i + 1).padStart(2, '0')), ttl,
+      el('div', { className: 'tools' },
+        el('button', { type: 'button', className: 'btn icon', title: 'Выше', 'aria-label': 'Выше', disabled: i === 0, on: { click: () => move(-1) } }, '↑'),
+        el('button', { type: 'button', className: 'btn icon', title: 'Ниже', 'aria-label': 'Ниже', disabled: i === arr.length - 1, on: { click: () => move(1) } }, '↓'),
+        el('button', { type: 'button', className: 'btn icon', title: 'Удалить', 'aria-label': 'Удалить', on: { click: () => {
+          undoSnap = structuredClone(data); arr.splice(i, 1); redraw(); dirty(); toast(`${s.item} удалён`, true); } } }, '✕'))));
+    // короткие поля в сетку, длинные (текст, списки, фото) на всю ширину
+    const WIDE = ['area', 'strings', 'sublist', 'image'];
+    const grid = el('div', { className: 'row' });
+    const wide = s.fields.filter((f) => WIDE.includes(f.t)).map((f) => input(it, f));
+    s.fields.filter((f) => !WIDE.includes(f.t)).forEach((f) => grid.append(input(it, f)));
+    card.append(grid, ...wide);
+    return card;
+  }
+
+  function renderForm() {
+    const s = SECTIONS.find((x) => x.id === current); const box = $('form-in'); box.innerHTML = '';
+    box.append(el('h1', {}, s.title));
+    if (s.special === 'publish') return renderPublish(box);
+    box.append(el('p', { className: 'hint' }, 'Изменения сразу видны в предпросмотре. Жирный: ', el('code', {}, '**слово**'),
+      '. Термин с пояснением: ', el('code', {}, '[[ключ|слово]]'), ' (ключи — в разделе «Словарь терминов»). Пустые поля на сайте не показываются.'));
+    if (s.list) {
+      const arr = getPath(data, s.path, true);
+      const list = el('div', { className: 'form-in', style: 'gap:12px; max-width:none; margin:0; width:100%' });
+      const draw = () => { list.innerHTML = ''; arr.forEach((it, i) => list.append(itemCard(arr, i, s, draw)));
+        list.append(el('button', { type: 'button', className: 'btn add', on: { click: () => { arr.push(blank(s.fields)); draw(); dirty(); list.lastChild.previousSibling?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } } }, `+ ${s.item}`));
+        updateCounts(); };
+      draw(); box.append(list);
+    } else {
+      const obj = getPath(data, s.path); const card = el('div', { className: 'card' });
+      s.fields.forEach((f) => card.append(input(obj, f))); box.append(card);
+    }
+  }
+
+  /* ---------- публикация на GitHub ---------- */
+  function renderPublish(box) {
+    const gh = store.get(GH) || { owner: 'DrPavelShapovalov', repo: '', branch: 'main', dir: '', token: '' };
+    const f = (k, l, t = 'text', sub) => { const w = el('div', { className: 'field' }, el('label', { htmlFor: 'gh-' + k }, l),
+      el('input', { id: 'gh-' + k, type: t, value: gh[k] || '', autocomplete: 'off', on: { input: (e) => { gh[k] = e.target.value.trim(); store.set(GH, gh); } } }));
+      if (sub) w.append(el('span', { className: 'sub' }, sub)); return w; };
+    box.append(el('div', { className: 'note-box' }, el('b', {}, 'Как это работает. '),
+      'Весь текст сайта лежит в одном файле content.json. Кнопка «Опубликовать» записывает его в ваш репозиторий на GitHub, а хостинг (GitHub Pages) через минуту показывает новую версию сайта.',
+      el('ol', {}, el('li', {}, 'На GitHub: Settings → Developer settings → Fine-grained tokens → Generate new token.'),
+        el('li', {}, 'Repository access: только репозиторий сайта. Permissions → Contents: Read and write.'),
+        el('li', {}, 'Вставьте токен ниже. Он хранится только в этом браузере и никуда, кроме GitHub, не отправляется.'))));
+    const card = el('div', { className: 'card' }, el('div', { className: 'row' }, f('owner', 'Владелец репозитория'), f('repo', 'Репозиторий'), f('branch', 'Ветка')),
+      f('dir', 'Папка сайта в репозитории', 'text', 'Пусто, если сайт лежит в корне. Например: site'),
+      f('token', 'Токен GitHub', 'password'),
+      el('div', { style: 'display:flex; gap:10px; flex-wrap:wrap' },
+        el('button', { type: 'button', className: 'btn', on: { click: testGh } }, 'Проверить подключение'),
+        el('button', { type: 'button', className: 'btn', on: { click: () => { store.set(GH, { ...gh, token: '' }); renderForm(); toast('Токен удалён из браузера'); } } }, 'Забыть токен')));
+    const json = el('pre', { className: 'json' }, JSON.stringify(data, null, 2));
+    const backup = el('div', { className: 'card' }, el('b', {}, 'Без GitHub'),
+      el('p', { className: 'hint' }, 'Скопируйте весь текст сайта и замените им файл content.json на хостинге.'),
+      el('div', { style: 'display:flex; gap:10px; flex-wrap:wrap' },
+        el('button', { type: 'button', className: 'btn', on: { click: copyJson } }, 'Скопировать content.json'),
+        el('button', { type: 'button', className: 'btn', on: { click: () => { undoSnap = structuredClone(data); data = JSON.parse(published); renderNav(); renderForm(); dirty(); toast('Черновик сброшен', true); } } }, 'Сбросить черновик')),
+      json);
+    box.append(card, backup);
+  }
+  const ghCfg = () => { const g = store.get(GH) || {}; return g.owner && g.repo && g.token ? g : null; };
+  const ghPath = (g, p) => [g.dir, p].filter(Boolean).join('/').replace(/\/+/g, '/');
+  async function gh(g, method, path, body) {
+    const r = await fetch(`https://api.github.com/repos/${encodeURIComponent(g.owner)}/${encodeURIComponent(g.repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}${method === 'GET' ? `?ref=${encodeURIComponent(g.branch || 'main')}` : ''}`,
+      { method, headers: { Authorization: `Bearer ${g.token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }, body: body && JSON.stringify(body) });
+    if (method === 'GET' && r.status === 404) return null;
+    if (!r.ok) { const t = await r.json().catch(() => ({})); throw new Error(`${r.status}: ${t.message || r.statusText}`); }
+    return r.json();
+  }
+  const b64 = (str) => { const bytes = new TextEncoder().encode(str); let s = ''; bytes.forEach((b) => { s += String.fromCharCode(b); }); return btoa(s); };
+  async function testGh() {
+    const g = ghCfg(); if (!g) return toast('Заполните владельца, репозиторий и токен');
+    try { const f = await gh(g, 'GET', ghPath(g, 'content.json')); toast(f ? 'Подключено: content.json найден' : 'Подключено, но content.json в этой папке нет — он будет создан'); }
+    catch (e) { toast('Не получилось: ' + e.message + '. Проверьте токен и название репозитория.'); }
+  }
+  async function publish() {
+    const g = ghCfg(); if (!g) { go('publish'); return toast('Сначала подключите GitHub на этой странице'); }
+    const bad = []; JSON.stringify(data, (k, v) => { if (/(^link$|^url$|telegram|instagram)/.test(k) && typeof v === 'string' && !isUrlOk(v)) bad.push(v); return v; });
+    if (bad.length) return toast('Есть ссылка без https:// — исправьте: ' + bad[0]);
+    $('publish').disabled = true; setStatus('dirty', 'Публикую…');
+    try {
+      const path = ghPath(g, 'content.json'), cur = await gh(g, 'GET', path);
+      await gh(g, 'PUT', path, { message: 'Обновить содержимое сайта (админка)', content: b64(JSON.stringify(data, null, 2) + '\n'), sha: cur?.sha, branch: g.branch || 'main' });
+      published = JSON.stringify(data); dirty(); toast('Опубликовано. Сайт обновится примерно через минуту.');
+    } catch (e) { setStatus('err', 'Не опубликовано: ' + e.message); toast('Не опубликовано: ' + e.message); }
+    finally { $('publish').disabled = false; }
+  }
+  async function upload(file, obj, key, txt, img) {
+    if (!file) return; const g = ghCfg();
+    if (!g) { go('publish'); return toast('Чтобы загрузить фото, подключите GitHub'); }
+    if (file.size > 4e6) return toast('Файл больше 4 МБ — уменьшите фото');
+    const name = 'img/' + file.name.toLowerCase().replace(/[^a-z0-9.\-_]+/g, '-');
+    const content = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.readAsDataURL(file); });
+    try {
+      const path = ghPath(g, name), cur = await gh(g, 'GET', path);
+      await gh(g, 'PUT', path, { message: `Загрузить ${name} (админка)`, content, sha: cur?.sha, branch: g.branch || 'main' });
+      obj[key] = name; txt.value = name; img.src = URL.createObjectURL(file); dirty();
+      toast('Фото загружено. Нажмите «Опубликовать», чтобы оно появилось на сайте.');
+    } catch (e) { toast('Фото не загрузилось: ' + e.message); }
+  }
+  async function copyJson() {
+    const text = JSON.stringify(data, null, 2);
+    try { await navigator.clipboard.writeText(text); toast('Скопировано'); }
+    catch (e) { const pre = document.querySelector('pre.json'); const r = document.createRange(); r.selectNodeContents(pre); getSelection().removeAllRanges(); getSelection().addRange(r); toast('Текст выделен — нажмите Ctrl+C или «Копировать»'); }
+  }
+  $('publish').addEventListener('click', publish);
+
+  /* ---------- предпросмотр ---------- */
+  let pvT; const pv = $('pv');
+  function schedulePreview() { clearTimeout(pvT); pvT = setTimeout(() => { try { pv.contentWindow.postMessage({ type: 'shapovalov:content', content: data }, '*'); } catch (e) {} }, 250); }
+  addEventListener('message', (e) => { if (e.data && e.data.type === 'shapovalov:ready') schedulePreview(); });
+  pv.addEventListener('load', schedulePreview);
+  $('pv-phone').addEventListener('click', (e) => { const w = $('pv-wrap'); w.classList.toggle('phone'); e.target.textContent = w.classList.contains('phone') ? 'Компьютер' : 'Телефон'; });
+  $('pv-toggle').addEventListener('click', () => { $('preview').classList.add('open'); schedulePreview(); });
+  $('pv-close').addEventListener('click', () => $('preview').classList.remove('open'));
+  addEventListener('beforeunload', (e) => { if (data && JSON.stringify(data) !== published) { e.preventDefault(); e.returnValue = ''; } });
+
+  /* ---------- старт ---------- */
+  fetch('content.json', { cache: 'no-store' }).then((r) => r.json()).then((c) => {
+    published = JSON.stringify(c); data = c;
+    const d = store.get(DRAFT);
+    if (d && d.data && JSON.stringify(d.data) !== published) {
+      data = d.data; toast(`Открыт черновик от ${new Date(d.at).toLocaleString('ru-RU')}. Опубликуйте его или сбросьте в разделе «Публикация».`);
+    }
+    renderNav(); renderForm(); dirty();
+  }).catch(() => setStatus('err', 'Не удалось загрузить content.json. Админка должна лежать рядом с сайтом на хостинге.'));
+})();
+</script>
+</body>
+</html>

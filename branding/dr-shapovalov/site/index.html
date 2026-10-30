@@ -4,17 +4,18 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-  /* Layout: a dark clinical instrument. Emerald wave field behind the hero, gold for anything measured,
-     frosted glass panels, millimetres set in mono like readings on a device. One deliberate dark world. */
+  /* Layout: a dark clinical instrument. Emerald wave field behind the hero, slow emerald/gold light
+     drifting under the whole page so every panel reads as liquid glass, gold for anything measured,
+     millimetres set in mono like readings on a device. One deliberate dark world.
+     All text comes from content.json; the admin panel edits that file. */
   :root{
     --void:#05080a;
     --deep:#0a1513;
     --emerald:#164236;
     --ivory:#ede8de;
     --mist:#93a19b;
+    --soft:#c3ccc8;
     --line:rgba(237,232,222,.12);
-    --glass:rgba(16,30,27,.48);
-    --glass-hi:rgba(237,232,222,.07);
     --gold:#d6b266;
     --gold-hi:#f0d48e;
     --gold-lo:#a77e34;
@@ -32,31 +33,39 @@
 
   *{box-sizing:border-box}
   html{background:var(--void)}
-  body{
-    background:var(--void); color:var(--ivory);
-    font-family:var(--text); font-size:16px; line-height:1.6;
-    padding-inline:20px; padding-block:0 32px;
-    -webkit-font-smoothing:antialiased; overflow-x:clip;
-  }
+  body{background:var(--void); color:var(--ivory); font-family:var(--text); font-size:16px; line-height:1.6;
+    padding-inline:20px; padding-block:0 32px; -webkit-font-smoothing:antialiased; overflow-x:clip}
   a{color:inherit; text-decoration:none}
   :focus-visible{outline:2px solid var(--gold); outline-offset:3px; border-radius:8px}
   p{margin:0}
-  .wrap{max-width:1160px; margin:0 auto}
-  .mono{font-family:var(--mono)}
-  .kicker{
-    margin:0; font-family:var(--mono); font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--gold);
-    display:flex; align-items:center; gap:12px;
-  }
-  .kicker::before{content:""; width:28px; height:1px; background:linear-gradient(90deg,var(--gold-hi),var(--gold-lo))}
+  .wrap{max-width:1160px; margin:0 auto; position:relative; z-index:1}
   h1,h2,h3{font-family:var(--display); margin:0; text-wrap:balance; letter-spacing:-.01em}
   h2{font-weight:500; font-size:clamp(30px,4.4vw,52px); line-height:1.05}
   h2 em{font-style:normal; color:var(--gold)}
+  .label{margin:0 0 14px; font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--gold)}
+
+  /* ambient light under the whole page: what the glass refracts */
+  .ambient{position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden}
+  .ambient i{position:absolute; border-radius:50%; filter:blur(90px); opacity:.55}
+  .ambient i:nth-child(1){width:46vw; height:46vw; left:-12vw; top:30vh; background:#1b5a49}
+  .ambient i:nth-child(2){width:34vw; height:34vw; right:-8vw; top:8vh; background:#6b5420; opacity:.35}
+  .ambient i:nth-child(3){width:40vw; height:40vw; left:35vw; bottom:-18vw; background:#123a31}
+
+  /* liquid glass */
   .glass{
-    background:linear-gradient(160deg,var(--glass-hi),transparent 40%),var(--glass);
-    border:1px solid var(--line); border-radius:24px;
-    backdrop-filter:blur(18px) saturate(1.3); -webkit-backdrop-filter:blur(18px) saturate(1.3);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 30px 60px -40px rgba(0,0,0,.8);
+    --mx:30%; --my:0%;
+    position:relative; border-radius:26px; isolation:isolate;
+    background:
+      radial-gradient(420px circle at var(--mx) var(--my), rgba(240,212,142,.10), transparent 60%),
+      linear-gradient(165deg, rgba(255,255,255,.09), rgba(255,255,255,.015) 38%, rgba(255,255,255,0) 60%),
+      rgba(12,26,23,.42);
+    border:1px solid rgba(237,232,222,.13);
+    backdrop-filter:blur(22px) saturate(1.6); -webkit-backdrop-filter:blur(22px) saturate(1.6);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(0,0,0,.35), 0 30px 60px -38px rgba(0,0,0,.85);
   }
+  .glass::before{content:""; position:absolute; inset:0; border-radius:inherit; padding:1px; pointer-events:none; z-index:-1;
+    background:linear-gradient(140deg, rgba(255,255,255,.35), rgba(255,255,255,0) 30%, rgba(255,255,255,0) 70%, rgba(214,178,102,.35));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude}
 
   /* nav */
   .nav{position:fixed; z-index:30; left:50%; transform:translateX(-50%);
@@ -64,72 +73,92 @@
     display:flex; align-items:center; justify-content:space-between; gap:16px; padding:10px 12px 10px 18px; border-radius:999px}
   .brand{display:flex; align-items:center; gap:10px; font-family:var(--mono); font-size:13px}
   .brand svg{width:26px; height:26px; color:var(--gold)}
-  .links{display:flex; gap:22px; font-size:14px; color:var(--mist)}
-  .links a:hover{color:var(--ivory)}
+  .links{display:flex; gap:20px; font-size:14px; color:var(--mist)}
+  .links a{position:relative; padding-block:4px}
+  .links a::after{content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:var(--gold); transform:scaleX(0); transform-origin:left; transition:transform .35s}
+  .links a:hover{color:var(--ivory)} .links a:hover::after{transform:scaleX(1)}
   .pill{display:inline-flex; align-items:center; gap:8px; padding:10px 18px; border-radius:999px; font-weight:700; font-size:13px;
-    background:linear-gradient(180deg,var(--gold-hi),var(--gold-lo)); color:#140f06}
-  .pill:hover{filter:brightness(1.08)}
+    background:linear-gradient(180deg,var(--gold-hi),var(--gold-lo)); color:#140f06; transition:filter .2s, transform .2s}
+  .pill:hover{filter:brightness(1.08); transform:translateY(-1px)}
+  .ghost{display:inline-flex; align-items:center; gap:8px; padding:12px 20px; border-radius:999px; font-weight:700; font-size:14px;
+    border:1px solid var(--line); background:rgba(5,8,10,.35); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); transition:border-color .2s, color .2s}
+  .ghost:hover{border-color:var(--gold); color:var(--gold-hi)}
 
   /* hero */
   .hero{position:relative; margin-inline:-20px; min-height:min(94svh,900px); display:grid; align-items:end;
     padding:140px 20px 72px; overflow:hidden; background:radial-gradient(120% 90% at 70% 30%, var(--emerald), var(--deep) 55%, var(--void))}
   #waves{position:absolute; inset:0; z-index:0}
-  .hero::after{content:""; position:absolute; inset:auto 0 0 0; height:40%; z-index:1;
-    background:linear-gradient(180deg,transparent,var(--void)); pointer-events:none}
-  .hero-in{position:relative; z-index:2; max-width:1160px; width:100%; margin:0 auto;
-    display:grid; grid-template-columns:1.3fr .7fr; gap:40px; align-items:end}
+  .hero::after{content:""; position:absolute; inset:auto 0 0 0; height:40%; z-index:1; background:linear-gradient(180deg,transparent,var(--void)); pointer-events:none}
+  .hero-in{position:relative; z-index:2; max-width:1160px; width:100%; margin:0 auto; display:grid; grid-template-columns:1.3fr .7fr; gap:40px; align-items:end}
   .hero-in > *{min-width:0}
   .hero h1{font-weight:300; font-size:clamp(38px,5.4vw,78px); line-height:.98}
   .hero h1 b{display:block; font-weight:700; color:var(--gold)}
   .lede{margin-top:22px; font-size:18px; color:#c9d2ce; max-width:46ch}
   .actions{display:flex; flex-wrap:wrap; gap:12px; margin-top:28px}
-  .ghost{display:inline-flex; align-items:center; gap:8px; padding:12px 20px; border-radius:999px; font-weight:700; font-size:14px;
-    border:1px solid var(--line); background:rgba(5,8,10,.35); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px)}
-  .ghost:hover{border-color:var(--gold); color:var(--gold-hi)}
   .pill.big{padding:13px 22px; font-size:14px}
   .card-id{padding:22px; display:flex; flex-direction:column; gap:16px; align-items:center; text-align:center}
-  .portrait{width:min(220px,100%); aspect-ratio:1; border-radius:50%; padding:4px; position:relative;
-    background:conic-gradient(from 210deg,var(--gold-hi),var(--gold-lo),var(--gold-hi),var(--gold-lo),var(--gold-hi))}
+  .portrait{width:min(220px,100%); aspect-ratio:1; border-radius:50%; padding:4px; background:conic-gradient(from 210deg,var(--gold-hi),var(--gold-lo),var(--gold-hi),var(--gold-lo),var(--gold-hi))}
   .portrait img{display:block; width:100%; height:100%; border-radius:50%; object-fit:cover; object-position:50% 30%; background:var(--deep)}
-  .signature{width:min(240px,100%); height:auto; display:block}
+  .signature{width:min(240px,100%); height:auto; display:block; margin-inline:auto}
   .id-meta{font-family:var(--mono); font-size:12px; color:var(--mist); line-height:1.7}
-  .id-meta b{color:var(--ivory); font-weight:500}
 
-  /* readings strip */
   .readings{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:-28px; position:relative; z-index:3}
   .reading{padding:22px 24px; display:flex; flex-direction:column; gap:6px; min-width:0}
-  .reading .val{font-family:var(--display); font-weight:500; font-size:clamp(30px,3.6vw,44px); line-height:1; white-space:nowrap;
-    font-variant-numeric:tabular-nums}
-  .reading .val small{font-family:var(--mono); font-size:13px; color:var(--gold); margin-left:6px; letter-spacing:.06em}
-  .reading .val .arr{color:var(--gold)}
+  .val{font-family:var(--display); font-weight:500; font-size:clamp(30px,3.6vw,44px); line-height:1; white-space:nowrap; font-variant-numeric:tabular-nums}
+  .val small{font-family:var(--mono); font-size:13px; color:var(--gold); margin-left:6px; letter-spacing:.06em; text-transform:uppercase}
+  .val .arr{color:var(--gold)}
   .reading .lbl{font-size:13px; color:var(--mist)}
+
+  .marquee{margin-inline:-20px; overflow:hidden; border-block:1px solid var(--line); padding-block:16px; margin-top:96px; position:relative; z-index:1}
+  .marquee-track{display:flex; width:max-content}
+  .marquee-track span{display:flex; align-items:center; gap:26px; padding-right:26px; white-space:nowrap; font-family:var(--mono); font-size:13px; letter-spacing:.04em; color:var(--mist)}
+  .marquee-track i{width:5px; height:5px; border-radius:50%; background:var(--gold); display:inline-block}
 
   section.block{padding-block:120px 0; scroll-margin-top:90px}
   .head{display:grid; grid-template-columns:1fr 1fr; gap:24px 56px; align-items:end; margin-bottom:44px}
   .head > *{min-width:0}
   .head p{color:var(--mist); max-width:52ch}
 
-  /* term tooltip */
   .term{font:inherit; color:var(--ivory); background:none; border:0; padding:0; cursor:help; border-bottom:1px dashed var(--gold)}
   .term:hover,.term[aria-expanded="true"]{color:var(--gold-hi)}
   .tip{position:fixed; z-index:50; width:min(320px,calc(100vw - 32px)); padding:16px 18px; border-radius:18px; font-size:14px; line-height:1.5;
-    background:rgba(10,21,19,.92); border:1px solid rgba(214,178,102,.35); color:var(--ivory);
-    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    background:rgba(10,21,19,.9); border:1px solid rgba(214,178,102,.35); color:var(--ivory); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
     opacity:0; transform:translateY(6px); transition:opacity .2s, transform .2s; pointer-events:none}
   .tip.on{opacity:1; transform:none}
   .tip b{display:block; font-family:var(--display); font-weight:500; font-size:16px; color:var(--gold-hi); margin-bottom:6px}
+  .todo{display:inline-block; padding:3px 10px; border-radius:8px; border:1px dashed var(--todo); color:var(--todo); background:rgba(214,178,102,.08); font-size:13px; font-weight:600}
+
+  /* about */
+  .about-grid{display:grid; grid-template-columns:1.1fr .9fr; gap:16px}
+  .about-grid > *{min-width:0}
+  .panel{padding:30px}
+  .panel h3{font-family:var(--mono); font-weight:500; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--gold); margin-bottom:18px}
+  .intro-text{color:var(--soft); font-size:17px}
+  dl.facts{margin:22px 0 0; display:grid; grid-template-columns:max-content 1fr; border-top:1px solid var(--line)}
+  .facts dt,.facts dd{margin:0; padding:13px 0; border-bottom:1px solid var(--line)}
+  .facts dt{font-family:var(--mono); font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--mist); padding-right:24px; padding-top:16px}
+  .facts dd{min-width:0}
+  .timeline{list-style:none; margin:0; padding:0; display:flex; flex-direction:column}
+  .timeline li{display:grid; grid-template-columns:96px 1fr; gap:16px; padding:14px 0; border-bottom:1px solid var(--line)}
+  .timeline li:last-child{border-bottom:0}
+  .timeline .y{font-family:var(--mono); font-size:13px; color:var(--gold); padding-top:2px}
+  .timeline b{display:block; font-weight:600}
+  .timeline span{color:var(--mist); font-size:14px}
+  .courses{grid-column:1 / -1}
+  .course-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+  .course{padding:18px; border-radius:18px; border:1px solid var(--line); background:rgba(255,255,255,.02); display:flex; flex-direction:column; gap:6px; min-width:0}
+  .course .y{font-family:var(--mono); font-size:12px; color:var(--gold)}
+  .course b{font-weight:600; line-height:1.35}
+  .course span{color:var(--mist); font-size:14px}
 
   /* directions */
   .dirs{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
-  .dir{position:relative; padding:28px 26px; display:flex; flex-direction:column; gap:12px; min-width:0; overflow:hidden;
-    transition:transform .5s cubic-bezier(.2,.7,.2,1), border-color .3s}
-  .dir:hover{transform:translateY(-6px); border-color:rgba(214,178,102,.45)}
+  .dir{padding:28px 26px; display:flex; flex-direction:column; gap:12px; min-width:0; transition:transform .5s cubic-bezier(.2,.7,.2,1)}
+  .dir:hover{transform:translateY(-6px)}
   .dir .idx{font-family:var(--mono); font-size:12px; color:var(--gold); letter-spacing:.14em}
   .dir h3{font-weight:500; font-size:22px; line-height:1.15}
   .dir p{color:var(--mist); font-size:15px}
   .dir .go{margin-top:auto; padding-top:10px; font-size:13px; font-weight:700; color:var(--gold-hi)}
-  .dir::after{content:""; position:absolute; left:26px; right:26px; top:0; height:1px;
-    background:linear-gradient(90deg,transparent,var(--gold),transparent); opacity:.5}
 
   /* cases */
   .cases{display:flex; flex-direction:column; gap:16px}
@@ -137,91 +166,93 @@
   .case-text{display:flex; flex-direction:column; gap:16px; min-width:0}
   .tags{display:flex; flex-wrap:wrap; gap:8px}
   .tag{font-family:var(--mono); font-size:11.5px; letter-spacing:.04em; padding:5px 11px; border-radius:999px; border:1px solid var(--line); color:var(--mist)}
-  .tag.g{border-color:rgba(214,178,102,.45); color:var(--gold-hi)}
+  .tag:first-child{border-color:rgba(214,178,102,.45); color:var(--gold-hi)}
   .case h3{font-weight:500; font-size:clamp(22px,2.6vw,30px); line-height:1.15}
   .case ul{margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px}
-  .case li{position:relative; padding-left:22px; color:#c3ccc8}
+  .case li{position:relative; padding-left:22px; color:var(--soft)}
   .case li::before{content:""; position:absolute; left:0; top:.8em; width:12px; height:1px; background:var(--gold)}
   .case li strong{color:var(--ivory); font-weight:600}
-  .viz{padding:26px; border-radius:20px; background:rgba(5,8,10,.55); border:1px solid var(--line); display:flex; flex-direction:column; gap:20px; min-width:0}
+  .viz{padding:26px; border-radius:20px; background:rgba(5,8,10,.5); border:1px solid var(--line); display:flex; flex-direction:column; gap:20px; min-width:0}
   .viz .big{font-family:var(--display); font-weight:500; font-size:clamp(46px,6vw,76px); line-height:.95; font-variant-numeric:tabular-nums}
-  .viz .big small{font-family:var(--mono); font-size:15px; color:var(--gold); margin-left:8px}
+  .viz .big small{font-family:var(--mono); font-size:15px; color:var(--gold); margin-left:8px; text-transform:uppercase}
   .viz .big .arr{color:var(--gold); font-weight:300}
   .viz .cap{font-size:13px; color:var(--mist); margin-top:-10px}
   .bars{display:flex; flex-direction:column; gap:13px}
   .bar{display:grid; grid-template-columns:104px 1fr 64px; gap:12px; align-items:center; font-size:13px}
-  .bar .n{color:var(--mist)}
-  .bar .v{text-align:right; font-family:var(--mono); color:var(--ivory)}
+  .bar .n{color:var(--mist)} .bar .v{text-align:right; font-family:var(--mono)}
   .rail{height:8px; border-radius:99px; background:rgba(237,232,222,.06); overflow:hidden}
-  .fill{display:block; height:100%; width:var(--w); border-radius:99px; transform-origin:left;
-    background:linear-gradient(90deg,var(--gold-lo),var(--gold-hi))}
-  .fill.dim{background:rgba(214,178,102,.32)}
+  .fill{display:block; height:100%; width:var(--w); border-radius:99px; transform-origin:left; background:rgba(214,178,102,.32)}
+  .fill.on{background:linear-gradient(90deg,var(--gold-lo),var(--gold-hi))}
   .scale{display:grid; grid-template-columns:104px 1fr 64px; gap:12px; font-family:var(--mono); font-size:11px; color:var(--mist)}
   .scale .t{display:flex; justify-content:space-between}
-  .note{font-size:13px; color:var(--mist); margin-top:18px}
 
   /* steps */
   .steps-wrap{display:grid; grid-template-columns:.8fr 1.2fr; gap:56px; align-items:start}
   .steps-wrap > *{min-width:0}
   .steps-intro{position:sticky; top:110px; display:flex; flex-direction:column; gap:18px}
   .steps-intro p{color:var(--mist)}
-  .steps{position:relative; list-style:none; margin:0; padding:0}
-  .steps::before,.steps .prog{content:""; position:absolute; left:21px; top:22px; bottom:22px; width:1px; background:var(--line)}
+  .steps{position:relative; list-style:none; margin:0; padding:22px 24px}
+  .steps .rail-y,.steps .prog{position:absolute; left:45px; top:44px; bottom:44px; width:1px; background:var(--line)}
   .steps .prog{background:linear-gradient(var(--gold-hi),var(--gold-lo)); transform-origin:top}
-  .step{position:relative; display:grid; grid-template-columns:44px 1fr; gap:18px; padding-block:12px}
+  .step{position:relative; display:grid; grid-template-columns:44px 1fr; gap:18px; padding-block:10px}
   .step .n{width:44px; height:44px; border-radius:50%; display:grid; place-items:center; position:relative; z-index:1;
     background:var(--void); border:1px solid rgba(214,178,102,.5); color:var(--gold-hi); font-family:var(--mono); font-size:13px}
   .step p{align-self:center; min-width:0}
   .step p span{color:var(--mist)}
 
-  /* about */
-  .about{display:grid; grid-template-columns:1fr 1fr; gap:56px}
-  .about > *{min-width:0}
-  .about .txt{display:flex; flex-direction:column; gap:18px}
-  .about .txt p{color:var(--mist); max-width:54ch}
-  dl.facts{margin:0; display:grid; grid-template-columns:max-content 1fr; border-top:1px solid var(--line)}
-  .facts dt,.facts dd{margin:0; padding:15px 0; border-bottom:1px solid var(--line)}
-  .facts dt{font-family:var(--mono); font-size:12px; letter-spacing:.06em; color:var(--mist); padding-right:28px; padding-top:18px}
-  .facts dd{min-width:0}
-  .todo{display:inline-block; padding:3px 10px; border-radius:8px; border:1px dashed var(--todo); color:var(--todo);
-    background:rgba(214,178,102,.08); font-size:13px; font-weight:600}
+  /* science */
+  .sci{display:grid; grid-template-columns:.95fr 1.05fr; gap:16px; align-items:start}
+  .sci > *{min-width:0}
+  .diss{padding:34px; display:flex; flex-direction:column; gap:18px; align-items:flex-start; position:sticky; top:110px}
+  .diss .deg{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold)}
+  .diss h3{font-weight:500; font-size:clamp(20px,2.2vw,26px); line-height:1.25}
+  .diss dl{margin:0; display:grid; grid-template-columns:max-content 1fr; gap:8px 18px; font-size:14px}
+  .diss dt{color:var(--mist); font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:.06em; padding-top:2px}
+  .diss dd{margin:0}
+  .pubs{display:flex; flex-direction:column; gap:12px}
+  .pub{padding:24px 26px; display:grid; grid-template-columns:auto 1fr; gap:18px; transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+  a.pub:hover{transform:translateX(6px)}
+  .pub .num{font-family:var(--display); font-weight:300; font-size:30px; color:var(--gold); line-height:1}
+  .pub b{display:block; font-weight:600; line-height:1.35}
+  .pub .au{display:block; margin-top:8px; color:var(--soft); font-size:14px}
+  .pub .src{display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; font-family:var(--mono); font-size:12px; color:var(--mist)}
+  .pub .src .lnk{color:var(--gold-hi)}
 
   /* work + contacts */
   .work{padding:48px; display:grid; grid-template-columns:1.2fr .8fr; gap:36px; align-items:end;
-    background:radial-gradient(90% 120% at 100% 0%, rgba(22,66,54,.85), transparent 60%), var(--glass)}
+    background:radial-gradient(90% 120% at 100% 0%, rgba(22,66,54,.75), transparent 60%), rgba(12,26,23,.42)}
   .work > *{min-width:0}
-  .work p{color:#c3ccc8; max-width:50ch; margin-top:16px}
+  .work p{color:var(--soft); max-width:50ch; margin-top:16px}
   .work .side{display:flex; flex-direction:column; gap:12px; align-items:flex-start}
   .contacts{display:grid; grid-template-columns:repeat(4,1fr); gap:14px}
-  .contact{padding:24px; display:flex; flex-direction:column; gap:28px; min-width:0; transition:transform .45s cubic-bezier(.2,.7,.2,1), border-color .3s}
-  a.contact:hover{transform:translateY(-4px); border-color:rgba(214,178,102,.5)}
+  .contact{padding:24px; display:flex; flex-direction:column; gap:28px; min-width:0; transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+  a.contact:hover{transform:translateY(-4px)}
   .contact small{font-family:var(--mono); font-size:11.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--mist)}
   .contact span{font-family:var(--display); font-weight:500; font-size:18px; overflow-wrap:anywhere}
 
-  footer{padding-block:120px 0}
-  .wordmark{font-family:var(--display); font-weight:300; text-align:center; white-space:nowrap;
-    font-size:clamp(14px,4.6vw,60px); letter-spacing:.14em; color:var(--gold)}
-  .foot{margin-top:28px; padding-top:20px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px;
-    font-size:13px; color:var(--mist)}
+  footer{padding-block:120px 0; position:relative; z-index:1}
+  .wordmark{font-family:var(--display); font-weight:300; text-align:center; white-space:nowrap; font-size:clamp(14px,4.6vw,60px); letter-spacing:.14em; color:var(--gold)}
+  .foot{margin-top:28px; padding-top:20px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; font-size:13px; color:var(--mist)}
+  .foot p{max-width:80ch}
 
   @media (prefers-reduced-motion:no-preference){
     .marquee-track{animation:slide 40s linear infinite}
+    .ambient i:nth-child(1){animation:drift1 28s ease-in-out infinite alternate}
+    .ambient i:nth-child(2){animation:drift2 34s ease-in-out infinite alternate}
+    .ambient i:nth-child(3){animation:drift1 40s ease-in-out infinite alternate-reverse}
   }
   @keyframes slide{to{transform:translateX(-50%)}}
-  .marquee{margin-inline:-20px; overflow:hidden; border-block:1px solid var(--line); padding-block:16px; margin-top:96px}
-  .marquee-track{display:flex; width:max-content}
-  .marquee-track span{display:flex; align-items:center; gap:26px; padding-right:26px; white-space:nowrap;
-    font-family:var(--mono); font-size:13px; letter-spacing:.04em; color:var(--mist)}
-  .marquee-track i{width:5px; height:5px; border-radius:50%; background:var(--gold); display:inline-block}
+  @keyframes drift1{to{transform:translate(18vw,-14vh) scale(1.15)}}
+  @keyframes drift2{to{transform:translate(-14vw,30vh) scale(.9)}}
 
   @media (max-width:960px){
     .links{display:none}
-    .hero-in,.head,.steps-wrap,.about,.work{grid-template-columns:1fr}
+    .hero-in,.head,.steps-wrap,.about-grid,.sci,.work{grid-template-columns:1fr}
     .card-id{flex-direction:row; text-align:left; align-items:center}
     .portrait{width:120px; flex:none}
-    .dirs{grid-template-columns:1fr}
+    .dirs,.course-grid{grid-template-columns:1fr}
     .case{grid-template-columns:1fr; padding:26px}
-    .steps-intro{position:static}
+    .steps-intro,.diss{position:static}
     .contacts{grid-template-columns:1fr 1fr}
     .work{padding:32px 24px}
   }
@@ -230,14 +261,19 @@
     .contacts{grid-template-columns:1fr}
     .card-id{padding:16px; gap:14px}
     .portrait{width:92px}
-    .signature{width:170px}
+    .signature{width:170px; margin-inline:0}
     .bar,.scale{grid-template-columns:78px 1fr 56px; gap:10px}
-    dl.facts{grid-template-columns:1fr}
+    dl.facts,.diss dl{grid-template-columns:1fr}
     .facts dt{padding-bottom:0; border-bottom:0}
     .facts dd{padding-top:4px}
+    .timeline li{grid-template-columns:1fr; gap:4px}
+    .panel,.diss{padding:24px}
+    .pub{grid-template-columns:1fr; gap:10px}
     section.block{padding-block:88px 0}
   }
 </style>
+
+<div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
 
 <nav class="nav glass" aria-label="Разделы">
   <a class="brand" href="#top" aria-label="Наверх">
@@ -246,12 +282,12 @@
       <g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><path d="M31 29V62"/><path d="M48 29V62"/><path d="M65 29V62"/><path d="M25 64H71"/></g>
       <circle cx="76" cy="71" r="5" fill="currentColor"/>
     </svg>
-    dr__shapovalov
+    <span id="nav-handle">dr__shapovalov</span>
   </a>
   <div class="links">
-    <a href="#cases">Кейсы</a><a href="#steps">Операция</a><a href="#about">Обо мне</a><a href="#contacts">Контакты</a>
+    <a href="#about">Обо мне</a><a href="#directions">Направления</a><a href="#cases">Кейсы</a><a href="#science">Наука</a><a href="#contacts">Контакты</a>
   </div>
-  <a class="pill" href="https://t.me/SHAPOVALOV_DR" target="_blank" rel="noopener">Telegram</a>
+  <a class="pill" id="nav-tg" href="https://t.me/SHAPOVALOV_DR" target="_blank" rel="noopener">Telegram</a>
 </nav>
 
 <main class="wrap">
@@ -259,175 +295,97 @@
     <div id="waves" aria-hidden="true"></div>
     <div class="hero-in">
       <div>
-        <h1>Павел<b>Шаповалов</b></h1>
-        <p class="lede">Челюстно-лицевой хирург, кандидат медицинских наук. Детское отделение ФГБУ НМИЦ «ЦНИИСиЧЛХ», Москва. Показываю кейсы с цифрами: от 3D-планирования до результата.</p>
+        <h1 id="h-name">Павел<b>Шаповалов</b></h1>
+        <p class="lede" id="h-lede"></p>
         <div class="actions">
           <a class="pill big" href="#cases">Смотреть кейсы →</a>
-          <a class="ghost" href="https://www.instagram.com/dr__shapovalov/" target="_blank" rel="noopener">Instagram</a>
+          <a class="ghost" id="h-ig" href="https://www.instagram.com/dr__shapovalov/" target="_blank" rel="noopener">Instagram</a>
         </div>
       </div>
       <aside class="card-id glass">
-        <div class="portrait"><img src="img/portrait.jpg" alt="Павел Шаповалов" width="560" height="560"></div>
+        <div class="portrait"><img id="h-portrait" src="img/portrait.jpg" alt="Павел Шаповалов" width="560" height="560"></div>
         <div>
           <img class="signature" src="img/signature-gold.png" alt="Dr. Shapovalov" width="640" height="225">
-          <p class="id-meta"><b>к.м.н.</b> · челюстно-лицевая хирургия<br>ЦНИИСиЧЛХ · детское отделение</p>
+          <p class="id-meta" id="h-card"></p>
         </div>
       </aside>
     </div>
   </header>
 
-  <div class="readings">
-    <div class="reading glass reveal"><div class="val"><span class="count" data-to="7.93" data-dec="2">7,93</span> <span class="arr">→</span> <span class="count" data-to="2" data-dec="0">2</span><small>ММ</small></div><p class="lbl">сагиттальная щель, кейс 2</p></div>
-    <div class="reading glass reveal"><div class="val"><span class="count" data-to="21" data-dec="0">21</span><small>ММ</small></div><p class="lbl">регенерат с каждой стороны, кейс 1</p></div>
-    <div class="reading glass reveal"><div class="val"><span class="count" data-to="10" data-dec="0">10</span><small>ЭТАПОВ</small></div><p class="lbl">установки дистракционного аппарата</p></div>
-  </div>
+  <div class="readings" id="readings"></div>
 
   <div class="marquee" aria-hidden="true">
-    <div class="marquee-track">
-      <span>Дистракционный остеогенез <i></i> Краниофациальная микросомия <i></i> 3D-планирование <i></i> Работа с ортодонтом <i></i></span>
-      <span>Дистракционный остеогенез <i></i> Краниофациальная микросомия <i></i> 3D-планирование <i></i> Работа с ортодонтом <i></i></span>
-    </div>
+    <div class="marquee-track" id="marquee"></div>
   </div>
+
+  <section class="block" id="about">
+    <div class="head reveal">
+      <div><p class="label">01 · Обо мне</p><h2 id="about-h"></h2></div>
+      <p>Образование, курсы и то, где я работаю сейчас.</p>
+    </div>
+    <div class="about-grid">
+      <div class="panel glass reveal"><p class="intro-text" id="about-text"></p><dl class="facts" id="about-facts"></dl></div>
+      <div class="panel glass reveal"><h3>Образование</h3><ol class="timeline" id="edu"></ol></div>
+      <div class="panel glass courses reveal" id="courses-panel"><h3>Курсы и повышение квалификации</h3><div class="course-grid" id="courses"></div></div>
+    </div>
+  </section>
 
   <section class="block" id="directions">
     <div class="head reveal">
-      <div><p class="kicker">Направления</p><h2>Что я <em>показываю</em> в кейсах</h2></div>
+      <div><p class="label">02 · Направления</p><h2>Чем я <em>занимаюсь</em></h2></div>
       <p>Термины подчёркнуты пунктиром. Нажмите на любой, чтобы прочитать короткое объяснение.</p>
     </div>
-    <div class="dirs">
-      <a class="dir glass reveal" href="#case-2"><span class="idx">DIST</span><h3>Дистракционный остеогенез</h3><p>Челюсть удлиняется постепенно, за счёт собственной кости пациента.</p><span class="go">Кейс: без ортогнатической операции →</span></a>
-      <a class="dir glass reveal" href="#case-1"><span class="idx">CFM</span><h3>Краниофациальная микросомия</h3><p>Врождённое недоразвитие нижней челюсти, в том числе с двух сторон.</p><span class="go">Кейс: регенерат 21 мм →</span></a>
-      <a class="dir glass reveal" href="#steps"><span class="idx">3D</span><h3>3D-планирование и техника</h3><p>Тип аппаратов и величина дистракции выбираются до операции, по компьютерной модели.</p><span class="go">10 этапов операции →</span></a>
-    </div>
+    <div class="dirs" id="dirs"></div>
   </section>
 
   <section class="block" id="cases">
     <div class="head reveal">
-      <div><p class="kicker">Кейсы</p><h2>Результат <em>в миллиметрах</em></h2></div>
+      <div><p class="label">03 · Клинические случаи</p><h2>Результат <em>в миллиметрах</em></h2></div>
       <p>Полосы на графиках отложены в масштабе. Фото «до и после» публикуются только в соцсетях и только с согласия пациентов и их законных представителей.</p>
     </div>
-    <div class="cases">
-      <article class="case glass reveal" id="case-1">
-        <div class="case-text">
-          <div class="tags"><span class="tag g">Микросомия</span><span class="tag">12 лет</span><span class="tag">до и через 6 месяцев</span></div>
-          <h3>Двусторонняя микросомия: удлинение нижней челюсти</h3>
-          <ul>
-            <li>Двустороннее поражение: недоразвитие нижней челюсти с обеих сторон, деформация правой ушной раковины</li>
-            <li>Жалобы: нарушение прикуса и приёма пищи, ночной храп, эстетический недостаток</li>
-            <li>По <button class="term" type="button" data-term="plan">3D-планированию</button> подобраны криволинейные <button class="term" type="button" data-term="kda">КДА</button> «Conmet», радиус кривизны 50°</li>
-            <li>План: 15 мм. С учётом возраста и скачка роста выполнена <button class="term" type="button" data-term="hyper">гиперкоррекция</button>: <strong><button class="term" type="button" data-term="regen">регенерат</button> 21 мм с каждой стороны</strong></li>
-          </ul>
-        </div>
-        <div class="viz">
-          <div class="big">21<small>ММ</small></div>
-          <p class="cap">регенерат с каждой стороны</p>
-          <div class="bars" role="img" aria-label="Сагиттальная щель 14 мм, план дистракции 15 мм, регенерат 21 мм">
-            <div class="bar"><span class="n">Щель исходно</span><span class="rail"><span class="fill dim" style="--w:58.33%"></span></span><span class="v">14 мм</span></div>
-            <div class="bar"><span class="n">План</span><span class="rail"><span class="fill dim" style="--w:62.5%"></span></span><span class="v">15 мм</span></div>
-            <div class="bar"><span class="n">Регенерат</span><span class="rail"><span class="fill" style="--w:87.5%"></span></span><span class="v">21 мм</span></div>
-            <div class="scale"><span></span><span class="t"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></span><span></span></div>
-          </div>
-        </div>
-      </article>
-      <article class="case glass reveal" id="case-2">
-        <div class="case-text">
-          <div class="tags"><span class="tag g">Дистракция</span><span class="tag">17 лет</span><span class="tag">аппараты сняты через 5 месяцев</span></div>
-          <h3>Дистракция вместо ортогнатической операции</h3>
-          <ul>
-            <li>Пациентка была кандидатом на <button class="term" type="button" data-term="ortho">ортогнатическую операцию</button></li>
-            <li>Вместе с ортодонтом выбрали <button class="term" type="button" data-term="dist">дистракционный остеогенез</button> нижней челюсти с двух сторон, КДА с радиусом кривизны 70°</li>
-            <li>План: справа 11 мм, слева 7 мм. Под контролем ортодонта дистракция остановлена досрочно, <strong>регенерат 7 мм с обеих сторон</strong></li>
-            <li>После завершающего ортодонтического лечения ортогнатическая операция <strong>не потребовалась</strong></li>
-          </ul>
-        </div>
-        <div class="viz">
-          <div class="big">7,93 <span class="arr">→</span> 2<small>ММ</small></div>
-          <p class="cap"><button class="term" type="button" data-term="overjet">сагиттальная щель</button> до и после лечения</p>
-          <div class="bars" role="img" aria-label="Сагиттальная щель: до 7,93 мм, после 2 мм">
-            <div class="bar"><span class="n">До</span><span class="rail"><span class="fill dim" style="--w:99.13%"></span></span><span class="v">7,93 мм</span></div>
-            <div class="bar"><span class="n">После</span><span class="rail"><span class="fill" style="--w:25%"></span></span><span class="v">2 мм</span></div>
-            <div class="scale"><span></span><span class="t"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span></span><span></span></div>
-          </div>
-        </div>
-      </article>
-    </div>
+    <div class="cases" id="case-list"></div>
   </section>
 
   <section class="block" id="steps">
     <div class="steps-wrap">
       <div class="steps-intro reveal">
-        <p class="kicker">Как проходит операция</p>
-        <h2>Установка <em>дистракционного аппарата</em></h2>
-        <p>Этапы горизонтальной <button class="term" type="button" data-term="osteo">остеотомии</button> нижней челюсти с установкой криволинейного КДА Conmet R50. Интраоперационные фото — в Telegram-канале.</p>
+        <p class="label">Как проходит операция</p>
+        <h2 id="steps-h"></h2>
+        <p id="steps-intro"></p>
       </div>
-      <ol class="steps">
-        <span class="prog" aria-hidden="true"></span>
-        <li class="step"><span class="n">01</span><p>Разметка линии разреза <span>раствором бриллиантового зелёного</span></p></li>
-        <li class="step"><span class="n">02</span><p>Скелетирование <span>тела, угла и ветви нижней челюсти</span></p></li>
-        <li class="step"><span class="n">03</span><p>Припасовка <span>хирургического шаблона для остеотомии</span></p></li>
-        <li class="step"><span class="n">04</span><p>Частичная остеотомия</p></li>
-        <li class="step"><span class="n">05</span><p>Припасовка <span>КДА</span></p></li>
-        <li class="step"><span class="n">06</span><p>Разметка <span>места выхода привода на коже</span></p></li>
-        <li class="step"><span class="n">07</span><p>Троакар <span>и выведение привода аппарата</span></p></li>
-        <li class="step"><span class="n">08</span><p>Фиксация аппарата: <span>винты через троакар из отдельного прокола</span></p></li>
-        <li class="step"><span class="n">09</span><p>Окончательная остеотомия</p></li>
-        <li class="step"><span class="n">10</span><p>Контроль: <span>аппарат раскручивается до расхождения фрагментов</span></p></li>
-      </ol>
+      <ol class="steps glass" id="step-list"></ol>
     </div>
   </section>
 
-  <section class="block" id="about">
-    <div class="about">
-      <div class="txt reveal">
-        <p class="kicker">Обо мне</p>
-        <h2>Хирург <em>детского отделения</em></h2>
-        <p>Работаю в детском отделении Центрального НИИ стоматологии и челюстно-лицевой хирургии. В блоге показываю реальные кейсы: планирование, этапы операций и результаты, с цифрами и терминами, понятными и пациентам, и коллегам.</p>
-      </div>
-      <dl class="facts reveal">
-        <dt>СТЕПЕНЬ</dt><dd>Кандидат медицинских наук</dd>
-        <dt>СПЕЦИАЛЬНОСТЬ</dt><dd>Челюстно-лицевая хирургия</dd>
-        <dt>МЕСТО РАБОТЫ</dt><dd>Детское отделение, ФГБУ НМИЦ «ЦНИИСиЧЛХ», Москва</dd>
-        <dt>ОБРАЗОВАНИЕ</dt><dd><span class="todo">Добавить: вуз, год выпуска, ординатура</span></dd>
-        <dt>ДИССЕРТАЦИЯ</dt><dd><span class="todo">Добавить: тема и год защиты</span></dd>
-        <dt>СТАЖ</dt><dd><span class="todo">Добавить: с какого года в специальности</span></dd>
-      </dl>
+  <section class="block" id="science">
+    <div class="head reveal">
+      <div><p class="label">04 · Наука</p><h2>Диссертация <em>и статьи</em></h2></div>
+      <p id="sci-intro"></p>
+    </div>
+    <div class="sci">
+      <article class="diss glass reveal" id="diss"></article>
+      <div class="pubs" id="pubs"></div>
     </div>
   </section>
 
   <section class="block" id="work">
     <div class="work glass reveal">
-      <div>
-        <p class="kicker">Где работаю</p>
-        <h2>ФГБУ НМИЦ <em>«ЦНИИСиЧЛХ»</em></h2>
-        <p>Центральный научно-исследовательский институт стоматологии и челюстно-лицевой хирургии, детское отделение. Москва, Россия.</p>
-      </div>
-      <div class="side">
-        <a class="ghost" href="https://cniis.ru/specialists/otdelenie-khirurgicheskogo-lecheniya-anomaliy-cherepno-chelyustno-litsevoy-oblasti/shapovalov-pavel-igorevich/" target="_blank" rel="noopener">Страница на сайте института →</a>
-        <a class="ghost" href="https://prodoctorov.ru/moskva/vrach/928950-shapovalov/" target="_blank" rel="noopener">Отзывы на ПроДокторов →</a>
-        <span class="todo">Добавить адрес приёма и как записаться</span>
-      </div>
+      <div><p class="label">05 · Где работаю</p><h2 id="work-h"></h2><p id="work-text"></p></div>
+      <div class="side" id="work-side"></div>
     </div>
   </section>
 
   <section class="block" id="contacts">
     <div class="head reveal">
-      <div><p class="kicker">Контакты</p><h2>Где <em>меня найти</em></h2></div>
+      <div><p class="label">06 · Контакты</p><h2>Где <em>меня найти</em></h2></div>
       <p>Новые кейсы выходят в Telegram-канале и в Instagram.</p>
     </div>
-    <div class="contacts">
-      <a class="contact glass reveal" href="https://t.me/SHAPOVALOV_DR" target="_blank" rel="noopener"><small>Telegram ↗</small><span>SHAPOVALOV_DR</span></a>
-      <a class="contact glass reveal" href="https://www.instagram.com/dr__shapovalov/" target="_blank" rel="noopener"><small>Instagram ↗</small><span>@dr__shapovalov</span></a>
-      <div class="contact glass reveal"><small>X · GETTR · Parler</small><span class="todo">Добавить ссылки</span></div>
-      <div class="contact glass reveal"><small>Почта</small><span class="todo">Добавить, если нужна</span></div>
-    </div>
+    <div class="contacts" id="contact-list"></div>
   </section>
 
   <footer>
     <div class="wordmark" aria-label="Shapovalov">S. H. A. P. O. V. A. L. O. V.</div>
-    <div class="foot">
-      <p>© 2026 Павел Шаповалов. Информация на сайте носит ознакомительный характер и не заменяет очную консультацию врача.</p>
-      <a href="#top">Наверх ↑</a>
-    </div>
+    <div class="foot"><p id="foot-note"></p><span><a href="admin.html" rel="nofollow">Редактировать</a> · <a href="#top">Наверх ↑</a></span></div>
   </footer>
 </main>
 
@@ -441,98 +399,188 @@
 <script>
 (() => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = (id) => document.getElementById(id);
+  let PREVIEW = /preview/.test(location.hash);   // в админке пустые поля видны как «Добавить»
+  let TERMS = {};
 
-  /* Волна Vanta в первом экране; останавливается, когда экран ушёл из вида */
-  const hero = document.querySelector('.hero');
+  /* ---------- текст из content.json ---------- */
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // **жирный** и [[ключ|термин]]: термины из словаря открываются по нажатию
+  const rich = (s) => esc(s)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[\[([a-z0-9_-]+)\|(.+?)\]\]/gi, (m, k, t) => TERMS[k] ? `<button class="term" type="button" data-term="${k}">${t}</button>` : t);
+  const todo = (what) => PREVIEW ? `<span class="todo">Добавить: ${esc(what)}</span>` : '';
+  const val = (v, what) => (v && String(v).trim()) ? rich(v) : todo(what);
+  const safeUrl = (u) => /^(https?:|#|mailto:|tel:|img\/)/i.test(String(u || '').trim()) ? String(u).trim() : '';
+  const ext = (u) => /^https?:/i.test(u) ? ' target="_blank" rel="noopener"' : '';
+  const num = (s) => parseFloat(String(s).replace(',', '.'));
+
+  function render(c) {
+    TERMS = Object.fromEntries((c.terms || []).map((t) => [t.key, t]));
+    const h = c.hero || {};
+    $('h-name').innerHTML = `${esc(h.firstName)}<b>${esc(h.lastName)}</b>`;
+    $('h-lede').innerHTML = rich(h.lede);
+    $('h-card').innerHTML = [h.cardLine1, h.cardLine2].filter(Boolean).map(esc).join('<br>');
+    if (safeUrl(h.portrait)) $('h-portrait').src = safeUrl(h.portrait);
+    const m = c.meta || {};
+    $('nav-handle').textContent = m.handle || '';
+    if (safeUrl(m.telegram)) $('nav-tg').href = safeUrl(m.telegram);
+    if (safeUrl(m.instagram)) $('h-ig').href = safeUrl(m.instagram);
+
+    $('readings').innerHTML = (c.readings || []).map((r) => `
+      <div class="reading glass reveal"><div class="val">${r.from ? `<span class="count" data-to="${esc(r.from)}">${esc(r.from)}</span> <span class="arr">→</span> ` : ''}<span class="count" data-to="${esc(r.to)}">${esc(r.to)}</span><small>${esc(r.unit)}</small></div><p class="lbl">${rich(r.label)}</p></div>`).join('');
+
+    const dirs = c.directions || [];
+    const mq = `<span>${dirs.map((d) => esc(d.title)).join(' <i></i> ')} <i></i> Работа с ортодонтом <i></i></span>`;
+    $('marquee').innerHTML = mq + mq;
+
+    const a = c.about || {};
+    $('about-h').innerHTML = esc(a.heading).replace(/(детского отделения)/, '<em>$1</em>');
+    $('about-text').innerHTML = rich(a.text);
+    $('about-facts').innerHTML = (a.facts || []).filter((f) => f.value || PREVIEW).map((f) => `<dt>${esc(f.label)}</dt><dd>${val(f.value, String(f.label).toLowerCase())}</dd>`).join('');
+    $('edu').innerHTML = (a.education || []).filter((e) => e.place || e.degree || PREVIEW).map((e) => `
+      <li><span class="y">${val(e.years, 'годы')}</span><div><b>${val(e.degree, 'ступень')}</b><span>${val(e.place, 'вуз')}</span></div></li>`).join('') || todo('образование');
+    const courses = (a.courses || []).filter((k) => k.title || PREVIEW);
+    $('courses').innerHTML = courses.map((k) => `<div class="course"><span class="y">${val(k.year, 'год')}</span><b>${val(k.title, 'название курса')}</b><span>${val(k.org, 'где проходил')}</span></div>`).join('');
+    $('courses-panel').hidden = !courses.length;
+
+    $('dirs').innerHTML = dirs.map((d) => `
+      <a class="dir glass reveal" href="${esc(safeUrl(d.link) || '#cases')}"><span class="idx">${esc(d.code)}</span><h3>${esc(d.title)}</h3><p>${rich(d.text)}</p>${d.linkLabel ? `<span class="go">${esc(d.linkLabel)} →</span>` : ''}</a>`).join('');
+
+    $('case-list').innerHTML = (c.cases || []).map((k) => {
+      const max = +k.scaleMax || Math.max(...(k.bars || []).map((b) => +b.value || 0), 1);
+      const ticks = [0, .25, .5, .75, 1].map((f) => `<span>${+(max * f).toFixed(1)}</span>`).join('');
+      const metric = esc(k.metric).replace(/→/g, '<span class="arr">→</span>');
+      return `<article class="case glass reveal" id="${esc(k.id)}">
+        <div class="case-text"><div class="tags">${(k.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+          <h3>${esc(k.title)}</h3><ul>${(k.points || []).map((p) => `<li>${rich(p)}</li>`).join('')}</ul></div>
+        <div class="viz"><div class="big">${metric}<small>${esc(k.metricUnit)}</small></div><p class="cap">${rich(k.metricCaption)}</p>
+          <div class="bars" role="img" aria-label="${esc((k.bars || []).map((b) => `${b.name} ${b.value} ${b.unit}`).join(', '))}">
+            ${(k.bars || []).map((b) => `<div class="bar"><span class="n">${esc(b.name)}</span><span class="rail"><span class="fill${b.accent ? ' on' : ''}" style="--w:${Math.min(100, (+b.value / max) * 100).toFixed(2)}%"></span></span><span class="v">${esc(String(b.value).replace('.', ','))} ${esc(b.unit)}</span></div>`).join('')}
+            <div class="scale"><span></span><span class="t">${ticks}</span><span></span></div></div></div></article>`;
+    }).join('');
+
+    const s = c.steps || {};
+    $('steps-h').innerHTML = esc(s.heading).replace(/(дистракционного аппарата)/, '<em>$1</em>');
+    $('steps-intro').innerHTML = rich(s.intro);
+    $('step-list').innerHTML = '<span class="rail-y" aria-hidden="true"></span><span class="prog" aria-hidden="true"></span>' +
+      (s.items || []).map((it, i) => `<li class="step"><span class="n">${String(i + 1).padStart(2, '0')}</span><p>${esc(it.title)} <span>${esc(it.detail)}</span></p></li>`).join('');
+
+    const sc = c.science || {}, d = sc.dissertation || {};
+    $('sci-intro').innerHTML = rich(sc.intro);
+    $('diss').innerHTML = `<span class="deg">${esc(d.degree || 'Кандидатская диссертация')}</span>
+      <h3>${d.title ? esc(d.title) : (todo('название диссертации') || 'Кандидатская диссертация')}</h3>
+      <dl>${[['Специальность', d.specialty, 'шифр и название'], ['Год', d.year, 'год защиты'], ['Где', d.place, 'диссертационный совет']]
+        .filter(([, v]) => v || PREVIEW).map(([k, v, w]) => `<dt>${k}</dt><dd>${val(v, w)}</dd>`).join('')}</dl>
+      ${safeUrl(d.link) ? `<a class="pill" href="${esc(safeUrl(d.link))}"${ext(d.link)}>Открыть диссертацию →</a>` : todo('ссылку на диссертацию')}`;
+    $('pubs').innerHTML = (sc.publications || []).filter((p) => p.title).map((p, i) => {
+      const u = safeUrl(p.link) || (p.doi ? `https://doi.org/${p.doi}` : '');
+      const tag = u ? 'a' : 'div';
+      return `<${tag} class="pub glass reveal"${u ? ` href="${esc(u)}"${ext(u)}` : ''}><span class="num">${String(i + 1).padStart(2, '0')}</span>
+        <div><b>${esc(p.title)}</b><span class="au">${esc(p.authors)}</span>
+        <span class="src"><span>${esc(p.journal)}</span>${p.doi ? `<span>DOI ${esc(p.doi)}</span>` : ''}${u ? '<span class="lnk">Читать ↗</span>' : ''}</span></div></${tag}>`;
+    }).join('') || todo('статьи');
+
+    const w = c.work || {};
+    $('work-h').innerHTML = esc(w.name).replace(/(«.+»)/, '<em>$1</em>');
+    $('work-text').innerHTML = rich(w.text);
+    $('work-side').innerHTML = (w.links || []).filter((l) => safeUrl(l.url)).map((l) => `<a class="ghost" href="${esc(safeUrl(l.url))}"${ext(l.url)}>${esc(l.label)} →</a>`).join('') +
+      (w.address ? `<span class="ghost" style="cursor:default">${esc(w.address)}</span>` : todo('адрес приёма и как записаться'));
+
+    $('contact-list').innerHTML = (c.contacts || []).filter((k) => k.value || PREVIEW).map((k) => {
+      const u = safeUrl(k.url);
+      return u && k.value ? `<a class="contact glass reveal" href="${esc(u)}"${ext(u)}><small>${esc(k.label)} ↗</small><span>${esc(k.value)}</span></a>`
+        : `<div class="contact glass reveal"><small>${esc(k.label)}</small><span>${val(k.value, k.label)}</span></div>`;
+    }).join('');
+    $('foot-note').textContent = `© ${new Date().getFullYear()} ${h.firstName || ''} ${h.lastName || ''}. ${(c.footer || {}).note || ''}`;
+    bindTerms();
+    bindGlass();
+  }
+
+  /* ---------- волна Vanta, останавливается за пределами экрана ---------- */
   let fx = null;
   const startWaves = () => {
     if (fx || reduce || !window.VANTA || !window.THREE) return;
     try {
-      fx = VANTA.WAVES({
-        el: '#waves', color: 0x0f3a30, shininess: 42, waveHeight: 16, waveSpeed: 0.55, zoom: 0.82,
-        mouseControls: true, touchControls: true, gyroControls: false,
-        minHeight: 200, minWidth: 200, scale: 1, scaleMobile: 1
-      });
+      fx = VANTA.WAVES({ el: '#waves', color: 0x0f3a30, shininess: 42, waveHeight: 16, waveSpeed: 0.55, zoom: 0.82,
+        mouseControls: true, touchControls: true, gyroControls: false, minHeight: 200, minWidth: 200, scale: 1, scaleMobile: 1 });
     } catch (e) { fx = null; }
   };
   const stopWaves = () => { if (fx) { fx.destroy(); fx = null; } };
-  if ('IntersectionObserver' in window) {
-    new IntersectionObserver(([e]) => e.isIntersecting ? startWaves() : stopWaves(), { threshold: 0.02 }).observe(hero);
-  } else startWaves();
+  if ('IntersectionObserver' in window) new IntersectionObserver(([e]) => e.isIntersecting ? startWaves() : stopWaves(), { threshold: 0.02 }).observe(document.querySelector('.hero'));
+  else startWaves();
 
-  /* Плавная прокрутка Lenis, кадры от GSAP */
-  let lenis = null;
+  /* ---------- блик жидкого стекла за указателем ---------- */
+  function bindGlass() {
+    if (reduce || !matchMedia('(hover:hover)').matches) return;
+    document.querySelectorAll('.glass').forEach((el) => {
+      if (el.dataset.glass) return; el.dataset.glass = 1;
+      el.addEventListener('pointermove', (e) => {
+        const r = el.getBoundingClientRect();
+        el.style.setProperty('--mx', `${e.clientX - r.left}px`); el.style.setProperty('--my', `${e.clientY - r.top}px`);
+      });
+    });
+  }
+
+  /* ---------- плавная прокрутка и анимации ---------- */
   const hasGsap = window.gsap && window.ScrollTrigger;
   if (!reduce && window.Lenis) {
-    lenis = new Lenis({ anchors: { offset: -80 }, allowNestedScroll: true, autoRaf: !hasGsap });
-    if (hasGsap) {
-      lenis.on('scroll', ScrollTrigger.update);
-      gsap.ticker.add((t) => lenis.raf(t * 1000));
-      gsap.ticker.lagSmoothing(0);
-    }
+    const lenis = new Lenis({ anchors: { offset: -80 }, allowNestedScroll: true, autoRaf: !hasGsap });
+    if (hasGsap) { lenis.on('scroll', ScrollTrigger.update); gsap.ticker.add((t) => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0); }
   }
-
-  /* Анимации при прокрутке. В покое всё видно: прячем только то, что ещё ниже экрана */
-  if (hasGsap && !reduce) {
+  function animate() {
+    if (!hasGsap || reduce) return;
     gsap.registerPlugin(ScrollTrigger);
     const below = (el) => el.getBoundingClientRect().top > innerHeight * 0.95;
-    gsap.utils.toArray('.reveal').forEach((el) => {
+    gsap.utils.toArray('.reveal').forEach((el, i) => {
       if (!below(el)) return;
-      gsap.set(el, { autoAlpha: 0, y: 36 });
+      gsap.set(el, { autoAlpha: 0, y: 40, scale: 0.985 });
       ScrollTrigger.create({ trigger: el, start: 'top 90%', once: true,
-        onEnter: () => gsap.to(el, { autoAlpha: 1, y: 0, duration: 1, ease: 'power3.out' }) });
+        onEnter: () => gsap.to(el, { autoAlpha: 1, y: 0, scale: 1, duration: 1.05, ease: 'power3.out', delay: (i % 3) * 0.07 }) });
     });
-    gsap.utils.toArray('.fill').forEach((el) => {
-      ScrollTrigger.create({ trigger: el, start: 'top 92%', once: true,
-        onEnter: () => gsap.fromTo(el, { scaleX: 0 }, { scaleX: 1, duration: 1.4, ease: 'expo.out' }) });
-    });
+    gsap.utils.toArray('.fill').forEach((el) => ScrollTrigger.create({ trigger: el, start: 'top 92%', once: true,
+      onEnter: () => gsap.fromTo(el, { scaleX: 0 }, { scaleX: 1, duration: 1.4, ease: 'expo.out' }) }));
     gsap.utils.toArray('.count').forEach((el) => {
-      const to = parseFloat(el.dataset.to), dec = +el.dataset.dec, obj = { v: 0 };
-      const fmt = (v) => v.toFixed(dec).replace('.', ',');
+      const raw = el.dataset.to, to = num(raw); if (isNaN(to)) return;
+      const dec = (raw.split(/[.,]/)[1] || '').length, o = { v: 0 };
       ScrollTrigger.create({ trigger: el, start: 'top 95%', once: true,
-        onEnter: () => gsap.to(obj, { v: to, duration: 1.6, ease: 'power2.out', onUpdate: () => { el.textContent = fmt(obj.v); } }) });
+        onEnter: () => gsap.to(o, { v: to, duration: 1.6, ease: 'power2.out', onUpdate: () => { el.textContent = o.v.toFixed(dec).replace('.', ','); } }) });
     });
-    gsap.fromTo('.steps .prog', { scaleY: 0 }, { scaleY: 1, ease: 'none',
-      scrollTrigger: { trigger: '.steps', start: 'top 70%', end: 'bottom 60%', scrub: true } });
-    gsap.to('.hero-in', { yPercent: -12, autoAlpha: 0.2, ease: 'none',
-      scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
+    gsap.fromTo('.steps .prog', { scaleY: 0 }, { scaleY: 1, ease: 'none', scrollTrigger: { trigger: '.steps', start: 'top 70%', end: 'bottom 60%', scrub: true } });
+    gsap.to('.hero-in', { yPercent: -12, autoAlpha: 0.2, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
   }
 
-  /* Пояснения к терминам */
-  const TERMS = {
-    dist:   ['Дистракционный остеогенез', 'Кость рассекают, а затем аппаратом постепенно разводят фрагменты. В промежутке между ними формируется новая ткань — регенерат.'],
-    regen:  ['Регенерат', 'Новая ткань, которая формируется в промежутке между разведёнными фрагментами кости во время дистракции.'],
-    kda:    ['КДА', 'Компрессионно-дистракционный аппарат: устройство, которым фрагменты кости постепенно разводят. Криволинейные КДА различаются радиусом кривизны.'],
-    hyper:  ['Гиперкоррекция', 'Удлинение больше, чем по плану, с запасом на дальнейший рост лицевого скелета у ребёнка.'],
-    ortho:  ['Ортогнатическая операция', 'Одномоментное перемещение челюстей в правильное положение.'],
-    overjet:['Сагиттальная щель', 'Оверджет: расстояние по горизонтали между режущими краями верхних и нижних резцов.'],
-    osteo:  ['Остеотомия', 'Рассечение кости. Частичная — до установки аппарата, окончательная — после его фиксации.'],
-    plan:   ['3D-планирование', 'Операцию моделируют на компьютере по данным КТ: выбирают тип аппаратов и рассчитывают величину дистракции.']
-  };
-  const tip = document.getElementById('tip');
-  let cur = null;
+  /* ---------- пояснения к терминам ---------- */
+  const tip = $('tip'); let cur = null;
   const show = (btn) => {
     const t = TERMS[btn.dataset.term]; if (!t) return;
     if (cur && cur !== btn) cur.setAttribute('aria-expanded', 'false');
     cur = btn; tip.innerHTML = '';
-    const b = document.createElement('b'); b.textContent = t[0];
-    tip.append(b, document.createTextNode(t[1]));
+    const b = document.createElement('b'); b.textContent = t.title; tip.append(b, document.createTextNode(t.text));
     btn.setAttribute('aria-expanded', 'true');
-    const r = btn.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
-    let top = r.bottom + 10; if (top + h > innerHeight - 12) top = Math.max(12, r.top - h - 10);
-    tip.style.left = Math.min(Math.max(16, r.left + r.width / 2 - w / 2), innerWidth - w - 16) + 'px';
-    tip.style.top = top + 'px'; tip.classList.add('on');
+    const r = btn.getBoundingClientRect(), w = tip.offsetWidth, hh = tip.offsetHeight;
+    let top = r.bottom + 10; if (top + hh > innerHeight - 12) top = Math.max(12, r.top - hh - 10);
+    tip.style.left = Math.min(Math.max(16, r.left + r.width / 2 - w / 2), innerWidth - w - 16) + 'px'; tip.style.top = top + 'px'; tip.classList.add('on');
   };
   const hide = () => { tip.classList.remove('on'); if (cur) { cur.setAttribute('aria-expanded', 'false'); cur = null; } };
-  document.querySelectorAll('.term').forEach((btn) => {
-    btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-describedby', 'tip');
-    btn.addEventListener('click', (e) => { e.stopPropagation(); cur === btn ? hide() : show(btn); });
-    btn.addEventListener('mouseenter', () => { if (matchMedia('(hover:hover)').matches) show(btn); });
-    btn.addEventListener('mouseleave', () => { if (matchMedia('(hover:hover)').matches) hide(); });
-    btn.addEventListener('focus', () => show(btn)); btn.addEventListener('blur', hide);
-  });
+  function bindTerms() {
+    document.querySelectorAll('.term').forEach((btn) => {
+      btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-describedby', 'tip');
+      btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); cur === btn ? hide() : show(btn); });
+      btn.addEventListener('mouseenter', () => { if (matchMedia('(hover:hover)').matches) show(btn); });
+      btn.addEventListener('mouseleave', () => { if (matchMedia('(hover:hover)').matches) hide(); });
+      btn.addEventListener('focus', () => show(btn)); btn.addEventListener('blur', hide);
+    });
+  }
   document.addEventListener('click', hide);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
   addEventListener('scroll', hide, { passive: true });
+
+  /* ---------- загрузка: content.json; из админки приходит живой предпросмотр ---------- */
+  addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'shapovalov:content') { PREVIEW = true; render(e.data.content); if (hasGsap) ScrollTrigger.refresh(); }
+  });
+  fetch('content.json', { cache: 'no-store' }).then((r) => r.json()).then((c) => { render(c); animate(); if (parent !== window) parent.postMessage({ type: 'shapovalov:ready' }, '*'); })
+    .catch(() => { document.body.insertAdjacentHTML('afterbegin', '<p style="position:fixed;z-index:99;bottom:16px;left:16px;right:16px;padding:12px 16px;border-radius:12px;background:#2a2416;color:#e6c987;font-size:14px">Не удалось загрузить content.json. Откройте сайт через веб-сервер, а не как файл.</p>'); });
 })();
 </script>
