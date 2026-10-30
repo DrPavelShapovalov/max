@@ -1,8 +1,8 @@
-"""Обложки рилсов @dr__shapovalov: 1080x1920, чёрный + золото + цвет-акцент.
+"""Обложки рилсов @dr__shapovalov: 1080x1920, чёрный + золото + изумруд, или светлая.
 
 Запуск:  python3 render.py covers.json
 Каждая обложка в covers.json:
-  {"out": "...png", "photo": "вырезанное фото .png", "palette": "bordeaux|emerald|ivory",
+  {"out": "...png", "photo": "вырезанное фото .png", "palette": "emerald|ivory",
    "title": [["7,93 → 2 ММ", "gold"], ["БЕЗ ОРТОГНАТИИ", "band"]],
    "note": "кейс с цифрами", "caption": "челюстно-лицевой хирург"}
 Стили строк заголовка: plain (светлый), gold (золото), band (на плашке цвета-акцента).
@@ -22,7 +22,6 @@ GOLD = {'gold': ((236, 206, 130), (176, 138, 58)), 'bronze': ((196, 156, 84), (1
 GOLD_HI, GOLD_LO = GOLD['gold']
 
 PALETTES = {
-    'bordeaux': dict(bg=(16, 12, 13), glow=(74, 22, 32), accent=(92, 26, 38), ink=(244, 236, 222), gold='gold'),
     'emerald':  dict(bg=(10, 14, 13), glow=(18, 52, 43), accent=(22, 66, 54), ink=(244, 236, 222), gold='gold'),
     'ivory':    dict(bg=(240, 235, 225), glow=(250, 247, 240), accent=(22, 22, 24), ink=(22, 22, 24), gold='bronze'),
 }
@@ -68,6 +67,12 @@ def frame(canvas):
 def person(canvas, photo, top, height):
     cut = Image.open(photo).convert('RGBA')
     cut = cut.crop(cut.getbbox())
+    # заполнить дыры внутри силуэта (телефон в руке, просвет между рукой и телом)
+    a0 = (np.array(cut.split()[3]) > 128).astype(np.uint8) * 255
+    cs, _ = cv2.findContours(a0, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    filled = np.zeros_like(a0)
+    cv2.drawContours(filled, cs, -1, 255, thickness=cv2.FILLED)
+    cut.putalpha(Image.fromarray(np.maximum(np.array(cut.split()[3]), filled)))
     s = height / cut.height
     cut = cut.resize((round(cut.width * s), height), Image.LANCZOS)
     x = (W - cut.width) // 2
@@ -179,27 +184,57 @@ def sparkle(canvas, cx, cy, r):
     paste_gold(canvas, m)
 
 
+def shadow(canvas, mask, blur, strength):
+    """Мягкая тень под знаком: читается поверх фото без подложки."""
+    sh = mask.filter(ImageFilter.GaussianBlur(blur)).point(lambda v: min(255, int(v * strength)))
+    canvas.paste((0, 0, 0), (0, 0), sh)
+
+
+def tracked(draw, xy, text, f, fill, tracking):
+    x, y = xy
+    for ch in text:
+        draw.text((x, y), ch, font=f, fill=fill)
+        x += draw.textlength(ch, font=f) + tracking
+
+
+def tracked_width(draw, text, f, tracking):
+    return sum(draw.textlength(ch, font=f) for ch in text) + tracking * (len(text) - 1)
+
+
 def signature(canvas, p, caption, y):
+    """Знак без подложки: подпись мелкими буквами между золотыми чертами,
+    под ней золотая подпись Dr. Shapovalov. Читаемость держит мягкая тень."""
     sig = Image.open(SIGN).convert('RGBA')
     sig = sig.crop(sig.getbbox())
-    sig = sig.resize((430, round(sig.height * 430 / sig.width)), Image.LANCZOS)
-    f = font('Manrope-700', 30)
-    d = ImageDraw.Draw(canvas)
-    cw = d.textlength(caption.upper(), font=f) + 60
-    pw = max(cw, sig.width) + 70
-    x0 = (W - pw) / 2
-    plate = (14, 14, 15) if p['bg'][0] < 100 else (22, 22, 24)
-    d.rounded_rectangle((x0, y, x0 + pw, y + 64 + sig.height), radius=22, fill=plate)
-    m = Image.new('L', (W, H), 0)
-    ImageDraw.Draw(m).rounded_rectangle((x0, y, x0 + pw, y + 64 + sig.height), radius=22, outline=255, width=3)
-    paste_gold(canvas, m)
-    d.text(((W - cw + 60) / 2, y + 18), caption.upper(), font=f, fill=(214, 206, 192))
-    canvas.paste(sig, ((W - sig.width) // 2, y + 58), sig)
+    sw = 560
+    sig = sig.resize((sw, round(sig.height * sw / sig.width)), Image.LANCZOS)
+    f = font('Manrope-700', 26)
+    text = caption.upper()
+    probe = ImageDraw.Draw(Image.new('L', (1, 1)))
+    tw = tracked_width(probe, text, f, 5)
+    tx = (W - tw) / 2
+    # маска всего знака: текст, черты по бокам, подпись
+    m_text = Image.new('L', (W, H), 0)
+    tracked(ImageDraw.Draw(m_text), (tx, y), text, f, 255, 5)
+    m_rules = Image.new('L', (W, H), 0)
+    dr = ImageDraw.Draw(m_rules)
+    cy = y + 17
+    dr.line((tx - 86, cy, tx - 22, cy), fill=255, width=2)
+    dr.line((tx + tw + 22, cy, tx + tw + 86, cy), fill=255, width=2)
+    sx, sy = (W - sig.width) // 2, y + 40
+    m_sig = Image.new('L', (W, H), 0)
+    m_sig.paste(sig.split()[3], (sx, sy))
+    whole = Image.fromarray(np.maximum.reduce([np.array(m_text), np.array(m_rules), np.array(m_sig)]))
+    shadow(canvas, whole, 26, 1.6)
+    shadow(canvas, whole, 5, 1.2)
+    paste_gold(canvas, m_rules)
+    canvas.paste((240, 232, 216), (0, 0), m_text)
+    canvas.paste(sig, (sx, sy), sig)
 
 
 def render(spec, base):
     global GOLD_HI, GOLD_LO
-    p = PALETTES[spec.get('palette', 'bordeaux')]
+    p = PALETTES[spec.get('palette', 'emerald')]
     GOLD_HI, GOLD_LO = GOLD[p['gold']]
     c = background(p)
     person(c, base / spec['photo'], top=760, height=1160)
@@ -208,7 +243,7 @@ def render(spec, base):
         note(c, spec['note'], y + 4)
     sparkle(c, 112, 250, 30)
     sparkle(c, W - 112, 250, 20)
-    signature(c, p, spec.get('caption', 'челюстно-лицевой хирург'), 1430)
+    signature(c, p, spec.get('caption', 'челюстно-лицевой хирург'), 1440)
     frame(c)
     out = base / spec['out']
     c.save(out)
