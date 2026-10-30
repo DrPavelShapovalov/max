@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "low-contrast",
+        "value": "*",
+        "files": [
+          "branding/dr-shapovalov/site/index.html"
+        ],
+        "createdAt": "2026-10-30T15:01:07.521Z",
+        "reason": "Agent: detector reads the translucent glass highlight (rgba 237,232,222,.07) and the WebGL hero as opaque near-white; composited backgrounds measure 4.6:1 to 16.4:1 for every text colour"
+      }
+    ]
+  }
+}
