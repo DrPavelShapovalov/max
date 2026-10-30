@@ -1,8 +1,8 @@
-"""Обложки рилсов @dr__shapovalov: 1080x1920, чёрный + золото + цвет-акцент.
+"""Обложки рилсов @dr__shapovalov: 1080x1920, чёрный + золото + изумруд, или светлая.
 
 Запуск:  python3 render.py covers.json
 Каждая обложка в covers.json:
-  {"out": "...png", "photo": "вырезанное фото .png", "palette": "bordeaux|emerald|ivory",
+  {"out": "...png", "photo": "вырезанное фото .png", "palette": "emerald|ivory",
    "title": [["7,93 → 2 ММ", "gold"], ["БЕЗ ОРТОГНАТИИ", "band"]],
    "note": "кейс с цифрами", "caption": "челюстно-лицевой хирург"}
 Стили строк заголовка: plain (светлый), gold (золото), band (на плашке цвета-акцента).
@@ -11,20 +11,20 @@
 import json, sys, pathlib
 import numpy as np
 import cv2
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 
 HERE = pathlib.Path(__file__).resolve().parent
 FONTS = HERE / '.fonts'
 SIGN = HERE.parent / 'script' / 'footer-gold.png'
+SIGN_BRONZE = HERE.parent / 'script' / 'footer-bronze.png'
 W, H = 1080, 1920
 SAFE_TOP, SAFE_BOTTOM = 240, 1680
 GOLD = {'gold': ((236, 206, 130), (176, 138, 58)), 'bronze': ((196, 156, 84), (122, 88, 34))}
 GOLD_HI, GOLD_LO = GOLD['gold']
 
 PALETTES = {
-    'bordeaux': dict(bg=(16, 12, 13), glow=(74, 22, 32), accent=(92, 26, 38), ink=(244, 236, 222), gold='gold'),
-    'emerald':  dict(bg=(10, 14, 13), glow=(18, 52, 43), accent=(22, 66, 54), ink=(244, 236, 222), gold='gold'),
-    'ivory':    dict(bg=(240, 235, 225), glow=(250, 247, 240), accent=(22, 22, 24), ink=(22, 22, 24), gold='bronze'),
+    'emerald':  dict(bg=(10, 14, 13), glow=(18, 52, 43), accent=(22, 66, 54), ink=(244, 236, 222), gold='gold', emblem='top'),
+    'ivory':    dict(bg=(240, 235, 225), glow=(250, 247, 240), accent=(22, 22, 24), ink=(22, 22, 24), gold='bronze', emblem='bottom'),
 }
 
 
@@ -68,6 +68,12 @@ def frame(canvas):
 def person(canvas, photo, top, height):
     cut = Image.open(photo).convert('RGBA')
     cut = cut.crop(cut.getbbox())
+    # заполнить дыры внутри силуэта (телефон в руке, просвет между рукой и телом)
+    a0 = (np.array(cut.split()[3]) > 128).astype(np.uint8) * 255
+    cs, _ = cv2.findContours(a0, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    filled = np.zeros_like(a0)
+    cv2.drawContours(filled, cs, -1, 255, thickness=cv2.FILLED)
+    cut.putalpha(Image.fromarray(np.maximum(np.array(cut.split()[3]), filled)))
     s = height / cut.height
     cut = cut.resize((round(cut.width * s), height), Image.LANCZOS)
     x = (W - cut.width) // 2
@@ -179,36 +185,105 @@ def sparkle(canvas, cx, cy, r):
     paste_gold(canvas, m)
 
 
-def signature(canvas, p, caption, y):
-    sig = Image.open(SIGN).convert('RGBA')
+def shadow(canvas, mask, blur, strength):
+    """Мягкая тень под знаком: читается поверх фото без подложки."""
+    sh = mask.filter(ImageFilter.GaussianBlur(blur)).point(lambda v: min(255, int(v * strength)))
+    canvas.paste((0, 0, 0), (0, 0), sh)
+
+
+def tracked(draw, xy, text, f, fill, tracking):
+    x, y = xy
+    for ch in text:
+        draw.text((x, y), ch, font=f, fill=fill)
+        x += draw.textlength(ch, font=f) + tracking
+
+
+def tracked_width(draw, text, f, tracking):
+    return sum(draw.textlength(ch, font=f) for ch in text) + tracking * (len(text) - 1)
+
+
+def liquid_glass(canvas, box, radius=34):
+    """Подложка «жидкое стекло», как в iOS: фон под ней чуть увеличен линзой
+    и размыт, сверху молочная заливка, блик по верхнему краю и светлый ободок."""
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    mask = Image.new('L', (w, h), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, fill=255)
+    # мягкая тень под стеклом
+    sh = Image.new('L', (W, H), 0)
+    sh.paste(mask, (x0, y0 + 14))
+    canvas.paste((0, 0, 0), (0, 0), sh.filter(ImageFilter.GaussianBlur(26)).point(lambda v: int(v * 0.32)))
+    # линза: берём фон чуть шире и сжимаем в окно, потом размываем
+    m = 0.06
+    src = canvas.crop((int(x0 + w * m / 2), int(y0 + h * m / 2), int(x1 - w * m / 2), int(y1 - h * m / 2)))
+    glass = src.resize((w, h), Image.LANCZOS).filter(ImageFilter.GaussianBlur(20))
+    glass = ImageEnhance.Color(glass).enhance(1.25)
+    glass = Image.blend(glass, Image.new('RGB', (w, h), (250, 248, 244)), 0.52)
+    # блик: верхняя треть светлее, нижний край чуть темнее
+    t = np.linspace(0, 1, h)[:, None]
+    hl = np.clip(1 - t / 0.42, 0, 1) ** 1.6 * 70 - np.clip((t - 0.86) / 0.14, 0, 1) * 18
+    g = np.array(glass).astype(float) + hl[..., None]
+    glass = Image.fromarray(np.clip(g, 0, 255).astype(np.uint8))
+    canvas.paste(glass, (x0, y0), mask)
+    rim = Image.new('L', (W, H), 0)
+    ImageDraw.Draw(rim).rounded_rectangle(box, radius=radius, outline=200, width=2)
+    canvas.paste((255, 255, 255), (0, 0), rim)
+    inner = Image.new('L', (W, H), 0)
+    ImageDraw.Draw(inner).rounded_rectangle((x0 + 3, y0 + 3, x1 - 3, y1 - 3), radius=radius - 3, outline=60, width=1)
+    canvas.paste((255, 255, 255), (0, 0), inner)
+
+
+def signature(canvas, p, caption, y, mode='plain', sw=560):
+    """Знак: подпись мелкими буквами между золотыми чертами, под ней Dr. Shapovalov.
+    mode: plain — прямо на тёмном фоне; glass — на подложке «жидкое стекло» (светлая тема)."""
+    on_glass = mode == 'glass'
+    sig = Image.open(SIGN_BRONZE if on_glass else SIGN).convert('RGBA')
     sig = sig.crop(sig.getbbox())
-    sig = sig.resize((430, round(sig.height * 430 / sig.width)), Image.LANCZOS)
-    f = font('Manrope-700', 30)
-    d = ImageDraw.Draw(canvas)
-    cw = d.textlength(caption.upper(), font=f) + 60
-    pw = max(cw, sig.width) + 70
-    x0 = (W - pw) / 2
-    plate = (14, 14, 15) if p['bg'][0] < 100 else (22, 22, 24)
-    d.rounded_rectangle((x0, y, x0 + pw, y + 64 + sig.height), radius=22, fill=plate)
-    m = Image.new('L', (W, H), 0)
-    ImageDraw.Draw(m).rounded_rectangle((x0, y, x0 + pw, y + 64 + sig.height), radius=22, outline=255, width=3)
-    paste_gold(canvas, m)
-    d.text(((W - cw + 60) / 2, y + 18), caption.upper(), font=f, fill=(214, 206, 192))
-    canvas.paste(sig, ((W - sig.width) // 2, y + 58), sig)
+    sig = sig.resize((sw, round(sig.height * sw / sig.width)), Image.LANCZOS)
+    f = font('Manrope-700', round(26 * sw / 560))
+    text = caption.upper()
+    probe = ImageDraw.Draw(Image.new('L', (1, 1)))
+    tw = tracked_width(probe, text, f, 5)
+    tx = (W - tw) / 2
+    gap = round(40 * sw / 560)
+    if on_glass:
+        pad_x, pad_y = 70, 34
+        x0 = int(min(tx - 86, (W - sw) / 2) - pad_x)
+        liquid_glass(canvas, (x0, y - pad_y, W - x0, y + gap + sig.height + pad_y))
+    m_text = Image.new('L', (W, H), 0)
+    tracked(ImageDraw.Draw(m_text), (tx, y), text, f, 255, 5)
+    m_rules = Image.new('L', (W, H), 0)
+    dr = ImageDraw.Draw(m_rules)
+    cy = y + f.size * 0.65
+    dr.line((tx - 86, cy, tx - 22, cy), fill=255, width=2)
+    dr.line((tx + tw + 22, cy, tx + tw + 86, cy), fill=255, width=2)
+    sx, sy = (W - sig.width) // 2, y + gap
+    paste_gold(canvas, m_rules)
+    canvas.paste((34, 32, 30) if on_glass else (240, 232, 216), (0, 0), m_text)
+    canvas.paste(sig, (sx, sy), sig)
+    return sy + sig.height
 
 
 def render(spec, base):
     global GOLD_HI, GOLD_LO
-    p = PALETTES[spec.get('palette', 'bordeaux')]
+    p = PALETTES[spec.get('palette', 'emerald')]
     GOLD_HI, GOLD_LO = GOLD[p['gold']]
+    caption = spec.get('caption', 'челюстно-лицевой хирург')
     c = background(p)
-    person(c, base / spec['photo'], top=760, height=1160)
-    y = title(c, p, spec['title'], 300)
+    if p['emblem'] == 'top':
+        # тёмная тема: знак наверху, на чистом фоне; фото ниже
+        person(c, base / spec['photo'], top=930, height=1080)
+        bottom = signature(c, p, caption, 262, mode='plain', sw=430)
+        y = title(c, p, spec['title'], bottom + 50)
+    else:
+        person(c, base / spec['photo'], top=760, height=1160)
+        y = title(c, p, spec['title'], 300)
     if spec.get('note'):
         note(c, spec['note'], y + 4)
     sparkle(c, 112, 250, 30)
     sparkle(c, W - 112, 250, 20)
-    signature(c, p, spec.get('caption', 'челюстно-лицевой хирург'), 1430)
+    if p['emblem'] == 'bottom':
+        signature(c, p, caption, 1460, mode='glass', sw=500)
     frame(c)
     out = base / spec['out']
     c.save(out)
