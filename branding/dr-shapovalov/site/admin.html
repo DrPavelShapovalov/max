@@ -146,7 +146,7 @@
   const SCHEMA = [
     { g: 'Главная' },
     { id: 'hero', title: 'Первый экран', path: 'hero', fields: [
-      F('firstName', 'Имя'), F('lastName', 'Фамилия'), F('lede', 'Текст под именем', 'area'),
+      F('firstName', 'Имя'), F('middleName', 'Отчество'), F('lastName', 'Фамилия'), F('lede', 'Текст под именем', 'area'),
       F('cardLine1', 'Карточка у фото, строка 1'), F('cardLine2', 'Карточка у фото, строка 2'), F('portrait', 'Фото', 'image')] },
     { id: 'readings', title: 'Цифры под первым экраном', path: 'readings', list: true, item: 'Цифра', titleKey: 'label', fields: [
       F('from', 'Было (необязательно)', 'text', { sub: 'Например 7,93 — тогда покажется «7,93 → 2»' }), F('to', 'Значение'), F('unit', 'Единица'), F('label', 'Подпись')] },
@@ -173,7 +173,7 @@
     { id: 'workLinks', title: 'Где работаю: ссылки', path: 'work.links', list: true, item: 'Ссылка', titleKey: 'label', fields: [F('label', 'Текст'), F('url', 'Адрес', 'url')] },
     { g: 'Наука' },
     { id: 'diss', title: 'Диссертация', path: 'science.dissertation', fields: [
-      F('title', 'Название', 'area'), F('degree', 'Степень'), F('specialty', 'Специальность', 'text', { sub: 'Шифр и название' }),
+      F('title', 'Название', 'area'), F('summary', 'Главный вывод', 'area'), F('degree', 'Степень'), F('specialty', 'Специальность', 'text', { sub: 'Шифр и название' }),
       F('supervisor', 'Научный руководитель'), F('year', 'Защита и присуждение степени'), F('place', 'Где защищена'), F('link', 'Ссылка на диссертацию', 'url')] },
     { id: 'profiles', title: 'Научные профили', path: 'science.profiles', list: true, item: 'Профиль', titleKey: 'label', fields: [F('label', 'Название', 'text', { sub: 'ORCID, РИНЦ SPIN, ИСТИНА…' }), F('value', 'Номер или ник'), F('url', 'Ссылка', 'url')] },
     { id: 'sciIntro', title: 'Наука: вступление', path: 'science', fields: [F('intro', 'Текст под заголовком', 'area')] },
@@ -330,7 +330,7 @@
 
   /* ---------- публикация на GitHub ---------- */
   function renderPublish(box) {
-    const gh = store.get(GH) || { owner: 'DrPavelShapovalov', repo: '', branch: 'main', dir: '', token: '' };
+    const gh = store.get(GH) || { owner: 'DrPavelShapovalov', repo: 'dr-shapovalov-site', branch: 'main', dir: '', token: '' };
     const f = (k, l, t = 'text', sub) => { const w = el('div', { className: 'field' }, el('label', { htmlFor: 'gh-' + k }, l),
       el('input', { id: 'gh-' + k, type: t, value: gh[k] || '', autocomplete: 'off', on: { input: (e) => { gh[k] = e.target.value.trim(); store.set(GH, gh); } } }));
       if (sub) w.append(el('span', { className: 'sub' }, sub)); return w; };
