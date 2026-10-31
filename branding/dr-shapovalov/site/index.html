@@ -321,8 +321,42 @@
   .diss dd{margin:0}
   .pubs{display:flex; flex-direction:column; gap:12px}
   .pub{padding:24px 26px; display:grid; grid-template-columns:auto 1fr; gap:18px; transition:transform .45s cubic-bezier(.2,.7,.2,1)}
-  a.pub:hover{transform:translateX(6px)}
-  .pub .num{font-family:var(--display); font-weight:300; font-size:26px; color:var(--gold); line-height:1.1; font-variant-numeric:tabular-nums}
+  /* миниатюра титульной страницы у публикации */
+  .thumb{display:block; width:84px; padding:0; border:0; border-radius:6px; background:#fff; cursor:zoom-in; overflow:hidden;
+    box-shadow:0 10px 24px -12px rgba(0,0,0,.8); transform-origin:50% 100%; transition:transform .3s cubic-bezier(.23,1,.32,1)}
+  .thumb img{display:block; width:100%; height:auto; aspect-ratio:var(--ar,.707); object-fit:cover; object-position:top}
+  .thumb.poster{width:96px; --ar:.633}
+  @media (hover:hover) and (pointer:fine){ .thumb:hover{transform:rotate(-3deg) scale(1.06)} }
+  .pub .src a.lnk:hover{text-decoration:underline}
+  .pub.flash{box-shadow:0 0 0 2px var(--gold), 0 0 40px -8px rgba(214,178,102,.6)}
+
+  /* веер титульных страниц */
+  .fan-wrap{margin:-8px 0 40px}
+  .fan{--cw:clamp(80px,12vw,172px); position:relative; height:calc(var(--cw) * 1.414 + var(--cw) * .3 + 56px); margin-inline:auto; max-width:1000px}
+  .fan-card{position:absolute; left:50%; bottom:28px; width:var(--cw); padding:0; border:0; border-radius:7px; background:#fff; cursor:zoom-in;
+    overflow:hidden; transform-origin:50% 150%; box-shadow:0 18px 40px -18px rgba(0,0,0,.9), 0 2px 6px rgba(0,0,0,.35)}
+  .fan-card img{display:block; width:100%; aspect-ratio:.707; object-fit:cover; object-position:top}
+  .fan-hint{margin-top:4px; text-align:center; font-size:14px; color:var(--mist)}
+
+  /* просмотр страницы целиком */
+  .lb{position:fixed; inset:0; z-index:80; display:grid; place-items:center}
+  .lb-scrim{position:absolute; inset:0; background:rgba(3,6,6,.86); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px)}
+  .lb-in{position:relative; width:min(1100px,100%); max-height:100%; overflow:auto; overscroll-behavior:contain; display:grid; grid-template-columns:minmax(0,auto) minmax(0,320px);
+    gap:28px; align-items:start; padding:calc(env(safe-area-inset-top,0px) + 28px) 24px calc(env(safe-area-inset-bottom,0px) + 28px)}
+  .lb-fig{margin:0; justify-self:end}
+  .lb-fig img{display:block; max-width:100%; max-height:calc(100svh - 56px); width:auto; height:auto; border-radius:8px; background:#fff; box-shadow:0 30px 80px -30px #000}
+  .lb.tall .lb-fig img{max-height:none; width:min(760px,100%)}
+  .lb-cap{position:sticky; top:0; display:flex; flex-direction:column; gap:12px; padding-top:8px}
+  .lb-cap b{font-family:var(--display); font-weight:500; font-size:20px; line-height:1.3}
+  .lb-cap span{color:var(--soft); font-size:15px}
+  .lb-acts{display:flex; flex-wrap:wrap; gap:10px; margin-top:6px}
+  .lb-x{position:fixed; z-index:2; top:calc(env(safe-area-inset-top,0px) + 14px); right:calc(env(safe-area-inset-right,0px) + 14px); width:46px; height:46px; border-radius:50%;
+    border:1px solid var(--line); background:rgba(5,8,10,.7); color:var(--ivory); font-size:26px; line-height:1; cursor:pointer}
+  @media (max-width:760px){
+    .lb-in{grid-template-columns:1fr; gap:16px; padding-inline:16px; padding-top:calc(env(safe-area-inset-top,0px) + 72px)}
+    .lb-fig{justify-self:center} .lb-fig img{max-height:none}
+    .lb-cap{position:static}
+  }  .pub .num{font-family:var(--display); font-weight:300; font-size:26px; color:var(--gold); line-height:1.1; font-variant-numeric:tabular-nums}
   .pub b{display:block; font-weight:600; line-height:1.35; font-size:17px}
   .pub .au{display:block; margin-top:8px; color:var(--soft); font-size:15px}
   .pub .src{display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; font-family:var(--mono); font-size:14px; color:var(--mist)}
@@ -412,7 +446,8 @@
     .facts dd{padding-top:4px}
     .timeline li{grid-template-columns:1fr; gap:4px}
     .panel,.diss{padding:24px}
-    .pub{grid-template-columns:1fr; gap:10px}
+    .pub{grid-template-columns:auto minmax(0,1fr); gap:14px} .thumb{width:64px} .thumb.poster{width:72px}
+    .fan-wrap{margin:0 -20px 28px; overflow-x:clip}
     /* телефон: вкладки внизу экрана, под большим пальцем, все пять видны сразу */
     body{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 104px)}
     .tabbar-wrap{position:fixed; top:auto; left:10px; right:10px; bottom:calc(env(safe-area-inset-bottom,0px) + 10px); margin:0; z-index:40}
@@ -638,6 +673,10 @@
       <div><h2>Диссертация <em>и статьи</em></h2></div>
       <p id="sci-intro"></p>
     </div>
+    <div class="fan-wrap" id="fan-wrap">
+      <div class="fan" id="fan" aria-label="Титульные страницы публикаций"></div>
+      <p class="fan-hint">Нажмите на страницу, чтобы открыть её целиком</p>
+    </div>
     <div class="sci">
       <article class="diss glass reveal" id="diss"></article>
       <div>
@@ -688,6 +727,18 @@
 </main>
 
 <div class="tip" id="tip" role="tooltip"></div>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-labelledby="lb-t" hidden>
+  <div class="lb-scrim" data-close></div>
+  <div class="lb-in" id="lb-in" data-lenis-prevent>
+    <figure class="lb-fig"><img id="lb-img" alt=""></figure>
+    <div class="lb-cap">
+      <b id="lb-t"></b><span id="lb-s"></span>
+      <div class="lb-acts"><a class="pill" id="lb-link" target="_blank" rel="noopener">Открыть статью ↗</a><button class="ghost" id="lb-go" type="button">К публикации в списке</button></div>
+    </div>
+  </div>
+  <button class="lb-x" id="lb-x" type="button" data-close aria-label="Закрыть">×</button>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vanta@0.5.24/dist/vanta.waves.min.js"></script>
@@ -780,18 +831,33 @@
     const pubs = (sc.publications || []).filter((p) => p.title), talks = (sc.talks || []).filter((t) => t.title), soft = (sc.software || []).filter((t) => t.title);
     $('sci-tabs').innerHTML = [['pubs', 'Статьи', pubs.length], ['talks', 'Доклады', talks.length], ['soft', 'Программы для ЭВМ', soft.length]]
       .filter(([, , n]) => n).map(([k, l, n], i) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${i === 0}">${l}<span>${n}</span></button>`).join('');
-    $('talks').innerHTML = talks.map((t) => `<div class="pub glass"><span class="num">${esc(t.year)}</span><div><b>${esc(t.title)}</b><span class="au">${esc(t.authors)}</span>
-      <span class="src"><span>${esc(t.event)}</span>${t.type ? `<span class="lnk">${esc(t.type)} доклад</span>` : ''}</span></div></div>`).join('');
-    $('soft').innerHTML = soft.map((t) => `<div class="pub glass"><span class="num">ЭВМ</span><div><b>${esc(t.title)}</b><span class="au">${esc(t.authors)}</span>
-      <span class="src"><span>${esc(t.number)}</span></span></div></div>`).join('');
+    // титульные страницы: веер наверху и миниатюра у каждой работы
+    LB = [];
+    const card = (src) => src.replace(/(\.[a-z]+)$/i, '-card$1');
+    const addLb = (it) => { LB.push(it); return LB.length - 1; };
+    const thumb = (k, poster) => `<button class="thumb${poster ? ' poster' : ''}" type="button" data-lb="${k}" aria-label="Открыть страницу целиком: ${esc(LB[k].title)}"><img src="${esc(card(LB[k].img))}" data-full="${esc(LB[k].img)}" alt="" loading="lazy"></button>`;
+    $('talks').innerHTML = talks.map((t, i) => {
+      const k = safeUrl(t.image) ? addLb({ img: safeUrl(t.image), title: t.title, sub: [t.event, t.type && t.type + ' доклад'].filter(Boolean).join(' · '), panel: 'talks', id: 'talk-' + i, tall: true }) : -1;
+      return `<div class="pub glass" id="talk-${i}">${k >= 0 ? thumb(k, true) : `<span class="num">${esc(t.year)}</span>`}<div><b>${esc(t.title)}</b><span class="au">${esc(t.authors)}</span>
+      <span class="src"><span>${esc(t.event)}</span>${t.type ? `<span class="lnk">${esc(t.type)} доклад</span>` : ''}</span></div></div>`; }).join('');
+    $('soft').innerHTML = soft.map((t, i) => {
+      const k = safeUrl(t.image) ? addLb({ img: safeUrl(t.image), title: t.title, sub: t.number, panel: 'soft', id: 'soft-' + i, fan: true }) : -1;
+      return `<div class="pub glass" id="soft-${i}">${k >= 0 ? thumb(k) : '<span class="num">ЭВМ</span>'}<div><b>${esc(t.title)}</b><span class="au">${esc(t.authors)}</span>
+      <span class="src"><span>${esc(t.number)}</span></span></div></div>`; }).join('');
     bindTabs();
     $('pubs').innerHTML = pubs.map((p, i) => {
       const u = safeUrl(p.link) || (p.doi ? `https://doi.org/${p.doi}` : '');
-      const tag = u ? 'a' : 'div';
-      return `<${tag} class="pub glass reveal"${u ? ` href="${esc(u)}"${ext(u)}` : ''}><span class="num">${esc((String(p.journal).match(/(19|20)\d\d/) || [''])[0])}</span>
+      const k = safeUrl(p.image) ? addLb({ img: safeUrl(p.image), title: p.title, sub: p.journal, url: u, panel: 'pubs', id: 'pub-' + i, fan: true }) : -1;
+      return `<article class="pub glass reveal" id="pub-${i}">${k >= 0 ? thumb(k) : `<span class="num">${esc((String(p.journal).match(/(19|20)\d\d/) || [''])[0])}</span>`}
         <div><b>${esc(p.title)}</b><span class="au">${esc(p.authors)}</span>
-        <span class="src"><span>${esc(p.journal)}</span>${p.doi ? `<span>DOI ${esc(p.doi)}</span>` : ''}${u ? '<span class="lnk">Читать ↗</span>' : ''}</span></div></${tag}>`;
+        <span class="src"><span>${esc(p.journal)}</span>${p.doi ? `<span>DOI ${esc(p.doi)}</span>` : ''}${u ? `<a class="lnk" href="${esc(u)}"${ext(u)}>Читать ↗</a>` : ''}</span></div></article>`;
     }).join('') || todo('статьи');
+    // веер: статьи по порядку списка, затем свидетельство о регистрации программы
+    const fanItems = LB.map((it, k) => [it, k]).filter(([it]) => it.fan).sort((a, b) => (a[0].panel === 'soft') - (b[0].panel === 'soft'));
+    $('fan').innerHTML = fanItems.map(([it, k], j) => `<button class="fan-card" type="button" data-lb="${k}" style="z-index:${j + 1}" aria-label="Открыть страницу целиком: ${esc(it.title)}"><img src="${esc(card(it.img))}" data-full="${esc(it.img)}" alt="" loading="lazy"></button>`).join('');
+    $('fan-wrap').hidden = !fanItems.length;
+    document.querySelectorAll('img[data-full]').forEach((im) => im.addEventListener('error', () => { if (im.src.indexOf(im.dataset.full) < 0) im.src = im.dataset.full; }, { once: true }));
+    layoutFan(false);
 
     const w = c.work || {};
     $('work-h').innerHTML = esc(w.name).replace(/(«.+»)/, '<em>$1</em>');
@@ -972,6 +1038,74 @@
     $('map-note').hidden = false;
   });
 
+  /* ---------- веер титульных страниц и просмотр целиком ---------- */
+  let LB = [];
+  function fanTargets() {
+    const fan = $('fan'), cards = [...fan.children], n = cards.length; if (!n) return [];
+    const W = fan.clientWidth, cw = cards[0].offsetWidth, mid = (n - 1) / 2;
+    const spread = n > 1 ? Math.min(cw * 0.52, (W - cw * (W < 600 ? 2.2 : 1.5)) / (n - 1)) : 0, step = n > 1 ? Math.min(5.5, (W < 600 ? 30 : 44) / (n - 1)) : 0;
+    return cards.map((c, i) => { const d = i - mid; return { c, x: d * spread, y: d * d * cw * 0.013, r: d * step }; });
+  }
+  function layoutFan(play) {
+    const t = fanTargets(); if (!t.length) return;
+    if (window.gsap) {
+      if (play && !reduce) {
+        gsap.fromTo(t.map((o) => o.c), { xPercent: -50, x: 0, y: 70, rotation: 0, autoAlpha: 0 },
+          { x: (i) => t[i].x, y: (i) => t[i].y, rotation: (i) => t[i].r, autoAlpha: 1, duration: 1, ease: 'power3.out', stagger: { each: 0.06, from: 'center' }, delay: 0.1 });
+      } else t.forEach((o) => gsap.set(o.c, { xPercent: -50, x: o.x, y: o.y, rotation: o.r, autoAlpha: 1 }));
+    } else t.forEach((o) => { o.c.style.transform = `translate(-50%,0) translate(${o.x}px,${o.y}px) rotate(${o.r}deg)`; });
+    t.forEach((o) => { o.c.dataset.y = o.y; });
+  }
+  addEventListener('resize', () => layoutFan(false));
+  $('fan').addEventListener('pointerover', (e) => {
+    const c = e.target.closest('.fan-card'); if (!c || e.pointerType !== 'mouse' || !window.gsap || reduce) return;
+    c.style.zIndex = 60; gsap.to(c, { y: +c.dataset.y - 34, scale: 1.08, duration: 0.28, ease: 'power3.out', overwrite: 'auto' });
+  });
+  $('fan').addEventListener('pointerout', (e) => {
+    const c = e.target.closest('.fan-card'); if (!c || e.pointerType !== 'mouse' || !window.gsap || reduce || c.contains(e.relatedTarget)) return;
+    c.style.zIndex = [...c.parentNode.children].indexOf(c) + 1; gsap.to(c, { y: +c.dataset.y, scale: 1, duration: 0.3, ease: 'power3.out', overwrite: 'auto' });
+  });
+  function thumbsFx(root) {
+    if (!window.gsap || reduce) return;
+    gsap.fromTo(root.querySelectorAll('.thumb'), { autoAlpha: 0, y: 26, rotation: -14, scale: 0.7 },
+      { autoAlpha: 1, y: 0, rotation: 0, scale: 1, duration: 0.7, stagger: 0.06, delay: 0.45, ease: 'power3.out', clearProps: 'transform' });
+  }
+  let lbItem = null, lbBack = null;
+  function openLb(k, from) {
+    const it = LB[k]; if (!it) return; lbItem = it; lbBack = from || null;
+    $('lb-img').src = it.img; $('lb-img').alt = 'Страница: ' + it.title;
+    $('lb-t').textContent = it.title; $('lb-s').textContent = it.sub || '';
+    $('lb-link').hidden = !it.url; if (it.url) $('lb-link').href = it.url;
+    $('lb').classList.toggle('tall', !!it.tall); $('lb').hidden = false; $('lb-in').scrollTop = 0;
+    if (lenis) lenis.stop();
+    if (window.gsap && !reduce) {
+      gsap.fromTo('.lb-scrim', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.25, ease: 'power2.out' });
+      gsap.fromTo('.lb-fig img', { autoAlpha: 0, y: 30, scale: 0.94 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.45, ease: 'power3.out' });
+      gsap.fromTo('.lb-cap', { autoAlpha: 0, x: 16 }, { autoAlpha: 1, x: 0, duration: 0.4, delay: 0.08, ease: 'power3.out' });
+    }
+    $('lb-x').focus({ preventScroll: true });
+  }
+  function closeLb(keepScroll) {
+    if ($('lb').hidden) return; $('lb').hidden = true; if (lenis) lenis.start();
+    if (lbBack && !keepScroll) lbBack.focus({ preventScroll: true });
+  }
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-lb]'); if (t) { e.preventDefault(); openLb(+t.dataset.lb, t); return; }
+    if (e.target.closest('#lb [data-close]')) closeLb();
+  });
+  document.addEventListener('keydown', (e) => {
+    if ($('lb').hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeLb(); }
+    if (e.key === 'Tab') { const f = [$('lb-x'), ...$('lb').querySelectorAll('.lb-acts a:not([hidden]), .lb-acts button')]; const i = f.indexOf(document.activeElement);
+      if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); } }
+  });
+  $('lb-go').addEventListener('click', () => {
+    const it = lbItem; closeLb(true); if (!it) return;
+    const tab = document.querySelector(`#sci-tabs [data-tab="${it.panel}"]`); if (tab && tab.getAttribute('aria-selected') !== 'true') tab.click();
+    const el = $(it.id); if (!el) return;
+    setTimeout(() => { scrollToEl(el, -170); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1800); }, 60);
+  });
+
   /* ---------- волна Vanta, останавливается за пределами экрана ---------- */
   let fx = null;
   const startWaves = () => {
@@ -992,7 +1126,7 @@
       tabs.forEach((x) => x.setAttribute('aria-selected', String(x === t)));
       document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== t.dataset.tab; });
       const shown = document.querySelector(`[data-panel="${t.dataset.tab}"]`);
-      if (window.gsap && !reduce) gsap.fromTo(shown.children, { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: .5, stagger: .05, ease: 'power2.out' });
+      if (window.gsap && !reduce) { gsap.fromTo(shown.children, { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: .5, stagger: .05, ease: 'power2.out' }); thumbsFx(shown); }
       if (window.ScrollTrigger) ScrollTrigger.refresh();
     }));
   }
@@ -1042,6 +1176,7 @@
     gsap.fromTo(panel.querySelectorAll('.reveal'), { autoAlpha: 0, y: 34, scale: 0.985 },
       { autoAlpha: 1, y: 0, scale: 1, duration: 0.8, stagger: 0.08, ease: 'power3.out', delay: 0.12, clearProps: 'transform' });
     gsap.fromTo(panel.querySelectorAll('.fill'), { scaleX: 0 }, { scaleX: 1, duration: 1.4, stagger: 0.08, ease: 'expo.out', delay: 0.35 });
+    if (panel.id === 'science') { requestAnimationFrame(() => { layoutFan(true); thumbsFx(panel); }); }
     if (panel.id === 'cases' && !stepsFx) {
       stepsFx = true;
       gsap.fromTo('.steps .prog', { scaleY: 0 }, { scaleY: 1, ease: 'none', scrollTrigger: { trigger: '.steps', start: 'top 70%', end: 'bottom 60%', scrub: true } });
