@@ -1,9 +1,9 @@
 {
-  "name": "kdo-planner-3d",
-  "version": "3.3.0",
+  "name": "ossa-planner",
+  "version": "4.0.0",
   "private": true,
   "type": "module",
-  "description": "OSSA 3D — Craniofacial Distraction Planner",
+  "description": "OSSA 4 — планнер остеотомии и дистракции нижней челюсти",
   "author": "Шаповалов П.И.",
   "main": "electron-main.cjs",
   "repository": {
@@ -31,9 +31,9 @@
     "vite": "^5.4.0"
   },
   "build": {
-    "appId": "ru.cniis.kdoplanner3d",
-    "productName": "OSSA 3D",
-    "artifactName": "OSSA-3D-Setup-${version}.${ext}",
+    "appId": "ru.cniis.ossaplanner",
+    "productName": "OSSA 4",
+    "artifactName": "OSSA-4-Setup-${version}.${ext}",
     "directories": {
       "output": "release"
     },
