@@ -731,7 +731,7 @@
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-labelledby="lb-t" hidden>
   <div class="lb-scrim" data-close></div>
   <div class="lb-in" id="lb-in" data-lenis-prevent>
-    <figure class="lb-fig"><img id="lb-img" alt=""></figure>
+    <figure class="lb-fig" id="lb-fig"></figure>
     <div class="lb-cap">
       <b id="lb-t"></b><span id="lb-s"></span>
       <div class="lb-acts"><a class="pill" id="lb-link" target="_blank" rel="noopener">Открыть статью ↗</a><button class="ghost" id="lb-go" type="button">К публикации в списке</button></div>
@@ -1073,7 +1073,7 @@
   let lbItem = null, lbBack = null;
   function openLb(k, from) {
     const it = LB[k]; if (!it) return; lbItem = it; lbBack = from || null;
-    $('lb-img').src = it.img; $('lb-img').alt = 'Страница: ' + it.title;
+    const im = new Image(); im.src = it.img; im.alt = 'Страница: ' + it.title; $('lb-fig').replaceChildren(im);
     $('lb-t').textContent = it.title; $('lb-s').textContent = it.sub || '';
     $('lb-link').hidden = !it.url; if (it.url) $('lb-link').href = it.url;
     $('lb').classList.toggle('tall', !!it.tall); $('lb').hidden = false; $('lb-in').scrollTop = 0;
