@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>reels-desk</title>
+<style>
+  /* Стол сверху: бумаги, папка, стикеры. Камера двигает «мир», всё остальное стоит.
+     Сцена описывается в reel.json; движок рисует любой момент t через window.render(t). */
+  @font-face{font-family:'PT Mono'; src:url(fonts/PTMono.ttf)}
+  @font-face{font-family:'Caveat'; src:url(fonts/Caveat.ttf); font-weight:400 700}
+  @font-face{font-family:'Rubik'; src:url(fonts/Rubik.ttf); font-weight:300 900}
+  :root{
+    --desk:#d8d3ca; --paper:#f5f2ea; --ink:#2b2724; --marker:#e2512b; --kraft:#b58a58; --tape:rgba(236,226,196,.82);
+    --cap-bg:#f7f4ee; --cap-ink:#151311; --cap-accent:#e2512b;
+  }
+  html,body{margin:0; background:#000}
+  #view{position:relative; width:1080px; height:1920px; overflow:hidden; background:var(--desk)}
+  #world{position:absolute; left:0; top:0; transform-origin:0 0; will-change:transform}
+  #desk{position:absolute; left:-4000px; top:-4000px; width:14000px; height:16000px; background-color:var(--desk)}
+  .item{position:absolute; box-sizing:border-box}
+  .shadow{box-shadow:0 22px 36px -8px rgba(40,30,20,.28), 0 4px 8px rgba(40,30,20,.16)}
+  .grain{position:absolute; inset:0; pointer-events:none; mix-blend-mode:multiply; opacity:.5}
+
+  /* лист */
+  .sheet{position:absolute; inset:0; background:var(--paper); padding:64px 70px; box-sizing:border-box; color:var(--ink); font-family:'PT Mono',monospace}
+  .sheet .file{font-size:36px; padding-bottom:18px; border-bottom:2px solid rgba(43,39,36,.55); margin-bottom:34px}
+  .sheet .ln{font-size:var(--fs,34px); line-height:1.62; white-space:pre-wrap}
+  .sheet .ln > span{display:inline}
+  .sheet b{font-weight:700}
+  .sheet .hl{background:linear-gradient(transparent 52%, rgba(240,200,80,.7) 52%, rgba(240,200,80,.7) 88%, transparent 88%)}
+  .acc{color:var(--marker)}
+  .sheet.hand{font-family:'Caveat',cursive}
+
+  /* стикер-заголовок */
+  .note{position:absolute; inset:0; background:var(--paper); display:flex; align-items:center; justify-content:center; gap:.35em;
+    font-family:'PT Mono',monospace; font-weight:700; color:var(--ink); text-align:center; padding:0 40px; box-sizing:border-box}
+  .note .big{font-family:'Rubik',sans-serif; font-weight:800; color:var(--marker); font-size:1.9em; line-height:1}
+  .tape{position:absolute; height:54px; background:linear-gradient(90deg, rgba(255,255,255,.35), transparent 8%, transparent 92%, rgba(255,255,255,.35)), var(--tape);
+    box-shadow:0 1px 2px rgba(0,0,0,.1); border-left:1px solid rgba(255,255,255,.5); border-right:1px solid rgba(255,255,255,.5)}
+
+  /* папка */
+  .folder .back{position:absolute; inset:0; background:color-mix(in srgb,var(--kraft) 88%,#000); border-radius:8px}
+  .folder .tab{position:absolute; right:40px; top:-38px; width:32%; height:60px; background:color-mix(in srgb,var(--kraft) 88%,#000); border-radius:12px 12px 0 0}
+  .folder .front{position:absolute; inset:18px 0 0 0; background:var(--kraft); border-radius:6px; box-shadow:inset 0 2px 0 rgba(255,255,255,.18)}
+  .folder .tag{position:absolute; left:12%; top:14%; padding:22px 30px; background:var(--paper); font-family:'PT Mono',monospace; font-weight:700; color:var(--marker);
+    font-size:var(--fs,40px); transform:rotate(-5deg); box-shadow:0 6px 12px rgba(0,0,0,.18)}
+  .folder .tag::before{content:""; position:absolute; left:-40px; top:-60px; width:80px; height:80px; border:3px solid rgba(60,45,30,.55); border-radius:50%; border-color:rgba(60,45,30,.55) transparent transparent transparent; transform:rotate(-30deg)}
+
+  /* фото */
+  .photo .frame{position:absolute; inset:0; background:#fbfaf7; padding:22px 22px 0; box-sizing:border-box; display:flex; flex-direction:column}
+  .photo img{display:block; width:100%; flex:1; min-height:0; object-fit:cover; background:#ddd}
+  .photo .pcap{font-family:'Caveat',cursive; font-weight:700; color:var(--ink); font-size:var(--fs,46px); text-align:center; padding:8px 0 14px}
+
+  /* свободная надпись маркером или ручкой */
+  .scrawl{font-family:'Caveat',cursive; font-weight:700; color:var(--marker); white-space:nowrap; line-height:1}
+
+  /* пометки маркером */
+  svg.marks{position:absolute; left:0; top:0; overflow:visible; pointer-events:none}
+  svg.marks path{fill:none; stroke-linecap:round; stroke-linejoin:round}
+
+  /* субтитры */
+  #caps{position:absolute; left:0; right:0; top:0; bottom:0; pointer-events:none}
+  .cap{position:absolute; left:50%; width:max-content; max-width:920px; padding:18px 30px 20px; background:var(--cap-bg); color:var(--cap-ink);
+    font:800 66px/1.08 'Rubik',sans-serif; letter-spacing:-.01em; text-align:center; box-shadow:0 10px 30px -10px rgba(0,0,0,.35); transform-origin:50% 50%}
+  .cap .acc{color:var(--cap-accent)}
+  #vignette{position:absolute; inset:0; pointer-events:none; background:radial-gradient(130% 85% at 50% 45%, transparent 55%, rgba(30,20,10,.28) 100%)}
+  #guides{position:absolute; inset:0; pointer-events:none; display:none}
+  #guides i{position:absolute; left:0; right:0; background:rgba(255,0,80,.18); border:2px dashed rgba(255,0,80,.7)}
+</style>
+</head>
+<body>
+<div id="view"><div id="world"><div id="desk"></div></div><div id="vignette"></div><div id="caps"></div><div id="guides"><i style="top:0;height:220px"></i><i style="bottom:0;height:420px"></i></div></div>
+<script>
+(() => {
+  const R = window.REEL, BASE = window.REEL_BASE || '';
+  const W = R.w || 1080, H = R.h || 1920, SAFE_TOP = 220, SAFE_BOTTOM = 420;
+  const view = document.getElementById('view'), world = document.getElementById('world');
+  view.style.width = W + 'px'; view.style.height = H + 'px';
+  const th = R.theme || {};
+  const map = { desk: '--desk', paper: '--paper', ink: '--ink', marker: '--marker', kraft: '--kraft', tape: '--tape', captionBg: '--cap-bg', caption: '--cap-ink', captionAccent: '--cap-accent' };
+  for (const k in map) if (th[k]) document.documentElement.style.setProperty(map[k], th[k]);
+
+  /* детерминированный шум: одна плитка на стол и на бумагу */
+  function rng(seed) { let s = seed >>> 0 || 1; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; }
+  function noiseTile(size, seed, lo, hi, fibers) {
+    const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d'); const r = rng(seed);
+    const img = g.createImageData(size, size);
+    for (let i = 0; i < size * size; i++) { const v = lo + (hi - lo) * r(); img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v; img.data[i * 4 + 3] = 255; }
+    g.putImageData(img, 0, 0);
+    g.globalAlpha = .05; g.strokeStyle = '#000';
+    for (let i = 0; i < fibers; i++) { g.lineWidth = .6 + r(); g.beginPath(); const x = r() * size, y = r() * size; g.moveTo(x, y); g.quadraticCurveTo(x + (r() - .5) * 60, y + (r() - .5) * 60, x + (r() - .5) * 120, y + (r() - .5) * 120); g.stroke(); }
+    return c.toDataURL();
+  }
+  const deskTile = noiseTile(512, 7, 205, 255, 160), paperTile = noiseTile(256, 11, 228, 255, 40);
+  const desk = document.getElementById('desk');
+  desk.style.backgroundImage = `url(${deskTile})`; desk.style.backgroundBlendMode = 'multiply';
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // разметка: **жирный**, ==маркер-заливка==, *акцент цветом*
+  const mark = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/==(.+?)==/g, '<span class="hl">$1</span>').replace(/\*(.+?)\*/g, '<span class="acc">$1</span>');
+  const el = (tag, cls, parent, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; if (parent) parent.append(e); return e; };
+  const tape = (box, x, y, w, rot) => { const t = el('div', 'tape', box); Object.assign(t.style, { left: x + 'px', top: y + 'px', width: w + 'px', transform: `rotate(${rot}deg)` }); };
+
+  /* ---------- предметы ---------- */
+  const items = {};
+  for (const it of R.items || []) {
+    const box = el('div', 'item ' + it.type, world);
+    Object.assign(box.style, { left: it.x - it.w / 2 + 'px', top: it.y - it.h / 2 + 'px', width: it.w + 'px', height: it.h + 'px', zIndex: it.z || 1 });
+    if (it.fs) box.style.setProperty('--fs', it.fs + 'px');
+    if (it.type === 'paper') {
+      box.classList.add('shadow');
+      const sh = el('div', 'sheet' + (it.hand ? ' hand' : ''), box);
+      if (it.file) el('div', 'file', sh, mark(it.file));
+      (it.lines || []).forEach((l, i) => { const ln = el('div', 'ln', sh); ln.dataset.i = i; el('span', '', ln, mark(l) || '&nbsp;'); });
+      const gr = el('div', 'grain', box); gr.style.backgroundImage = `url(${paperTile})`;
+    } else if (it.type === 'note') {
+      box.classList.add('shadow');
+      const n = el('div', 'note', box, mark(it.text).replace(/<span class="acc">(.+?)<\/span>/g, '<span class="big">$1</span>'));
+      n.style.fontSize = (it.fs || 54) + 'px';
+      const gr = el('div', 'grain', box); gr.style.backgroundImage = `url(${paperTile})`;
+      if (it.tape !== false) tape(box, it.w * .32, -26, it.w * .36, -2);
+    } else if (it.type === 'folder') {
+      el('div', 'back', box); el('div', 'tab', box); const f = el('div', 'front', box); box.classList.add('shadow');
+      const gr = el('div', 'grain', f); gr.style.backgroundImage = `url(${paperTile})`; gr.style.opacity = .7;
+      if (it.label) el('div', 'tag', box, mark(it.label));
+    } else if (it.type === 'photo') {
+      box.classList.add('shadow');
+      const fr = el('div', 'frame', box); const im = el('img', '', fr); im.src = BASE + it.src; if (it.fit) im.style.objectFit = it.fit; if (it.pos) im.style.objectPosition = it.pos;
+      if (it.caption) el('div', 'pcap', fr, mark(it.caption));
+      if (it.tape !== false) { tape(box, -40, 30, 170, -38); tape(box, it.w - 130, 30, 170, 38); }
+    } else if (it.type === 'scrawl') {
+      const s = el('div', 'scrawl', box, mark(it.text)); s.style.fontSize = (it.fs || 70) + 'px'; if (it.color) s.style.color = it.color;
+    }
+    box.dataset.rot = it.rot || 0;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('class', 'marks');
+    svg.setAttribute('width', it.w); svg.setAttribute('height', it.h); box.append(svg);
+    items[it.id] = { it, box, svg };
+  }
+
+  /* ---------- пометки маркером ---------- */
+  const offsetIn = (e, anc) => { let x = 0, y = 0; while (e && e !== anc) { x += e.offsetLeft; y += e.offsetTop; e = e.offsetParent; } return { x, y }; };
+  function targetRect(m) {
+    const o = items[m.target]; if (!o) throw new Error('нет предмета ' + m.target);
+    if (Array.isArray(m.at)) return { x: m.at[0], y: m.at[1], w: m.at[2], h: m.at[3] };
+    if (typeof m.line === 'number') {
+      const span = o.box.querySelector(`.ln[data-i="${m.line}"] > span`); const p = offsetIn(span, o.box);
+      return { x: p.x, y: p.y + 4, w: span.offsetWidth, h: span.offsetHeight - 8 };
+    }
+    return { x: 0, y: 0, w: o.it.w, h: o.it.h };
+  }
+  function ringPath(r, seed) {
+    const g = rng(seed), cx = r.x + r.w / 2, cy = r.y + r.h / 2, rx = r.w / 2 + 34, ry = r.h / 2 + 26;
+    const a0 = -2.5 + g() * .3, turns = 1.13, n = 110, ph = g() * 6;
+    let d = '';
+    for (let i = 0; i <= n; i++) {
+      const a = a0 + (i / n) * Math.PI * 2 * turns, k = 1 + .045 * Math.sin(3 * a + ph) + (i / n) * .06;
+      d += (i ? 'L' : 'M') + (cx + Math.cos(a) * rx * k).toFixed(1) + ' ' + (cy + Math.sin(a) * ry * k - (i / n) * 8).toFixed(1);
+    }
+    return [d];
+  }
+  function underlinePath(r, seed) {
+    const g = rng(seed), y = r.y + r.h + 10; let d = '';
+    for (let i = 0; i <= 40; i++) { const x = r.x - 10 + (r.w + 20) * i / 40; d += (i ? 'L' : 'M') + x.toFixed(1) + ' ' + (y + Math.sin(i / 40 * 7 + g() * .4) * 3 - i / 40 * 6).toFixed(1); }
+    return [d];
+  }
+  function arrowPath(m) {
+    const [x1, y1] = m.from, [x2, y2] = m.to, bend = m.bend ?? .25;
+    const mx = (x1 + x2) / 2 - (y2 - y1) * bend, my = (y1 + y2) / 2 + (x2 - x1) * bend;
+    const ang = Math.atan2(y2 - my, x2 - mx), hl = 46;
+    const h1 = [x2 - hl * Math.cos(ang - .45), y2 - hl * Math.sin(ang - .45)], h2 = [x2 - hl * Math.cos(ang + .45), y2 - hl * Math.sin(ang + .45)];
+    return [`M${x1} ${y1} Q${mx} ${my} ${x2} ${y2}`, `M${h1[0]} ${h1[1]} L${x2} ${y2} L${h2[0]} ${h2[1]}`];
+  }
+  function checkPath(r) { const x = r.x + r.w + 26, y = r.y + r.h / 2; return [`M${x} ${y} L${x + 22} ${y + 26} L${x + 58} ${y - 30}`]; }
+  function strikePath(r) { const y = r.y + r.h / 2 + 4; return [`M${r.x - 8} ${y + 3} L${r.x + r.w + 8} ${y - 5}`]; }
+  let marks = [];
+  const buildMarks = () => (R.marks || []).map((m, i) => {
+    const o = items[m.target]; const r = m.type === 'arrow' ? null : targetRect(m);
+    const ds = m.type === 'ring' ? ringPath(r, 97 + i * 13) : m.type === 'underline' ? underlinePath(r, 31 + i) : m.type === 'arrow' ? arrowPath(m) : m.type === 'check' ? checkPath(r) : strikePath(r);
+    const paths = ds.map((d) => {
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path'); p.setAttribute('d', d); p.setAttribute('pathLength', '1');
+      p.style.stroke = m.color || 'var(--marker)'; p.style.strokeWidth = (m.width || 10) + 'px'; p.style.strokeDasharray = '1 1'; p.style.strokeDashoffset = '1'; p.style.opacity = .92;
+      o.svg.append(p); return p;
+    });
+    return { m, paths, dur: m.dur || .55 };
+  });
+
+  /* ---------- субтитры ---------- */
+  const capsBox = document.getElementById('caps');
+  const caps = (R.captions || []).map((c) => { const e = el('div', 'cap', capsBox, mark(c.text)); e.style.top = (c.bottom || H - SAFE_BOTTOM - 40) + 'px'; e.style.display = 'none'; return { c, e }; });
+
+  /* ---------- время ---------- */
+  const E = { io: (p) => (p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2), out: (p) => 1 - Math.pow(1 - p, 3), in: (p) => p * p * p,
+    sine: (p) => -(Math.cos(Math.PI * p) - 1) / 2, lin: (p) => p, back: (p) => { const c = 1.4; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); } };
+  const cam = (R.camera || [[0, W / 2, H / 2, 1, 0, 'io', 0]]).map((k) => ({ t: k[0], x: k[1], y: k[2], z: k[3], r: k[4] || 0, e: E[k[5]] || E.io, d: (k[6] ?? 900) / 1000 }));
+  function camAt(t) {
+    let s = { ...cam[0] };
+    for (const k of cam.slice(1)) {
+      if (t < k.t) break;
+      const p = k.d > 0 ? Math.min(1, (t - k.t) / k.d) : 1, e = k.e(p);
+      s = { x: s.x + (k.x - s.x) * e, y: s.y + (k.y - s.y) * e, z: s.z + (k.z - s.z) * e, r: s.r + (k.r - s.r) * e };
+    }
+    return s;
+  }
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  window.render = (t) => {
+    const c = camAt(t);
+    world.style.transform = `translate(${W / 2}px,${H / 2}px) rotate(${c.r}deg) scale(${c.z}) translate(${-c.x}px,${-c.y}px)`;
+    for (const id in items) {
+      const { it, box } = items[id]; const rot = +box.dataset.rot;
+      if (!it.in) { box.style.transform = `rotate(${rot}deg)`; continue; }
+      const p = clamp01((t - it.in.t) / (it.in.dur || .55)), e = E.out(p), dist = it.in.dist || 900;
+      const dir = { top: [0, -1], bottom: [0, 1], left: [-1, 0], right: [1, 0] }[it.in.from || 'top'];
+      box.style.visibility = t < it.in.t ? 'hidden' : 'visible'; box.dataset.moving = p > 0 && p < 1 ? '1' : '';
+      box.style.transform = `translate(${dir[0] * dist * (1 - e)}px,${dir[1] * dist * (1 - e)}px) rotate(${rot + (1 - e) * (it.in.spin ?? 9)}deg)`;
+    }
+    for (const mk of marks) {
+      const p = clamp01((t - mk.m.t) / mk.dur), n = mk.paths.length;
+      mk.paths.forEach((path, i) => { const share = n === 1 ? 1 : i === 0 ? .78 : .22, start = n === 1 ? 0 : i === 0 ? 0 : .78; path.style.strokeDashoffset = 1 - clamp01((p - start) / share); });
+    }
+    for (const { c, e } of caps) {
+      const on = t >= c.t && t < c.end; e.style.display = on ? '' : 'none';
+      if (on) { const p = clamp01((t - c.t) / .14), s = .9 + .1 * E.back(p); e.style.transform = `translate(-50%,-100%) rotate(${c.rot ?? -1}deg) scale(${s})`; e.style.opacity = p < 1 ? .4 + .6 * p : 1; }
+    }
+  };
+
+  /* ---------- проверки для render.cjs ---------- */
+  window.guides = (on) => { document.getElementById('guides').style.display = on ? 'block' : 'none'; };
+  // текст, который попал в запретные полосы сверху и снизу
+  window.lintText = (t) => {
+    window.render(t); const out = [];
+    if (window.moversAt(t).some((m) => m === 'камера')) return out;
+    const nodes = [...document.querySelectorAll('.ln > span, .note, .tag, .pcap, .scrawl, .cap, .file')].filter((n) => n.offsetParent || n.classList.contains('cap'));
+    for (const n of nodes) {
+      const host = n.closest('.item'); if (getComputedStyle(n).display === 'none' || host?.style.visibility === 'hidden' || host?.dataset.moving) continue;
+      const r = n.getBoundingClientRect(); if (r.height < 24 /* мелкий нечитаемый текст на общем плане не считаем */ || r.width < 2 || r.right < 0 || r.left > W || r.bottom < 0 || r.top > H) continue;
+      if (r.top < SAFE_TOP && r.bottom > 0) out.push({ zone: 'верх', text: n.textContent.trim().slice(0, 40), y: Math.round(r.top) });
+      if (r.bottom > H - SAFE_BOTTOM && r.top < H) out.push({ zone: 'низ', text: n.textContent.trim().slice(0, 40), y: Math.round(r.bottom) });
+    }
+    return out;
+  };
+  // что движется в момент t: камера, предметы, маркер
+  window.moversAt = (t) => {
+    const m = [];
+    for (const k of cam.slice(1)) if (t >= k.t && t < k.t + k.d) m.push('камера');
+    for (const id in items) { const i = items[id].it.in; if (i && t >= i.t && t < i.t + (i.dur || .55)) m.push('предмет ' + id); }
+    for (const mk of marks) if (t >= mk.m.t && t < mk.m.t + mk.dur) m.push('маркер на ' + mk.m.target);
+    return m;
+  };
+  window.audioEvents = () => {
+    const ev = [];
+    for (const id in items) { const it = items[id].it; if (it.in) ev.push({ kind: it.type === 'note' ? 'tape' : 'paper', t: it.in.t, dur: it.in.dur || .55 }); }
+    for (const mk of marks) ev.push({ kind: 'marker', t: mk.m.t, dur: mk.dur });
+    for (const k of cam.slice(1)) if (k.d >= .5 && (R.whoosh ?? true)) ev.push({ kind: 'whoosh', t: k.t, dur: k.d });
+    return ev;
+  };
+  window.REEL_READY = Promise.all([document.fonts.ready, ...[...document.images].map((i) => i.complete ? 0 : new Promise((r) => { i.onload = i.onerror = r; }))])
+    .then(() => { marks = buildMarks(); window.render(0); return true; });
+})();
+</script>
+</body>
+</html>
