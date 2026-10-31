@@ -765,7 +765,7 @@
 (() => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = (id) => document.getElementById(id);
-  let PREVIEW = /preview/.test(location.hash);   // в админке пустые поля видны как «Добавить»
+  let PREVIEW = location.hash === '#preview';   // в админке пустые поля видны как «Добавить»
   let TERMS = {};
 
   /* ---------- текст из content.json ---------- */
@@ -1055,7 +1055,8 @@
     if (!MAPQ) return;
     const f = document.createElement('iframe');
     f.src = 'https://yandex.ru/map-widget/v1/?mode=search&z=16&text=' + encodeURIComponent(MAPQ);
-    f.title = 'Карта: ' + MAPQ; f.allowFullscreen = true;
+    f.title = 'Карта: ' + MAPQ; f.allowFullscreen = true; f.referrerPolicy = 'strict-origin-when-cross-origin';
+    f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox');
     $('map-frame').append(f); $('map-frame').classList.add('on'); $('map-load').hidden = true;
   });
   // если страница открыта там, где чужие сайты встраивать запрещено (например, предпросмотр на claude.ai),
@@ -1269,7 +1270,7 @@
     }
   }
   function startTabs() {
-    const hash = decodeURIComponent(location.hash.slice(1));
+    let hash = ''; try { hash = decodeURIComponent(location.hash.slice(1)); } catch (e) {}   // битая ссылка вида #% — просто без перехода
     const el = hash && hash !== 'preview' ? document.getElementById(hash) : null;
     const panel = el && el.closest('.tabpanel');
     placeInk();
@@ -1306,10 +1307,17 @@
   addEventListener('scroll', hide, { passive: true });
 
   /* ---------- загрузка: content.json; из админки приходит живой предпросмотр ---------- */
+  // живой предпросмотр принимаем только от своей админки: тот же сайт и только из окна-родителя
   addEventListener('message', (e) => {
-    if (e.data && e.data.type === 'shapovalov:content') { PREVIEW = true; render(e.data.content); if (hasGsap) ScrollTrigger.refresh(); }
+    // в админке предпросмотр изолирован (sandbox, «пустое» происхождение), поэтому сверяем адрес страницы, а не location.origin
+    if (parent === window || e.source !== parent || e.origin !== new URL(location.href).origin) return;
+    if (e.data && e.data.type === 'shapovalov:content' && e.data.content && typeof e.data.content === 'object') { PREVIEW = true; boot(e.data.content); if (hasGsap) ScrollTrigger.refresh(); }
   });
-  fetch('content.json', { cache: 'no-store' }).then((r) => r.json()).then((c) => { render(c); animate(); startDx(); startTabs(); writeSignature(); if (parent !== window) parent.postMessage({ type: 'shapovalov:ready' }, '*'); })
-    .catch(() => { document.body.insertAdjacentHTML('afterbegin', '<p style="position:fixed;z-index:99;bottom:16px;left:16px;right:16px;padding:12px 16px;border-radius:12px;background:#2a2416;color:#e6c987;font-size:14px">Не удалось загрузить content.json. Откройте сайт через веб-сервер, а не как файл.</p>'); });
+  let booted = false;
+  function boot(c) { render(c); if (booted) return; booted = true; animate(); startDx(); startTabs(); writeSignature(); }
+  const ready = () => { if (parent !== window) parent.postMessage({ type: 'shapovalov:ready' }, '*'); };   // в сообщении нет ничего секретного
+  fetch('content.json', { cache: 'no-store' }).then((r) => r.json()).then((c) => { boot(c); ready(); })
+    .catch(() => { if (PREVIEW) return ready();   // предпросмотр получит текст из админки
+      document.body.insertAdjacentHTML('afterbegin', '<p style="position:fixed;z-index:99;bottom:16px;left:16px;right:16px;padding:12px 16px;border-radius:12px;background:#2a2416;color:#e6c987;font-size:14px">Не удалось загрузить content.json. Откройте сайт через веб-сервер, а не как файл.</p>'); });
 })();
 </script>
