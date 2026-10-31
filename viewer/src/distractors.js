@@ -28,6 +28,17 @@ export function selectDevice(requiredDeg) {
   return DEVICES[DEVICES.length - 1];
 }
 
+// Авто-подбор криволинейного КДА по ТРЕБУЕМОМУ углу коррекции regenerate (град.).
+// В модели планнера поворот регенерата при полной дистракции = (180 − deg),
+// поэтому нужный аппарат — тот, чья «цифра» ближе всего к (180 − угол).
+// Возвращает { device, achievedDeg } — ближайший аппарат и его реальный поворот.
+export function autoDevice(correctionDeg) {
+  const target = 180 - Math.max(0, Math.min(150, correctionDeg));
+  let best = DEVICES[0], bd = Infinity;
+  for (const d of DEVICES) { const e = Math.abs(d.deg - target); if (e < bd) { bd = e; best = d; } }
+  return { device: best, achievedDeg: 180 - best.deg };
+}
+
 // Радиус дуги (мм) из длины дистракции s (мм) и угла разворота angleDeg (град).
 export function arcRadius(lengthMm, angleDeg) {
   const a = angleDeg * Math.PI / 180;

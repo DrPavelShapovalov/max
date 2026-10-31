@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+import { jsPDF } from 'jspdf';
 import { splitByPlane } from './cut.js';
-import { DEVICES, selectDevice, arcRadius } from './distractors.js';
-import { buildDemo } from './demo.js';
+import { DEVICES, selectDevice, autoDevice, arcRadius } from './distractors.js';
+import { buildDemo, buildDemoVolume } from './demo.js';
+import { MPR } from './mpr.js';
 import {
   centroid, bbox, triCount, breakContact, splitComponents,
   parseSTL, writeSTLBinary,
@@ -37,6 +39,9 @@ let cutPlane = null;         // { group, mesh, normalLocal }
 let plan = null;             // { mobileId, fixedId, origin:V3, dir:V3(unit), deg, length }
 // ── измерения ────────────────────────────────────────────────────────────────
 let measurePts = [], measureGroup;
+const measurements = [];     // [{ a:[x,y,z], b:[x,y,z], mm }]
+// ── MPR (срезы КТ) ─────────────────────────────────────────────────────────────
+let volume = null, mpr = null, mprOn = false;
 
 function init() {
   canvas = $('cv');
@@ -81,7 +86,11 @@ function init() {
     placePlane(p, nrm) { placeCutPlaneAt(new THREE.Vector3(p.x, p.y, p.z), null, getFrag(selId) || frags[0]); if (nrm) cutPlane.group.lookAt(cutPlane.group.position.clone().add(new THREE.Vector3(nrm.x, nrm.y, nrm.z))); },
     distract(mm) { if (!plan) return; plan.length = Math.max(plan.length, mm, 1); $('distAmt').value = mm; $('distAmtV').textContent = mm.toFixed(1) + ' мм'; applyDistraction(); },
     mobilePos() { const f = plan && getFrag(plan.mobileId); return f ? f.group.position.toArray() : null; },
-    state: () => ({ nFrags: frags.length, names: frags.map(f => f.name), tri: frags.map(f => triCount(f.soup)), plan: plan ? { mobile: getFrag(plan.mobileId)?.name, dir: plan.dir.toArray(), length: plan.length } : null }),
+    toggleMPR: (on) => toggleMPR(on),
+    autoPick(ang) { if (plan) { $('corrAngle').value = ang; autoPickDevice(); } return plan ? plan.deg : null; },
+    exportPDF: () => exportPDF(),
+    mprInfo: () => mpr ? { on: mprOn, dims: volume.dims, ix: mpr.ix, iy: mpr.iy, iz: mpr.iz } : null,
+    state: () => ({ nFrags: frags.length, names: frags.map(f => f.name), tri: frags.map(f => triCount(f.soup)), hasVolume: !!volume, mprOn, plan: plan ? { mobile: getFrag(plan.mobileId)?.name, dir: plan.dir.toArray(), length: plan.length, deg: plan.deg } : null }),
   };
 }
 
@@ -147,8 +156,9 @@ function loadDemo() {
   clearAll();
   const { soup } = buildDemo();
   const f = addFragment(soup, 'Череп + НЧ (демо)', 'bone', 0xe6eef6);
+  volume = buildDemoVolume(); initMPR();
   frameAll(); selectFragment(f.id);
-  status('Демо загружено. Шаг 1: «Разорвать контакт» — кликай по зубным контактам, затем «Отделить НЧ».');
+  status('Демо загружено. Шаг 1: «Разорвать контакт» — кликай по зубным контактам, затем «Отделить НЧ». Срезы — кнопка «▦ Срезы».');
 }
 async function loadSTLFiles(fileList) {
   const files = Array.from(fileList); if (!files.length) return;
@@ -177,13 +187,15 @@ async function loadDICOM(fileList) {
       for (let k = 0; k < 3; k++) { const vi = indices[t + k] * 3; soup[o++] = positions[vi]; soup[o++] = positions[vi + 1]; soup[o++] = positions[vi + 2]; }
     clearAll();
     const f = addFragment(soup, 'Кость (КТ)', 'bone', 0xe6eef6);
+    volume = vol; initMPR();
     frameAll(); selectFragment(f.id);
-    status(`Кость построена (порог ${thr} HU). Шаг 1: разорвать контакты и «Отделить НЧ».`);
+    status(`Кость построена (порог ${thr} HU). Шаг 1: разорвать контакты и «Отделить НЧ». Срезы — «▦ Срезы».`);
   } catch (e) { console.error(e); alert('DICOM: ' + e.message); status('Ошибка DICOM.'); }
 }
 function clearAll() {
   [...frags].forEach(f => removeFragment(f.id));
   clearCutPlane(); plan = null; clearMeasure(); updatePlanPanel();
+  volume = null; mpr = null; measurements.length = 0;
 }
 
 function frameAll() {
@@ -247,6 +259,7 @@ function onPointerDown(ev) {
     if (measurePts.length === 2) {
       const d = measurePts[0].distanceTo(measurePts[1]);
       addMeasureLine(measurePts[0], measurePts[1]);
+      measurements.push({ a: measurePts[0].toArray(), b: measurePts[1].toArray(), mm: d });
       $('measVal').textContent = d.toFixed(1) + ' мм'; $('measVal').style.display = 'inline-block';
       status('Длина: ' + d.toFixed(1) + ' мм. Кликни ещё 2 точки для нового замера.');
       measurePts = [];
@@ -430,7 +443,7 @@ function updateOsteoInfo() {
 // ── измерения ─────────────────────────────────────────────────────────────────
 function addMeasureDot(p) { const m = new THREE.Mesh(new THREE.SphereGeometry(modelRadius * 0.012, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffc24d })); m.position.copy(p); measureGroup.add(m); }
 function addMeasureLine(a, b) { measureGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), new THREE.LineBasicMaterial({ color: 0xffc24d }))); }
-function clearMeasure() { measurePts = []; [...measureGroup.children].forEach(c => measureGroup.remove(c)); const mv = $('measVal'); if (mv) mv.style.display = 'none'; }
+function clearMeasure() { measurePts = []; measurements.length = 0; [...measureGroup.children].forEach(c => measureGroup.remove(c)); const mv = $('measVal'); if (mv) mv.style.display = 'none'; }
 
 // ── gizmo / направленное движение ────────────────────────────────────────────────
 function onGizmoChange() {
@@ -552,9 +565,21 @@ function wireUI() {
   $('gzMove').onclick = () => { gizmo.setMode('translate'); const f = getFrag(selId); if (f) gizmo.attach(f.group); };
   $('gzRot').onclick = () => { gizmo.setMode('rotate'); const f = getFrag(selId); if (f) gizmo.attach(f.group); };
 
+  // MPR-срезы
+  $('mprToggle').onclick = () => toggleMPR();
+  ['slA', 'slC', 'slS'].forEach((id, k) => { $(id).oninput = () => { if (!mpr) return; const prop = k === 0 ? 'iz' : k === 1 ? 'iy' : 'ix'; mpr[prop] = +$(id).value; renderMPR(); }; });
+  $('wc').oninput = () => { $('wcv').textContent = $('wc').value; if (mpr) { mpr.wc = +$('wc').value; renderMPR(); } };
+  $('ww').oninput = () => { $('wwv').textContent = $('ww').value; if (mpr) { mpr.ww = +$('ww').value; renderMPR(); } };
+  document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => { const [wc, ww] = b.dataset.preset.split(',').map(Number); $('wc').value = wc; $('ww').value = ww; $('wcv').textContent = wc; $('wwv').textContent = ww; if (mpr) { mpr.wc = wc; mpr.ww = ww; renderMPR(); } });
+
+  // авто-КДА
+  $('corrAngle').oninput = () => { $('corrAngleV').textContent = $('corrAngle').value + '°'; };
+  $('autoPickBtn').onclick = autoPickDevice;
+
   // измерения/экспорт
   $('measBtn').onclick = () => arm($('measBtn'), 'measure');
   $('measClr').onclick = clearMeasure;
+  $('pdfBtn').onclick = exportPDF;
   $('expSelBtn').onclick = () => exportSTL('sel');
   $('expAllBtn').onclick = () => exportSTL('all');
   $('saveBtn').onclick = saveProject;
@@ -583,6 +608,106 @@ function applyDistractionDirPreset() {
   else if (v === 'fwddown') plan.dir = V3(0, -0.7, 0.7).normalize();
   updatePlanPanel(); applyDistraction();
 }
+// ── MPR: срезы КТ ───────────────────────────────────────────────────────────────
+function initMPR() {
+  if (!volume) { mpr = null; return; }
+  mpr = new MPR(volume);
+  mpr.wc = +($('wc')?.value || 300); mpr.ww = +($('ww')?.value || 1500);
+  const [nx, ny, nz] = volume.dims;
+  setSlider('slA', nz, mpr.iz); setSlider('slC', ny, mpr.iy); setSlider('slS', nx, mpr.ix);
+  const wrap = $('mprTools'); if (wrap) wrap.style.display = 'flex';
+  renderMPR();
+}
+function setSlider(id, n, val) { const s = $(id); if (!s) return; s.min = 0; s.max = n - 1; s.value = val; }
+function renderMPR() {
+  if (!mpr || !mprOn) return;
+  mpr.drawAll($('mprA'), $('mprC'), $('mprS'));
+  const L = (id, v, n) => { const e = $(id); if (e) e.textContent = `${v + 1}/${n}`; };
+  const [nx, ny, nz] = volume.dims;
+  L('mprAn', mpr.iz, nz); L('mprCn', mpr.iy, ny); L('mprSn', mpr.ix, nx);
+}
+function toggleMPR(on) {
+  mprOn = on !== undefined ? on : !mprOn;
+  $('stage').classList.toggle('mpr-on', mprOn && !!mpr);
+  $('mprToggle').classList.toggle('armed', mprOn);
+  requestAnimationFrame(() => { resize(); if (mprOn) renderMPR(); });
+  if (mprOn && !mpr) status('Срезы доступны после загрузки DICOM или демо-модели.');
+}
+
+// ── авто-подбор КДА по углу коррекции ──────────────────────────────────────────
+function autoPickDevice() {
+  if (!plan) { status('Сначала выполните остеотомию (Шаг 2).'); return; }
+  const ang = +$('corrAngle').value;
+  const { device, achievedDeg } = autoDevice(ang);
+  plan.deg = device.deg; $('distDev').value = device.deg;
+  const r = $('distAmt').value > 0 ? arcRadius(+$('distAmt').value, achievedDeg) : null;
+  $('corrRec').innerHTML = `Рекомендован: <b>${device.name}</b> · поворот ≈ <b>${achievedDeg}°</b>` + (r ? ` · радиус ${r.toFixed(0)} мм` : '');
+  applyDistraction(); updatePlanReadout(+$('distAmt').value);
+}
+
+// ── протокол PDF ────────────────────────────────────────────────────────────────
+function exportPDF() {
+  const W = 1240, H = 1754;                    // A4 @ ~150 dpi
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#ffffff'; c.fillRect(0, 0, W, H);
+  // шапка
+  c.fillStyle = '#0f766e'; c.fillRect(0, 0, W, 112);
+  c.fillStyle = '#ffffff'; c.font = 'bold 40px Arial'; c.fillText('OSSA 4 — протокол планирования', 54, 56);
+  c.font = '20px Arial'; c.fillStyle = '#d7f5f1'; c.fillText('Остеотомия и дистракция нижней челюсти', 54, 90);
+  let y = 165; const L = 54, R = W - 54;
+  c.fillStyle = '#111'; c.font = '22px Arial';
+  const line = (label, val) => { c.fillStyle = '#555'; c.font = '19px Arial'; c.fillText(label, L, y); c.fillStyle = '#111'; c.font = 'bold 21px Arial'; c.fillText(val, L + 300, y); y += 38; };
+  line('Пациент / № КТ:', $('patName')?.value || '—');
+  line('Дата:', new Date().toLocaleDateString('ru-RU'));
+  line('Объектов в сцене:', String(frags.length));
+  // снимок 3D
+  y += 10; c.fillStyle = '#0f766e'; c.font = 'bold 24px Arial'; c.fillText('3D-план', L, y); y += 16;
+  try {
+    renderer.render(scene, camera);
+    const snap = renderer.domElement.toDataURL('image/png');
+    const img = new Image(); img.src = snap;
+    // синхронно: картинка из dataURL уже декодирована у большинства движков, но подстрахуемся
+    return finishPDF(cv, c, y, img);
+  } catch (e) { return finishPDF(cv, c, y, null); }
+}
+function finishPDF(cv, c, y, img) {
+  const W = cv.width, L = 54;
+  const draw = () => {
+    if (img && img.complete && img.width) {
+      const iw = W - 108, ih = iw * (img.height / img.width);
+      c.drawImage(img, L, y, iw, Math.min(ih, 560)); y += Math.min(ih, 560) + 26;
+    } else { y += 10; }
+    // план дистракции
+    c.fillStyle = '#0f766e'; c.font = 'bold 24px Arial'; c.fillText('Параметры дистракции', L, y); y += 34;
+    c.font = '20px Arial'; c.fillStyle = '#111';
+    const row = (t) => { c.fillStyle = '#222'; c.font = '20px Arial'; c.fillText('•  ' + t, L, y); y += 32; };
+    if (plan) {
+      const dev = DEVICES.find(d => d.deg === plan.deg);
+      const s = +$('distAmt').value;
+      row(`Подвижный фрагмент: ${getFrag(plan.mobileId)?.name || '—'}`);
+      row(`Вектор дистракции: (${plan.dir.x.toFixed(2)}, ${plan.dir.y.toFixed(2)}, ${plan.dir.z.toFixed(2)})`);
+      row(`Длина дистракции (регенерат): ${s.toFixed(1)} мм`);
+      row(`Аппарат: ${dev?.name || '—'}` + (plan.deg < 180 ? `, поворот регенерата ≈ ${(180 - plan.deg)}°` : ' (прямой)'));
+      if (plan.deg < 180 && s > 0) row(`Радиус дуги: ${arcRadius(s, 180 - plan.deg).toFixed(0)} мм`);
+    } else row('Остеотомия не выполнена.');
+    if (measurements.length) {
+      y += 8; c.fillStyle = '#0f766e'; c.font = 'bold 24px Arial'; c.fillText('Измерения', L, y); y += 34;
+      measurements.forEach((m, i) => row(`Замер ${i + 1}: ${m.mm.toFixed(1)} мм`));
+    }
+    // футер
+    const H = cv.height;
+    c.fillStyle = '#777'; c.font = '15px Arial';
+    c.fillText('ФГБУ НМИЦ «ЦНИИС и ЧЛХ» Минздрава России · OSSA 4', L, H - 70);
+    c.fillText('Вспомогательный ориентир планирования. Клиническое решение принимает врач.', L, H - 46);
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+    pdf.addImage(cv.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
+    pdf.save(($('patName')?.value || 'OSSA_план') + '.pdf');
+    status('Протокол PDF сохранён.');
+  };
+  if (img && !img.complete) { img.onload = draw; img.onerror = draw; } else draw();
+}
+
 function playDistraction() {
   if (!plan || plan.length < 0.5) { status('Задай длину дистракции (ползунок).'); return; }
   const L = plan.length; const dur = 2600; const t0 = performance.now();

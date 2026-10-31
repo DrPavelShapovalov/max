@@ -57,3 +57,22 @@ export function buildDemo() {
   const soup = mergeSoups([skull, mand, bL, bR]);
   return { soup, name: 'Череп + НЧ (демо)', bridges: [{ x: -14, y: -2, z: 30 }, { x: 14, y: -2, z: 30 }] };
 }
+
+// Синтетический КТ-объём для демонстрации MPR-срезов (без реальных данных).
+// Череп — шаровой свод, нижняя челюсть — дуга-подкова у основания.
+export function buildDemoVolume() {
+  const nx = 100, ny = 100, nz = 100, sp = 1.8;
+  const data = new Float32Array(nx * ny * nz);
+  const cx = 50, cy = 60, cz = 50;        // центр черепа в вокселях
+  for (let z = 0; z < nz; z++) for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
+    let v = -1000;                         // воздух
+    const dx = x - cx, dy = y - cy, dz = z - cz;
+    const r = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (r <= 30) v = r >= 24 ? 900 : 120;  // кортикальная оболочка / внутри мягче
+    // нижняя челюсть: кольцо в плоскости XZ у основания (низкий Y)
+    const ring = Math.abs(Math.sqrt(dx * dx + (dz + 4) * (dz + 4)) - 23);
+    if (y >= 20 && y <= 34 && ring <= 5 && (dz + 4) < 20) v = Math.max(v, 950);
+    data[z * nx * ny + y * nx + x] = v;
+  }
+  return { data, dims: [nx, ny, nz], spacing: [sp, sp, sp], min: -1000, max: 1200, modality: 'CT' };
+}

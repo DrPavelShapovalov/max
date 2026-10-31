@@ -43,11 +43,19 @@
   .grp input[type=range]{width:90px;accent-color:var(--accent)}
   /* main */
   .main{flex:1;display:flex;min-height:0}
-  .stage{flex:1;position:relative;min-width:0;background:radial-gradient(130% 120% at 50% 0%,#0d1f28,#060d12)}
-  .stage::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  .stage{flex:1;display:flex;min-width:0}
+  .cv3d{flex:1;position:relative;min-width:0;background:radial-gradient(130% 120% at 50% 0%,#0d1f28,#060d12)}
+  .cv3d::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.5;
     background-image:linear-gradient(rgba(47,228,214,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(47,228,214,.045) 1px,transparent 1px);
     background-size:42px 42px;mask:radial-gradient(circle at 50% 55%,#000,transparent 80%);-webkit-mask:radial-gradient(circle at 50% 55%,#000,transparent 80%)}
   #cv{position:relative;z-index:1;width:100%;height:100%;display:block}
+  /* колонка MPR-срезов */
+  .mprcol{display:none;flex:0 0 300px;flex-direction:column;gap:2px;background:var(--line);border-right:1px solid var(--line2)}
+  .stage.mpr-on .mprcol{display:flex}
+  .mpr{flex:1;position:relative;background:#05080b;min-height:0;overflow:hidden}
+  .mpr canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .mpr .mlbl{position:absolute;top:5px;left:7px;z-index:2;font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--accent);background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px;pointer-events:none}
+  .mpr .msl{position:absolute;left:8px;right:8px;bottom:6px;z-index:2;accent-color:var(--accent);opacity:.85}
   #dropHint{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--ink-faint);font-family:var(--mono);font-size:13px;pointer-events:none;z-index:2;line-height:1.9}
   #dropHint b{color:var(--accent)}
   .status{position:absolute;left:14px;bottom:12px;font-family:var(--mono);font-size:11.5px;color:var(--accent);z-index:3;max-width:70%;
@@ -125,6 +133,13 @@
     <input type="file" id="dcmInput" webkitdirectory directory multiple style="display:none">
     <span class="chip" id="demoBtn" title="Загрузить демо-модель череп+НЧ">▣ Демо-модель</span>
     <div class="grp" title="Порог кости для 3D из DICOM">порог <input type="range" id="thr" min="-200" max="1500" value="300"><span id="thrv" style="display:none"></span></div>
+    <span class="chip" id="mprToggle" title="Показать срезы КТ (аксиал/коронар/сагиттал)">▦ Срезы</span>
+    <div class="grp" id="mprTools" style="display:none;gap:5px">
+      WC <input type="range" id="wc" min="-1000" max="3000" value="300"><span id="wcv">300</span>
+      WW <input type="range" id="ww" min="1" max="4000" value="1500"><span id="wwv">1500</span>
+      <span class="chip" data-preset="300,1500" title="Костное окно">Кость</span>
+      <span class="chip" data-preset="40,400" title="Мягкие ткани">Мягк.</span>
+    </div>
     <input type="text" id="patName" class="ipt" placeholder="Пациент / № КТ" style="width:150px">
     <span class="spacer"></span>
     <span class="chip" id="undoBtn" title="Отменить (Ctrl+Z)">↩ Отмена</span>
@@ -134,11 +149,18 @@
   </div>
 
   <div class="main">
-    <div class="stage">
-      <canvas id="cv"></canvas>
-      <div id="dropHint">Перетащите сюда <b>STL</b> или папку <b>DICOM</b><br>или нажмите <b>«Демо-модель»</b>, чтобы сразу попробовать<br>
-        <span style="opacity:.7">мышь — вращать · колесо — зум · правая — панорама · G/R — сдвиг/поворот гизмо</span></div>
-      <div class="status" id="status"></div>
+    <div class="stage" id="stage">
+      <div class="mprcol" id="mprcol">
+        <div class="mpr"><canvas id="mprA"></canvas><div class="mlbl">АКСИАЛ <span id="mprAn"></span></div><input id="slA" class="msl" type="range" min="0" max="0" value="0"></div>
+        <div class="mpr"><canvas id="mprC"></canvas><div class="mlbl">КОРОНАР <span id="mprCn"></span></div><input id="slC" class="msl" type="range" min="0" max="0" value="0"></div>
+        <div class="mpr"><canvas id="mprS"></canvas><div class="mlbl">САГИТТАЛ <span id="mprSn"></span></div><input id="slS" class="msl" type="range" min="0" max="0" value="0"></div>
+      </div>
+      <div class="cv3d" id="cv3d">
+        <canvas id="cv"></canvas>
+        <div id="dropHint">Перетащите сюда <b>STL</b> или папку <b>DICOM</b><br>или нажмите <b>«Демо-модель»</b>, чтобы сразу попробовать<br>
+          <span style="opacity:.7">мышь — вращать · колесо — зум · правая — панорама · G/R — сдвиг/поворот гизмо</span></div>
+        <div class="status" id="status"></div>
+      </div>
     </div>
 
     <div class="side">
@@ -192,6 +214,9 @@
             <div class="btns"><button class="b" id="distPickBtn" title="Задать направление кликом по точке-цели">◎ Вектор по точке</button></div>
             <div class="note">Направление: <span id="distDirTxt">—</span></div>
             <div class="row"><label>Аппарат</label><select id="distDev"></select></div>
+            <div class="row"><label>Угол корр.</label><input type="range" id="corrAngle" min="0" max="150" step="1" value="0"><span class="v" id="corrAngleV">0°</span></div>
+            <div class="btns"><button class="b" id="autoPickBtn" title="Подобрать криволинейный КДА под требуемый угол коррекции">⚙ Подобрать КДА</button></div>
+            <div class="note" id="corrRec">Укажи требуемый угол коррекции — подберём криволинейный аппарат.</div>
             <div class="row"><label>Дистракция</label><input type="range" id="distAmt" min="0" max="40" step="0.5" value="0"><span class="v" id="distAmtV">0 мм</span></div>
             <div class="btns"><button class="b" id="distPlay">▶ Анимация</button><label class="b" style="flex:0 0 auto;cursor:pointer"><input type="checkbox" id="railChk" style="vertical-align:middle"> 🔩 рельс</label></div>
             <div class="read" id="distReadout">Длина регенерата: 0 мм</div>
@@ -204,6 +229,7 @@
         <button class="b" id="measClr" style="flex:0 0 auto">Очистить</button>
         <span class="vbadge" id="measVal" style="display:none"></span>
         <span style="flex:1"></span>
+        <button class="b" id="pdfBtn" style="flex:0 0 auto">⬇ Протокол PDF</button>
         <button class="b" id="expSelBtn" style="flex:0 0 auto">⬇ STL объекта</button>
         <button class="b main" id="expAllBtn" style="flex:0 0 auto">⬇ STL плана</button>
       </div>

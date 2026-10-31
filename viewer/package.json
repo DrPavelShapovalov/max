@@ -23,6 +23,7 @@
     "isosurface": "^1.0.0",
     "jpeg-js": "^0.4.4",
     "jpeg-lossless-decoder-js": "^2.1.2",
+    "jspdf": "^2.5.2",
     "three": "^0.160.0"
   },
   "devDependencies": {
