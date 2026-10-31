@@ -104,12 +104,99 @@
   .signature{width:min(240px,100%); height:auto; display:block; margin-inline:auto}
   .id-meta{font-family:var(--mono); font-size:14px; color:var(--mist); line-height:1.7}
 
-  .readings{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:28px; position:relative; z-index:3}
-  .reading{padding:22px 24px; display:flex; flex-direction:column; gap:6px; min-width:0}
-  .val{font-family:var(--display); font-weight:500; font-size:clamp(30px,3.6vw,44px); line-height:1; white-space:nowrap; font-variant-numeric:tabular-nums}
-  .val small{font-family:var(--mono); font-size:15px; font-weight:600; color:var(--gold); margin-left:6px}
+  /* огромные цифры: число на пол-экрана, единица золотом, подпись под ним */
+  .readings{display:grid; grid-template-columns:repeat(3,1fr); gap:32px; margin-top:80px; position:relative; z-index:3}
+  .reading{display:flex; flex-direction:column; gap:12px; min-width:0}
+  .val{font-family:var(--display); font-weight:700; font-size:clamp(96px,13vw,196px); line-height:.8; letter-spacing:-.05em; white-space:nowrap; font-variant-numeric:tabular-nums}
+  .val small{display:block; margin:18px 0 0 .06em; font-family:var(--text); font-size:20px; font-weight:700; letter-spacing:0; color:var(--gold)}
   .val .arr{color:var(--gold)}
-  .reading .lbl{font-size:15px; color:var(--mist)}
+  .reading .lbl{font-size:16px; color:var(--soft); max-width:28ch}
+
+  /* аудитория: родителям / коллегам */
+  .aud{position:relative; display:inline-flex; margin-top:26px; padding:4px; border-radius:999px; border:1px solid var(--line);
+    background:rgba(5,8,10,.45); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px)}
+  .aud button{position:relative; z-index:1; font:600 15px var(--text); color:var(--mist); background:none; border:0; padding:10px 18px; border-radius:999px; cursor:pointer; transition:color .25s}
+  .aud button[aria-checked="true"]{color:#140f06}
+  .aud-ink{position:absolute; z-index:0; top:4px; bottom:4px; left:4px; width:0; border-radius:999px; background:var(--gold)}
+  @media (hover:hover) and (pointer:fine){ .aud button[aria-checked="false"]:hover{color:var(--ivory)} }
+
+  /* дистракция при прокрутке */
+  .dx{position:relative; z-index:2; height:100svh; margin-top:110px}
+  .dx-pin{height:100%; display:grid; grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr); grid-template-areas:"head fig" "read fig";
+    grid-template-rows:auto 1fr; column-gap:56px; row-gap:8px; align-content:center; padding-block:110px 40px}
+  .dx-head{grid-area:head; align-self:end}
+  .dx-head p{margin-top:16px; color:var(--soft); font-size:17px; max-width:44ch}
+  .dx-fig{grid-area:fig; margin:0; min-width:0; align-self:center}
+  .dx-svg{display:block; width:100%; height:auto; overflow:visible}
+  .dx-read{grid-area:read; align-self:start; min-width:0}
+  .dx-mm{margin-top:26px; font-family:var(--display); font-weight:700; font-size:clamp(64px,7.4vw,104px); line-height:.85; letter-spacing:-.04em; font-variant-numeric:tabular-nums; white-space:nowrap}
+  .dx-mm small{margin-left:12px; font-size:.28em; font-weight:500; letter-spacing:0; color:var(--gold)}
+  .dx-steps{list-style:none; margin:24px 0 0; padding:0; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px}
+  .dx-steps li{display:flex; flex-direction:column; gap:8px; font-size:13px; line-height:1.3; color:var(--mist); transition:color .25s}
+  .dx-steps li.on{color:var(--ivory)}
+  .dx-steps i{display:block; height:3px; border-radius:3px; background:rgba(237,232,222,.12); overflow:hidden}
+  .dx-steps i b{display:block; height:100%; background:var(--gold); transform-origin:left; transform:scaleX(var(--f,0))}
+  .dx-now{margin-top:18px; min-height:6.6em}
+  .dx-now b{display:block; font-family:var(--display); font-weight:500; font-size:20px; color:var(--gold-hi)}
+  .dx-now p{margin-top:6px; color:var(--soft); font-size:16px; max-width:46ch}
+  .dx-note{margin-top:10px; font-size:14px; color:var(--mist); max-width:52ch}
+  .dx-range{display:flex; flex-direction:column; gap:8px; margin-top:16px; font-size:14px; color:var(--mist)}
+  .dx-range input{width:100%; accent-color:var(--gold)}
+  .dx-svg .bone{fill:rgba(237,232,222,.07); stroke:var(--gold); stroke-width:2.2; stroke-linejoin:round}
+  .dx-svg .tooth{fill:rgba(237,232,222,.14); stroke:rgba(237,232,222,.55); stroke-width:1.4}
+  .dx-svg .metal{fill:#1b2624; stroke:var(--ivory); stroke-width:1.6}
+  .dx-svg .screw{fill:var(--gold-hi)}
+  .dx-svg .dim{stroke:var(--gold-hi); stroke-width:1.4}
+  .dx-svg .dim-t{fill:var(--gold-hi); font:600 15px var(--text)}
+  .dx-svg .lbl-t{fill:var(--mist); font:500 13px var(--text)}
+
+  /* полноэкранное меню */
+  .burger{position:relative; width:44px; height:44px; flex:none; border-radius:50%; border:1px solid var(--line); background:rgba(5,8,10,.35); cursor:pointer; display:grid; place-items:center; color:var(--ivory)}
+  .burger span{position:absolute; left:13px; right:13px; height:1.6px; border-radius:2px; background:currentColor; transition:transform .3s cubic-bezier(.23,1,.32,1)}
+  .burger span:nth-child(1){transform:translateY(-4px)} .burger span:nth-child(2){transform:translateY(4px)}
+  .burger[aria-expanded="true"] span:nth-child(1){transform:rotate(45deg)} .burger[aria-expanded="true"] span:nth-child(2){transform:rotate(-45deg)}
+  .sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+  .nav-end{display:flex; align-items:center; gap:10px}
+  body.menu-open .nav{z-index:70}
+  .menu{position:fixed; inset:0; z-index:60; display:flex; flex-direction:column; overflow-y:auto; background:var(--void);
+    padding:calc(env(safe-area-inset-top,0px) + 110px) 28px calc(env(safe-area-inset-bottom,0px) + 32px)}
+  .menu-aura{position:fixed; inset:0; z-index:-1; overflow:hidden; pointer-events:none}
+  .menu-aura i{position:absolute; border-radius:50%; filter:blur(80px)}
+  .menu-aura i:nth-child(1){width:70vmax; height:70vmax; left:-25vmax; top:-20vmax; background:#17614c; opacity:.8}
+  .menu-aura i:nth-child(2){width:55vmax; height:55vmax; right:-20vmax; bottom:-25vmax; background:#7a5c1f; opacity:.7}
+  .menu-aura i:nth-child(3){width:45vmax; height:45vmax; left:30vw; top:35vh; background:#0d4a52; opacity:.75}
+  .menu-in{position:relative; width:min(1120px,100%); margin-inline:auto; display:flex; flex-direction:column; gap:clamp(12px,2.2vh,24px)}
+  .menu-in > a,.menu-group > a{font-family:var(--display); font-weight:500; font-size:clamp(24px,min(4.2vw,6.4vh),50px); line-height:1.05; letter-spacing:.16em; text-transform:uppercase; width:max-content; max-width:100%}
+  .menu-sub{list-style:none; margin:4px 0 6px; padding:0; display:grid; gap:12px}
+  .menu-sub a{display:inline-flex; align-items:center; gap:14px; font-size:clamp(15px,1.5vw,19px); font-weight:600; letter-spacing:.08em}
+  .orb{width:30px; height:30px; flex:none; border-radius:50%; background:radial-gradient(circle at 34% 30%, #f6e2a8, var(--o1,#2f8f72) 46%, #071a15 100%)}
+  .menu-sub li:nth-child(3n+2) .orb{--o1:#c99a3c} .menu-sub li:nth-child(3n) .orb{--o1:#1f6f7a}
+  .menu-foot{position:relative; width:min(1120px,100%); margin:auto auto 0; padding-top:36px; display:flex; flex-wrap:wrap; gap:12px 28px; font-size:16px; color:var(--soft)}
+  .menu-foot a{color:var(--ivory)}
+  @media (hover:hover) and (pointer:fine){ .menu a:hover{color:var(--gold-hi)} .burger:hover{border-color:var(--gold)} }
+
+  /* карта */
+  .map{margin-top:16px; display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,.7fr); overflow:hidden; padding:0}
+  .map-frame{position:relative; min-height:360px; border-radius:26px 0 0 26px; overflow:hidden;
+    background:radial-gradient(60% 70% at 30% 30%, rgba(31,122,95,.55), transparent 70%), radial-gradient(50% 60% at 80% 80%, rgba(122,92,31,.45), transparent 70%), #07110f}
+  .map-frame iframe{position:absolute; inset:0; width:100%; height:100%; border:0; filter:invert(.92) hue-rotate(170deg) saturate(.65) brightness(.92)}
+  .map-frame.on::after{content:""; position:absolute; inset:0; pointer-events:none; background:rgba(22,90,70,.35); mix-blend-mode:color}
+  .map-pin{position:absolute; left:50%; top:50%; width:74px; transform:translate(-50%,-88%); color:var(--gold)}
+  .map-pin svg{display:block; width:100%; height:auto}
+  .map-ring{position:absolute; left:50%; top:50%; width:120px; height:40px; margin:-20px 0 0 -60px; border-radius:50%; border:1.5px solid rgba(214,178,102,.6)}
+  .map-frame.on .map-pin,.map-frame.on .map-ring{display:none}
+  .map-info{padding:32px 30px; display:flex; flex-direction:column; gap:14px; justify-content:center}
+  .map-info b{font-family:var(--display); font-weight:500; font-size:22px; line-height:1.25}
+  .map-info p{color:var(--soft)}
+  .map-acts{display:flex; flex-wrap:wrap; gap:10px; margin-top:6px}
+  @media (prefers-reduced-motion:no-preference){
+    .map-ring{animation:ping 2.4s cubic-bezier(.23,1,.32,1) infinite}
+    .aud-ink{transition:left .35s cubic-bezier(.23,1,.32,1), width .35s cubic-bezier(.23,1,.32,1)}
+    .menu-aura i:nth-child(1){animation:drift1 22s ease-in-out infinite alternate}
+    .menu-aura i:nth-child(2){animation:drift2 26s ease-in-out infinite alternate}
+    .menu-aura i:nth-child(3){animation:drift1 30s ease-in-out infinite alternate-reverse}
+  }
+  @keyframes ping{from{transform:scale(.4); opacity:1} to{transform:scale(1.4); opacity:0}}
 
   .marquee{margin-inline:-20px; overflow:hidden; border-block:1px solid var(--line); padding-block:16px; margin-top:96px; position:relative; z-index:1}
   .marquee-track{display:flex; width:max-content}
@@ -285,9 +372,29 @@
     .steps-intro,.diss{position:static}
     .contacts{grid-template-columns:1fr 1fr}
     .work{padding:32px 24px}
+    .readings{gap:20px}
+    .map{grid-template-columns:1fr}
+    .map-frame{border-radius:26px 26px 0 0; min-height:300px}
+    .dx-pin{grid-template-columns:1fr; grid-template-areas:"head" "fig" "read"; grid-template-rows:auto auto auto; row-gap:14px; align-content:start; padding-block:96px 24px}
+    .dx-head p{font-size:16px}
+    .dx-mm{margin-top:4px}
+    .dx-now{min-height:7.4em}
   }
   @media (max-width:640px){
-    .readings{grid-template-columns:1fr; margin-top:20px}
+    .readings{grid-template-columns:1fr; gap:40px; margin-top:56px}
+    .val{font-size:clamp(96px,34vw,150px)}
+    .nav #nav-tg{display:none}
+    .menu{padding-inline:22px}
+    .dx{margin-top:72px}
+    .dx-pin{padding-block:88px 96px; row-gap:10px}
+    .dx-head h2{font-size:28px}
+    .dx-head p{margin-top:8px; font-size:15px; line-height:1.45}
+    .dx-mm{font-size:56px; display:inline-block}
+    .dx-steps{margin-top:14px} .dx-steps li{font-size:12px}
+    .dx-now{margin-top:12px; min-height:7.6em} .dx-now b{font-size:17px} .dx-now p{font-size:15px; line-height:1.45}
+    .dx-note{font-size:13px; margin-top:4px}
+    .dx-svg .lbl-t{font-size:24px} .dx-svg .dim-t{font-size:26px}
+    .sub-block{padding-top:72px}
     .contacts{grid-template-columns:1fr}
     .card-id{padding:16px; gap:14px}
     .portrait{width:92px}
@@ -311,7 +418,6 @@
   }
   @media (max-width:360px){
     .tabbar button{font-size:12px; padding-inline:0; letter-spacing:-.01em}
-    .sub-block{padding-top:72px}
   }
 </style>
 
@@ -329,8 +435,24 @@
   <div class="links">
     <a href="#about">Обо мне</a><a href="#directions">Направления</a><a href="#cases">Кейсы</a><a href="#science">Наука</a><a href="#contacts">Контакты</a>
   </div>
-  <a class="pill" id="nav-tg" href="https://t.me/SHAPOVALOV_DR" target="_blank" rel="noopener">Telegram</a>
+  <div class="nav-end">
+    <a class="pill" id="nav-tg" href="https://t.me/SHAPOVALOV_DR" target="_blank" rel="noopener">Telegram</a>
+    <button class="burger" id="burger" type="button" aria-expanded="false" aria-controls="menu"><span></span><span></span><b class="sr">Меню</b></button>
+  </div>
 </nav>
+
+<div class="menu" id="menu" role="dialog" aria-modal="true" aria-label="Меню" hidden>
+  <div class="menu-aura" aria-hidden="true"><i></i><i></i><i></i></div>
+  <nav class="menu-in" aria-label="Меню сайта">
+    <a href="#about">Обо мне</a>
+    <a href="#distraction">Как растёт кость</a>
+    <div class="menu-group"><a href="#directions">Лечение</a><ul class="menu-sub" id="menu-dirs"></ul></div>
+    <a href="#cases">Кейсы</a>
+    <a href="#science">Наука</a>
+    <a href="#contacts">Контакты</a>
+  </nav>
+  <div class="menu-foot" id="menu-foot"></div>
+</div>
 
 <main class="wrap">
   <header class="hero" id="top">
@@ -339,15 +461,34 @@
       <div>
         <h1 id="h-name"><span class="given">Павел Игоревич</span><b>Шаповалов</b></h1>
         <p class="lede" id="h-lede"></p>
+        <div class="aud" id="aud" role="radiogroup" aria-label="Кому рассказать">
+          <span class="aud-ink" id="aud-ink" aria-hidden="true"></span>
+          <button type="button" role="radio" data-aud="parents" aria-checked="true">Родителям</button>
+          <button type="button" role="radio" data-aud="colleagues" aria-checked="false">Коллегам</button>
+        </div>
         <div class="actions">
-          <a class="pill big" href="#cases">Смотреть кейсы →</a>
+          <a class="pill big" id="h-cta" href="#distraction">Как растёт кость →</a>
           <a class="ghost" id="h-ig" href="https://www.instagram.com/dr__shapovalov/" target="_blank" rel="noopener">Instagram</a>
         </div>
       </div>
       <aside class="card-id glass">
         <div class="portrait"><img id="h-portrait" src="img/portrait.jpg" alt="Павел Шаповалов" width="560" height="560"></div>
         <div>
-          <img class="signature" src="img/signature-gold.png" alt="Dr. Shapovalov" width="640" height="225">
+          <svg class="signature" id="sig" viewBox="0 0 640 213" role="img" aria-label="Dr. Shapovalov">
+            <defs><mask id="sig-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="640" height="213">
+              <g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke-width="30" d="M14 15 L84 15"/>
+                <path stroke-width="42" d="M38 74 C10 95 0 135 30 155 C60 172 110 162 128 138 C146 114 120 95 100 78 C75 55 70 25 105 18 C135 12 160 25 152 45 C149 55 138 56 132 52"/>
+                <path stroke-width="30" d="M208 46 C192 80 162 122 142 152"/>
+                <path stroke-width="72" d="M150 96 L172 134 L194 96 L216 134 L238 96"/>
+                <path stroke-width="28" d="M246 118 C240 150 236 172 232 192"/>
+                <path stroke-width="72" d="M250 96 L272 134 L294 96 L316 134 L338 96 L360 134 L382 96 L404 134 L426 96 L448 134 L470 96 L492 134"/>
+                <path stroke-width="28" d="M526 46 C518 80 510 112 504 146"/>
+                <path stroke-width="72" d="M500 96 L522 134 L544 96 L566 134 L588 96 L610 134"/>
+                <path stroke-width="16" d="M16 203 C200 196 420 188 628 186"/>
+              </g></mask></defs>
+            <image href="img/signature-gold.png" width="640" height="213"/>
+          </svg>
           <p class="id-meta" id="h-card"></p>
         </div>
       </aside>
@@ -355,6 +496,56 @@
   </header>
 
   <div class="readings" id="readings"></div>
+
+  <section class="dx" id="distraction" aria-labelledby="dx-h" data-offset="0">
+    <div class="dx-pin">
+      <div class="dx-head"><h2 id="dx-h"></h2><p id="dx-intro"></p></div>
+      <figure class="dx-fig">
+        <svg class="dx-svg" viewBox="70 30 750 385" role="img" aria-labelledby="dx-t">
+          <title id="dx-t">Схема: дистракция нижней челюсти. Задний фрагмент неподвижен, передний отходит вперёд, в щели формируется новая кость.</title>
+          <defs>
+            <pattern id="dx-hatch" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M0 0V7M3.5 0V7" stroke="#2f8f72" stroke-width="1.6"/></pattern>
+          </defs>
+          <path class="bone" d="M150 78 C148 58 170 48 192 54 C206 58 210 72 202 86 C198 98 200 110 208 120 C222 140 250 146 268 120 C278 104 284 80 292 60 C304 92 312 140 322 172 C328 192 336 204 345 210 L345 344 C320 342 296 336 268 330 C230 324 196 326 172 312 C150 298 140 274 142 246 C144 200 146 150 156 108 C158 96 154 88 150 78 Z"/>
+          <rect id="dx-gap" x="345" y="210" width="0" height="134" fill="url(#dx-hatch)"/>
+          <rect id="dx-cons" x="345" y="210" width="0" height="134" fill="#d6b266" opacity="0"/>
+          <g id="dx-ant">
+            <g class="tooth"><rect x="372" y="181.1" width="48" height="34" rx="6"/><rect x="426" y="177.0" width="50" height="36" rx="6"/><rect x="482" y="177.2" width="36" height="34" rx="10"/><rect x="524" y="175.6" width="34" height="34" rx="10"/><rect x="564" y="164.2" width="30" height="44" rx="12"/><rect x="600" y="166.4" width="26" height="40" rx="11" transform="rotate(7 613.0 206.4)"/><rect x="632" y="159.4" width="26" height="40" rx="11" transform="rotate(7 645.0 199.4)"/></g>
+            <path class="bone" d="M345 210 C420 216 520 212 610 202 C640 198 664 192 684 186 C694 200 700 222 696 240 C694 262 712 284 712 306 C712 330 698 346 672 350 C600 356 470 352 345 344 Z"/>
+            <g id="dx-plate-a" opacity="0">
+              <rect class="metal" x="312" y="276" width="64" height="11" rx="3"/>
+              <path d="M324 276V287M332 276V287M340 276V287M348 276V287M356 276V287M364 276V287" stroke="#93a19b" stroke-width="1"/>
+              <rect class="metal" x="366" y="263" width="48" height="37" rx="8"/>
+              <circle class="screw" cx="378" cy="281.5" r="4.6"/><circle class="screw" cx="402" cy="281.5" r="4.6"/>
+            </g>
+          </g>
+          <line id="dx-cut" x1="345" y1="204" x2="345" y2="204" stroke="#f0d48e" stroke-width="2" stroke-dasharray="5 5"/>
+          <g id="dx-dev" opacity="0">
+            <path d="M300 282 L112 330" stroke="#ede8de" stroke-width="5" stroke-linecap="round"/>
+            <g id="dx-knob"><circle class="metal" cx="100" cy="333" r="15"/><path d="M100 320V333" stroke="#f0d48e" stroke-width="3" stroke-linecap="round"/></g>
+            <rect class="metal" x="276" y="263" width="48" height="37" rx="8"/>
+            <circle class="screw" cx="288" cy="281.5" r="4.6"/><circle class="screw" cx="312" cy="281.5" r="4.6"/>
+            <rect class="metal" x="298" y="273" width="50" height="17" rx="4"/>
+          </g>
+          <g id="dx-dim" opacity="0">
+            <path class="dim" d="M345 362V384M345 373H357"/>
+            <g id="dx-dim-r"><path class="dim" d="M345 362V384M345 373H333"/></g>
+            <line id="dx-dim-l" class="dim" x1="345" y1="373" x2="345" y2="373"/>
+            <text id="dx-dim-t" class="dim-t" x="345" y="404" text-anchor="middle"></text>
+          </g>
+          <text class="lbl-t" x="200" y="400" text-anchor="middle">ветвь</text>
+          <text class="lbl-t" x="560" y="400" text-anchor="middle" id="dx-lbl-body">челюсть</text>
+        </svg>
+      </figure>
+      <div class="dx-read">
+        <div class="dx-mm"><span id="dx-mm">0,0</span><small>мм</small></div>
+        <ol class="dx-steps" id="dx-steps"></ol>
+        <div class="dx-now" id="dx-now" aria-live="polite"></div>
+        <label class="dx-range" id="dx-range-wrap" hidden><span>Покрутите аппарат</span><input type="range" id="dx-range" min="0" max="1000" value="620"></label>
+        <p class="dx-note" id="dx-note"></p>
+      </div>
+    </div>
+  </section>
 
   <div class="tabbar-wrap" id="tabbar-wrap">
     <div class="tabbar glass" id="tabbar" role="tablist" aria-label="Разделы сайта">
@@ -432,6 +623,22 @@
       <div><h2>Где я <em>работаю</em></h2><h3 class="work-name" id="work-h"></h3><p id="work-text"></p></div>
       <div class="side" id="work-side"></div>
     </div>
+    <div class="map glass reveal" id="map-card">
+      <div class="map-frame" id="map-frame" data-lenis-prevent>
+        <span class="map-ring" aria-hidden="true"></span>
+        <span class="map-pin" aria-hidden="true"><svg viewBox="0 0 80 104"><path d="M40 2C19 2 3 18 3 39c0 27 37 63 37 63s37-36 37-63C77 18 61 2 40 2z" fill="#0a1513" stroke="currentColor" stroke-width="3"/>
+          <g transform="translate(14 13) scale(.52)" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><path d="M31 29V62"/><path d="M48 29V62"/><path d="M65 29V62"/><path d="M25 64H71"/></g><circle cx="54" cy="50" r="2.6" fill="currentColor"/></svg></span>
+      </div>
+      <div class="map-info">
+        <b id="map-addr"></b>
+        <p id="map-place"></p>
+        <div class="map-acts">
+          <button class="pill" id="map-load" type="button">Показать карту</button>
+          <a class="ghost" id="map-ya" target="_blank" rel="noopener">Яндекс Карты ↗</a>
+          <a class="ghost" id="map-2gis" target="_blank" rel="noopener">2ГИС ↗</a>
+        </div>
+      </div>
+    </div>
       </div>
     </section>
   </div>
@@ -468,11 +675,12 @@
   const ext = (u) => /^https?:/i.test(u) ? ' target="_blank" rel="noopener"' : '';
   const num = (s) => parseFloat(String(s).replace(',', '.'));
 
+  let CONTENT = {};
   function render(c) {
+    CONTENT = c;
     TERMS = Object.fromEntries((c.terms || []).map((t) => [t.key, t]));
     const h = c.hero || {};
     $('h-name').innerHTML = `<span class="given">${esc([h.firstName, h.middleName].filter(Boolean).join(' '))}</span><b>${esc(h.lastName)}</b>`;
-    $('h-lede').innerHTML = rich(h.lede);
     $('h-card').innerHTML = [h.cardLine1, h.cardLine2].filter(Boolean).map(esc).join('<br>');
     if (safeUrl(h.portrait)) $('h-portrait').src = safeUrl(h.portrait);
     const m = c.meta || {};
@@ -481,7 +689,7 @@
     if (safeUrl(m.instagram)) $('h-ig').href = safeUrl(m.instagram);
 
     $('readings').innerHTML = (c.readings || []).map((r) => `
-      <div class="reading glass reveal"><div class="val">${r.from ? `<span class="count" data-to="${esc(r.from)}">${esc(r.from)}</span> <span class="arr">→</span> ` : ''}<span class="count" data-to="${esc(r.to)}">${esc(r.to)}</span><small>${esc(r.unit)}</small></div><p class="lbl">${rich(r.label)}</p></div>`).join('');
+      <div class="reading reveal"><div class="val">${r.from ? `<span class="count" data-to="${esc(r.from)}">${esc(r.from)}</span> <span class="arr">→</span> ` : ''}<span class="count" data-to="${esc(r.to)}">${esc(r.to)}</span><small>${esc(r.unit)}</small></div><p class="lbl">${rich(r.label)}</p></div>`).join('');
 
     const dirs = c.directions || [];
     const mq = `<span>${dirs.map((d) => esc(d.title)).join(' <i></i> ')} <i></i> Работа с ортодонтом <i></i></span>`;
@@ -558,10 +766,166 @@
       return u && k.value ? `<a class="contact glass reveal" href="${esc(u)}"${ext(u)}><small>${esc(k.label)} ↗</small><span>${esc(k.value)}</span></a>`
         : `<div class="contact glass reveal"><small>${esc(k.label)}</small><span>${val(k.value, k.label)}</span></div>`;
     }).join('');
+    // меню: направления лечения с цветными шариками, внизу — быстрые контакты
+    $('menu-dirs').innerHTML = dirs.map((d) => `<li><a href="#directions"><span class="orb" aria-hidden="true"></span>${esc(d.title)}</a></li>`).join('');
+    $('menu-foot').innerHTML = (c.contacts || []).filter((k) => safeUrl(k.url) && k.value).slice(0, 4)
+      .map((k) => `<a href="${esc(safeUrl(k.url))}"${ext(k.url)}>${esc(k.value)}</a>`).join('');
+
+    // дистракция
+    const dxc = c.distraction || {};
+    DX = { max: +dxc.maxMm > 0 ? +dxc.maxMm : 15, phases: dxc.phases || [] };
+    $('dx-h').innerHTML = esc(dxc.heading || '').replace(/(кость|кости)$/, '<em>$1</em>');
+    $('dx-note').innerHTML = rich(dxc.note);
+
+    // карта
+    const q = w.mapQuery || w.address || '';
+    $('map-addr').textContent = w.address || '';
+    $('map-place').textContent = w.name || '';
+    $('map-ya').href = 'https://yandex.ru/maps/?text=' + encodeURIComponent(q);
+    $('map-2gis').href = 'https://2gis.ru/moscow/search/' + encodeURIComponent(q);
+    $('map-card').hidden = !q;
+    MAPQ = q;
+
+    applyAud();
     $('foot-note').textContent = `© ${new Date().getFullYear()} ${[h.firstName, h.middleName, h.lastName].filter(Boolean).join(' ')}. ${(c.footer || {}).note || ''}`;
     bindTerms();
     bindGlass();
   }
+
+  /* ---------- родителям / коллегам ---------- */
+  const AUD_KEY = 'shp-audience';
+  let AUD = 'parents';
+  try { if (localStorage.getItem(AUD_KEY) === 'colleagues') AUD = 'colleagues'; } catch (e) {}
+  const pro = () => AUD === 'colleagues';
+  function placeAudInk() {
+    const b = document.querySelector(`#aud [data-aud="${AUD}"]`), ink = $('aud-ink'); if (!b) return;
+    ink.style.left = b.offsetLeft + 'px'; ink.style.width = b.offsetWidth + 'px';
+  }
+  function applyAud() {
+    const c = CONTENT, h = c.hero || {}, au = c.audience || {}, dxc = c.distraction || {};
+    document.querySelectorAll('#aud button').forEach((b) => {
+      b.setAttribute('aria-checked', String(b.dataset.aud === AUD));
+      const l = b.dataset.aud === 'colleagues' ? au.colleaguesLabel : au.parentsLabel; if (l) b.textContent = l;
+    });
+    placeAudInk();
+    $('h-lede').innerHTML = rich(pro() && h.ledePro ? h.ledePro : h.lede);
+    const cta = (pro() ? au.colleaguesCta : au.parentsCta) || {};
+    if (cta.label && safeUrl(cta.link)) { $('h-cta').textContent = cta.label + ' →'; $('h-cta').href = safeUrl(cta.link); }
+    $('dx-intro').innerHTML = rich(pro() && dxc.introPro ? dxc.introPro : dxc.intro);
+    $('dx-steps').innerHTML = DX.phases.map((ph) => `<li><i><b></b></i>${esc(pro() && ph.titlePro ? ph.titlePro : ph.title)}</li>`).join('');
+    $('dx-lbl-body').textContent = pro() ? 'тело нижней челюсти' : 'челюсть';
+    dxIdx = -1; dxSet(dxP);
+  }
+  function setAud(a) {
+    if (a === AUD) return;
+    AUD = a; try { localStorage.setItem(AUD_KEY, a); } catch (e) {}
+    const els = [$('h-lede'), $('h-cta'), $('dx-intro'), $('dx-now')];
+    if (window.gsap && !reduce) {
+      placeAudInk();
+      gsap.to(els, { autoAlpha: 0, y: -6, duration: 0.16, ease: 'power2.out', onComplete: () => {
+        applyAud(); gsap.fromTo(els, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.32, stagger: 0.03, ease: 'power3.out', clearProps: 'transform' }); } });
+    } else applyAud();
+  }
+  document.querySelectorAll('#aud button').forEach((b) => b.addEventListener('click', () => setAud(b.dataset.aud)));
+  $('aud').addEventListener('keydown', (e) => {
+    if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    e.preventDefault(); const next = AUD === 'parents' ? 'colleagues' : 'parents';
+    setAud(next); document.querySelector(`#aud [data-aud="${next}"]`).focus();
+  });
+  addEventListener('resize', placeAudInk);
+  if (document.fonts) document.fonts.ready.then(placeAudInk);
+
+  /* ---------- дистракция: прокрутка раздвигает фрагменты челюсти ---------- */
+  let DX = { max: 15, phases: [] }, dxIdx = -1, dxP = 0;
+  const fmt1 = (v) => v.toFixed(1).replace('.', ',');
+  function dxSet(p) {
+    dxP = p;
+    const s = (a, b) => Math.max(0, Math.min(1, (p - a) / (b - a)));
+    const cut = s(0, 0.1), dev = s(0.05, 0.15), lat = s(0.1, 0.22), act = s(0.22, 0.82), con = s(0.82, 1);
+    const mm = act * DX.max, dx = act * 90;
+    $('dx-cut').setAttribute('y2', (204 + 146 * cut).toFixed(1));
+    $('dx-dev').setAttribute('opacity', dev.toFixed(3));
+    $('dx-dev').setAttribute('transform', `translate(0 ${((1 - dev) * -14).toFixed(2)})`);
+    $('dx-plate-a').setAttribute('opacity', dev.toFixed(3));
+    $('dx-ant').setAttribute('transform', `translate(${dx.toFixed(2)} 0)`);
+    $('dx-gap').setAttribute('width', dx.toFixed(2)); $('dx-cons').setAttribute('width', dx.toFixed(2));
+    $('dx-cons').setAttribute('opacity', (con * 0.62).toFixed(3));
+    $('dx-knob').setAttribute('transform', `rotate(${(mm * 96).toFixed(1)} 100 333)`);
+    $('dx-dim').setAttribute('opacity', act > 0.02 ? 1 : 0);
+    $('dx-dim-r').setAttribute('transform', `translate(${dx.toFixed(2)} 0)`);
+    $('dx-dim-l').setAttribute('x2', (345 + dx).toFixed(2));
+    $('dx-dim-t').setAttribute('x', (345 + dx / 2).toFixed(2)); $('dx-dim-t').textContent = fmt1(mm) + ' мм';
+    $('dx-mm').textContent = fmt1(mm);
+    const fills = [cut, lat, act, con];
+    document.querySelectorAll('#dx-steps b').forEach((b, i) => b.style.setProperty('--f', fills[i] ?? 0));
+    const idx = p < 0.1 ? 0 : p < 0.22 ? 1 : p < 0.82 ? 2 : 3;
+    if (idx !== dxIdx) {
+      dxIdx = idx; const ph = DX.phases[idx] || {};
+      $('dx-now').innerHTML = `<b>${esc(pro() && ph.titlePro ? ph.titlePro : ph.title)}</b><p>${rich(pro() && ph.textPro ? ph.textPro : ph.text)}</p>`;
+      document.querySelectorAll('#dx-steps li').forEach((li, i) => li.classList.toggle('on', i === idx));
+      bindTerms();
+    }
+  }
+
+  /* ---------- подпись пишется пером ---------- */
+  function writeSignature() {
+    const svg = $('sig'); if (!svg || reduce || !window.gsap) return;
+    const img = svg.querySelector('image'), strokes = [...svg.querySelectorAll('mask path')];
+    img.setAttribute('mask', 'url(#sig-mask)');
+    const tl = gsap.timeline({ delay: 0.6, onComplete: () => img.removeAttribute('mask') });
+    strokes.forEach((p) => {
+      const L = p.getTotalLength(); p.style.strokeDasharray = L; p.style.strokeDashoffset = L;
+      tl.to(p, { strokeDashoffset: 0, duration: Math.max(0.14, L / 1150), ease: 'none' });
+    });
+  }
+
+  /* ---------- полноэкранное меню ---------- */
+  const menu = $('menu'), burger = $('burger');
+  let menuOpen = false;
+  function openMenu() {
+    if (menuOpen) return; menuOpen = true;
+    burger.setAttribute('aria-expanded', 'true'); burger.querySelector('.sr').textContent = 'Закрыть меню';
+    document.body.classList.add('menu-open'); menu.hidden = false; if (lenis) lenis.stop();
+    const r = burger.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const R = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    const items = menu.querySelectorAll('.menu-in > a, .menu-group > a, .menu-sub li, .menu-foot');
+    if (window.gsap && !reduce) {
+      gsap.fromTo(menu, { clipPath: `circle(0px at ${x}px ${y}px)` }, { clipPath: `circle(${R}px at ${x}px ${y}px)`, duration: 0.55, ease: 'expo.out', clearProps: 'clipPath' });
+      gsap.fromTo(items, { autoAlpha: 0, y: 26 }, { autoAlpha: 1, y: 0, duration: 0.5, stagger: 0.04, delay: 0.08, ease: 'power3.out', clearProps: 'transform' });
+    } else if (window.gsap) gsap.fromTo(menu, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.2 });
+    menu.querySelector('a').focus({ preventScroll: true });
+  }
+  function closeMenu(focusBack = true) {
+    if (!menuOpen) return; menuOpen = false;
+    burger.setAttribute('aria-expanded', 'false'); burger.querySelector('.sr').textContent = 'Меню';
+    document.body.classList.remove('menu-open'); if (lenis) lenis.start();
+    const done = () => { menu.hidden = true; if (window.gsap) gsap.set(menu, { clearProps: 'all' }); };
+    if (window.gsap && !reduce) {
+      const r = burger.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      gsap.to(menu, { clipPath: `circle(0px at ${x}px ${y}px)`, duration: 0.32, ease: 'power3.out', onComplete: done });
+    } else menu.hidden = true;
+    if (focusBack) burger.focus({ preventScroll: true });
+  }
+  burger.addEventListener('click', () => (menuOpen ? closeMenu() : openMenu()));
+  menu.addEventListener('click', (e) => { if (e.target.closest('a')) closeMenu(false); });
+  document.addEventListener('keydown', (e) => {
+    if (!menuOpen) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeMenu(); return; }
+    if (e.key !== 'Tab') return;
+    const f = [burger, ...menu.querySelectorAll('a')], i = f.indexOf(document.activeElement);
+    if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
+  });
+
+  /* ---------- карта: грузится только по нажатию ---------- */
+  let MAPQ = '';
+  $('map-load').addEventListener('click', () => {
+    if (!MAPQ) return;
+    const f = document.createElement('iframe');
+    f.src = 'https://yandex.ru/map-widget/v1/?z=16&text=' + encodeURIComponent(MAPQ);
+    f.title = 'Карта: ' + MAPQ; f.allowFullscreen = true;
+    $('map-frame').append(f); $('map-frame').classList.add('on'); $('map-load').hidden = true;
+  });
 
   /* ---------- волна Vanta, останавливается за пределами экрана ---------- */
   let fx = null;
@@ -611,7 +975,7 @@
   const phone = matchMedia('(max-width:640px)');
   const scrollToEl = (el, offset = -150) => {
     if (!el) return;
-    if (phone.matches) offset = offset + 60;   // на телефоне вкладки внизу: сверху только шапка
+    if (phone.matches && offset < 0) offset = offset + 60;   // на телефоне вкладки внизу: сверху только шапка
     // Lenis сам вычитает scroll-margin-top элемента — возвращаем его, чтобы отступ не считался дважды;
     // resize — высота страницы только что сменилась вместе с вкладкой
     if (lenis) { lenis.resize(); lenis.scrollTo(el, { offset: offset + (parseFloat(getComputedStyle(el).scrollMarginTop) || 0), duration: 1.1 }); }
@@ -673,7 +1037,7 @@
     if (!id || id === 'top') { e.preventDefault(); if (lenis) lenis.scrollTo(0, { duration: 1.1 }); else scrollTo({ top: 0, behavior: 'smooth' }); return; }
     const el = document.getElementById(id); if (!el) return;
     const panel = el.closest('.tabpanel'); e.preventDefault();
-    if (panel) openTab(panel.id, el); else scrollToEl(el);
+    if (panel) openTab(panel.id, el); else scrollToEl(el, el.dataset.offset != null ? +el.dataset.offset : -150);
   });
 
   function animate() {
@@ -685,6 +1049,16 @@
         onEnter: () => gsap.to(o, { v: to, duration: 1.6, ease: 'power2.out', onUpdate: () => { el.textContent = o.v.toFixed(dec).replace('.', ','); } }) });
     });
     gsap.to('.hero-in', { yPercent: -12, autoAlpha: 0.2, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
+  }
+  function startDx() {
+    if (hasGsap && !reduce) {
+      ScrollTrigger.create({ trigger: '#distraction', start: 'top top', end: () => '+=' + Math.round(innerHeight * 2.2), pin: true, anticipatePin: 1,
+        invalidateOnRefresh: true, onUpdate: (st) => dxSet(st.progress) });
+    } else {
+      // без анимации: ползунок, который крутит аппарат вручную
+      $('dx-range-wrap').hidden = false;
+      const r = $('dx-range'); r.addEventListener('input', () => dxSet(r.value / 1000)); dxSet(r.value / 1000);
+    }
   }
   function startTabs() {
     const hash = decodeURIComponent(location.hash.slice(1));
@@ -711,6 +1085,7 @@
   const hide = () => { tip.classList.remove('on'); if (cur) { cur.setAttribute('aria-expanded', 'false'); cur = null; } };
   function bindTerms() {
     document.querySelectorAll('.term').forEach((btn) => {
+      if (btn.dataset.bound) return; btn.dataset.bound = 1;
       btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-describedby', 'tip');
       btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); cur === btn ? hide() : show(btn); });
       btn.addEventListener('mouseenter', () => { if (matchMedia('(hover:hover)').matches) show(btn); });
@@ -726,7 +1101,7 @@
   addEventListener('message', (e) => {
     if (e.data && e.data.type === 'shapovalov:content') { PREVIEW = true; render(e.data.content); if (hasGsap) ScrollTrigger.refresh(); }
   });
-  fetch('content.json', { cache: 'no-store' }).then((r) => r.json()).then((c) => { render(c); animate(); startTabs(); if (parent !== window) parent.postMessage({ type: 'shapovalov:ready' }, '*'); })
+  fetch('content.json', { cache: 'no-store' }).then((r) => r.json()).then((c) => { render(c); animate(); startDx(); startTabs(); writeSignature(); if (parent !== window) parent.postMessage({ type: 'shapovalov:ready' }, '*'); })
     .catch(() => { document.body.insertAdjacentHTML('afterbegin', '<p style="position:fixed;z-index:99;bottom:16px;left:16px;right:16px;padding:12px 16px;border-radius:12px;background:#2a2416;color:#e6c987;font-size:14px">Не удалось загрузить content.json. Откройте сайт через веб-сервер, а не как файл.</p>'); });
 })();
 </script>
