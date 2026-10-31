@@ -322,12 +322,13 @@
   .diss dt{color:var(--mist); font-family:var(--mono); font-size:14px;  padding-top:2px}
   .diss dd{margin:0}
   .pubs{display:flex; flex-direction:column; gap:12px}
-  .pub{padding:24px 26px; display:grid; grid-template-columns:auto 1fr; gap:18px; transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+  .pub{padding:24px 26px; display:grid; grid-template-columns:auto 1fr; align-items:start; gap:18px; transition:transform .45s cubic-bezier(.2,.7,.2,1)}
   /* миниатюра титульной страницы у публикации */
-  .thumb{display:block; align-self:start; height:auto; width:84px; padding:0; border:0; border-radius:6px; background:#fff; cursor:zoom-in; overflow:hidden;
+  .thumb{display:block; align-self:start; height:fit-content; max-height:max-content; width:84px; padding:0; border:0; border-radius:6px; background:#fff; cursor:zoom-in; overflow:hidden;
     box-shadow:0 10px 24px -12px rgba(0,0,0,.8); transform-origin:50% 100%; transition:transform .3s cubic-bezier(.23,1,.32,1)}
-  .thumb img{display:block; width:100%; height:auto; aspect-ratio:var(--ar,.707); object-fit:cover; object-position:top}
+  .thumb img{display:block; width:100%; height:auto; aspect-ratio:var(--ar,.707); object-fit:cover; object-position:top; pointer-events:none}
   .thumb.poster{width:96px; --ar:.633}
+  .thumb-cell{align-self:start; min-width:0}
   @media (hover:hover) and (pointer:fine){ .thumb:hover{transform:rotate(-3deg) scale(1.06)} }
   .pub .src a.lnk:hover{text-decoration:underline}
   .pub.flash{box-shadow:0 0 0 2px var(--gold), 0 0 40px -8px rgba(214,178,102,.6)}
@@ -837,7 +838,8 @@
     LB = [];
     const card = (src) => src.replace(/(\.[a-z]+)$/i, '-card$1');
     const addLb = (it) => { LB.push(it); return LB.length - 1; };
-    const thumb = (k, poster) => `<button class="thumb${poster ? ' poster' : ''}" type="button" data-lb="${k}" aria-label="Открыть страницу целиком: ${esc(LB[k].title)}"><img src="${esc(card(LB[k].img))}" data-full="${esc(LB[k].img)}" alt="" loading="lazy"></button>`;
+    // кнопка завёрнута в обычный блок: растягиваться в сетке может только блок, а кнопка остаётся по размеру страницы
+    const thumb = (k, poster) => `<div class="thumb-cell"><button class="thumb${poster ? ' poster' : ''}" type="button" data-lb="${k}" aria-label="Открыть страницу целиком: ${esc(LB[k].title)}"><img src="${esc(card(LB[k].img))}" data-full="${esc(LB[k].img)}" alt="" loading="lazy"></button></div>`;
     $('talks').innerHTML = talks.map((t, i) => {
       const k = safeUrl(t.image) ? addLb({ img: safeUrl(t.image), title: t.title, sub: [t.event, t.type && t.type + ' доклад'].filter(Boolean).join(' · '), panel: 'talks', id: 'talk-' + i, tall: true }) : -1;
       return `<div class="pub glass" id="talk-${i}">${k >= 0 ? thumb(k, true) : `<span class="num">${esc(t.year)}</span>`}<div><b>${esc(t.title)}</b><span class="au">${esc(t.authors)}</span>
