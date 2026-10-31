@@ -36,7 +36,7 @@
   .btn{display:inline-flex; align-items:center; gap:8px; padding:9px 16px; border-radius:999px; border:1px solid var(--line-2);
     background:transparent; cursor:pointer; font-weight:700; font-size:13px; white-space:nowrap}
   .btn:hover{border-color:var(--gold); color:var(--gold-hi)}
-  .btn.primary{background:linear-gradient(180deg,var(--gold-hi),var(--gold-lo)); color:#140f06; border-color:transparent}
+  .btn.primary{background:var(--gold); color:#140f06; border-color:transparent}
   .btn.primary:hover{filter:brightness(1.07); color:#140f06}
   .btn.sm{padding:5px 11px; font-size:12px}
   .btn.icon{padding:5px 9px}
@@ -113,10 +113,27 @@
     header{flex-wrap:wrap}
   }
   @media (min-width:1201px){ #pv-toggle,#pv-close{display:none} }
+
+  /* экран входа: редактор не показывается и не грузится, пока токен не проверен на GitHub */
+  .lock{position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:24px 16px; overflow:auto; background:var(--bg)}
+  .lock-card{width:min(440px,100%); display:flex; flex-direction:column; gap:16px; background:var(--panel); border:1px solid var(--line);
+    border-radius:22px; padding:28px 24px}
+  .lock-card .logo svg{width:34px; height:34px; color:var(--gold)}
+  .lock-card h1{margin:0; font-size:24px; line-height:1.2}
+  .lock-card details{border-top:1px solid var(--line); padding-top:12px}
+  .lock-card summary{cursor:pointer; font-size:13px; font-weight:600; color:var(--mist)}
+  .lock-card details[open] summary{margin-bottom:12px}
+  .lock-card details .field + .field{margin-top:10px}
+  .check{display:flex; align-items:center; gap:10px; font-size:14px; cursor:pointer}
+  .check input{width:18px; height:18px; accent-color:var(--gold)}
+  .lock-err{margin:0; color:var(--err); font-size:14px; min-height:0}
+  .lock-err:empty{display:none}
+  .lock-actions{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+  .lock-actions a{margin-left:auto; color:var(--mist); font-size:14px}
 </style>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app" hidden>
   <header>
     <div class="logo">
       <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="3"/><g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><path d="M31 29V62"/><path d="M48 29V62"/><path d="M65 29V62"/><path d="M25 64H71"/></g><circle cx="76" cy="71" r="5" fill="currentColor"/></svg>
@@ -125,6 +142,7 @@
     <div class="status" id="status" role="status"><i></i><span id="status-text">Загружаю…</span></div>
     <button class="btn" id="pv-toggle" type="button">Предпросмотр</button>
     <button class="btn primary" id="publish" type="button">Опубликовать</button>
+    <button class="btn" id="logout" type="button">Выйти</button>
   </header>
   <div class="mobile-nav"><label class="hint" for="msel">Раздел</label><select id="msel"></select></div>
   <nav class="side" id="side" aria-label="Разделы"></nav>
@@ -134,8 +152,29 @@
       <button class="btn sm" id="pv-phone" type="button">Телефон</button>
       <button class="btn sm" id="pv-close" type="button">Закрыть</button>
     </div>
-    <div class="pv-wrap" id="pv-wrap"><iframe id="pv" title="Сайт" src="index.html#preview"></iframe></div>
+    <div class="pv-wrap" id="pv-wrap"><iframe id="pv" title="Сайт"></iframe></div>
   </aside>
+</div>
+<div class="lock" id="lock" hidden>
+  <form class="lock-card" id="lock-form" autocomplete="on">
+    <div class="logo"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="3"/><g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><path d="M31 29V62"/><path d="M48 29V62"/><path d="M65 29V62"/><path d="M25 64H71"/></g><circle cx="76" cy="71" r="5" fill="currentColor"/></svg> dr__shapovalov</div>
+    <h1>Вход в админку</h1>
+    <p class="hint">Редактировать сайт может только владелец. Войдите своим токеном GitHub: тем, у которого есть право записи в репозиторий сайта. Токен проверяется прямо на GitHub.</p>
+    <input type="text" name="username" autocomplete="username" value="dr-shapovalov-admin" hidden>
+    <div class="field"><label for="lk-token">Токен GitHub</label>
+      <input id="lk-token" type="password" autocomplete="current-password" spellcheck="false" required></div>
+    <label class="check"><input type="checkbox" id="lk-remember"> Запомнить на этом устройстве</label>
+    <details id="lk-repo"><summary>Репозиторий сайта</summary>
+      <div class="field"><label for="lk-owner">Владелец</label><input id="lk-owner" type="text" autocomplete="off" spellcheck="false"></div>
+      <div class="field"><label for="lk-name">Репозиторий</label><input id="lk-name" type="text" autocomplete="off" spellcheck="false"></div>
+    </details>
+    <p class="lock-err" id="lk-err" role="alert"></p>
+    <div class="lock-actions">
+      <button class="btn primary" type="submit" id="lk-go">Войти</button>
+      <button class="btn" type="button" id="lk-local" hidden>Открыть без входа</button>
+      <a href="./">← На сайт</a>
+    </div>
+  </form>
 </div>
 <div class="toast" id="toast" role="status"><span id="toast-text"></span><button class="btn sm" id="toast-undo" type="button" hidden>Вернуть</button></div>
 
@@ -198,6 +237,17 @@
   const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
                   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
                   del(k) { try { localStorage.removeItem(k); } catch (e) {} } };
+  /* токен хранится отдельно от настроек репозитория: на время вкладки (sessionStorage)
+     или, если отмечено «Запомнить», в этом браузере (localStorage). В репозиторий он не попадает никогда. */
+  const TOKEN = 'shp-admin-token';
+  const sess = { get() { try { return sessionStorage.getItem(TOKEN); } catch (e) { return null; } },
+                 set(v) { try { sessionStorage.setItem(TOKEN, v); } catch (e) {} },
+                 del() { try { sessionStorage.removeItem(TOKEN); } catch (e) {} } };
+  const tokenGet = () => sess.get() || store.get(TOKEN) || '';
+  const tokenSet = (t, remember) => { sess.del(); store.del(TOKEN); if (t) (remember ? store.set(TOKEN, t) : sess.set(t)); };
+  { const old = store.get(GH); if (old && old.token) { if (!store.get(TOKEN)) store.set(TOKEN, old.token); delete old.token; store.set(GH, old); } }
+  const GH_DEF = { owner: 'DrPavelShapovalov', repo: 'dr-shapovalov-site', branch: 'main', dir: '' };
+  const ghConf = () => ({ ...GH_DEF, ...(store.get(GH) || {}) });
   let data = null, published = '', current = 'hero', undoSnap = null;
   const $ = (id) => document.getElementById(id);
   const el = (tag, attrs = {}, ...kids) => { const n = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) {
@@ -330,7 +380,7 @@
 
   /* ---------- публикация на GitHub ---------- */
   function renderPublish(box) {
-    const gh = store.get(GH) || { owner: 'DrPavelShapovalov', repo: 'dr-shapovalov-site', branch: 'main', dir: '', token: '' };
+    const gh = ghConf();
     const f = (k, l, t = 'text', sub) => { const w = el('div', { className: 'field' }, el('label', { htmlFor: 'gh-' + k }, l),
       el('input', { id: 'gh-' + k, type: t, value: gh[k] || '', autocomplete: 'off', on: { input: (e) => { gh[k] = e.target.value.trim(); store.set(GH, gh); } } }));
       if (sub) w.append(el('span', { className: 'sub' }, sub)); return w; };
@@ -338,13 +388,12 @@
       'Весь текст сайта лежит в одном файле content.json. Кнопка «Опубликовать» записывает его в ваш репозиторий на GitHub, а хостинг (GitHub Pages) через минуту показывает новую версию сайта.',
       el('ol', {}, el('li', {}, 'На GitHub: Settings → Developer settings → Fine-grained tokens → Generate new token.'),
         el('li', {}, 'Repository access: только репозиторий сайта. Permissions → Contents: Read and write.'),
-        el('li', {}, 'Вставьте токен ниже. Он хранится только в этом браузере и никуда, кроме GitHub, не отправляется.'))));
+        el('li', {}, 'Токен вводится на экране входа. Он хранится только в этом браузере и никуда, кроме GitHub, не отправляется. Кнопка «Выйти» стирает его.'))));
     const card = el('div', { className: 'card' }, el('div', { className: 'row' }, f('owner', 'Владелец репозитория'), f('repo', 'Репозиторий'), f('branch', 'Ветка')),
       f('dir', 'Папка сайта в репозитории', 'text', 'Пусто, если сайт лежит в корне. Например: site'),
-      f('token', 'Токен GitHub', 'password'),
       el('div', { style: 'display:flex; gap:10px; flex-wrap:wrap' },
         el('button', { type: 'button', className: 'btn', on: { click: testGh } }, 'Проверить подключение'),
-        el('button', { type: 'button', className: 'btn', on: { click: () => { store.set(GH, { ...gh, token: '' }); renderForm(); toast('Токен удалён из браузера'); } } }, 'Забыть токен')));
+        el('button', { type: 'button', className: 'btn', on: { click: logout } }, 'Выйти и стереть токен')));
     const json = el('pre', { className: 'json' }, JSON.stringify(data, null, 2));
     const backup = el('div', { className: 'card' }, el('b', {}, 'Без GitHub'),
       el('p', { className: 'hint' }, 'Скопируйте весь текст сайта и замените им файл content.json на хостинге.'),
@@ -354,7 +403,7 @@
       json);
     box.append(card, backup);
   }
-  const ghCfg = () => { const g = store.get(GH) || {}; return g.owner && g.repo && g.token ? g : null; };
+  const ghCfg = () => { const g = ghConf(), token = tokenGet(); return g.owner && g.repo && token ? { ...g, token } : null; };
   const ghPath = (g, p) => [g.dir, p].filter(Boolean).join('/').replace(/\/+/g, '/');
   async function gh(g, method, path, body) {
     const r = await fetch(`https://api.github.com/repos/${encodeURIComponent(g.owner)}/${encodeURIComponent(g.repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}${method === 'GET' ? `?ref=${encodeURIComponent(g.branch || 'main')}` : ''}`,
@@ -365,12 +414,12 @@
   }
   const b64 = (str) => { const bytes = new TextEncoder().encode(str); let s = ''; bytes.forEach((b) => { s += String.fromCharCode(b); }); return btoa(s); };
   async function testGh() {
-    const g = ghCfg(); if (!g) return toast('Заполните владельца, репозиторий и токен');
+    const g = ghCfg(); if (!g) return toast('Заполните владельца и репозиторий и войдите с токеном');
     try { const f = await gh(g, 'GET', ghPath(g, 'content.json')); toast(f ? 'Подключено: content.json найден' : 'Подключено, но content.json в этой папке нет — он будет создан'); }
     catch (e) { toast('Не получилось: ' + e.message + '. Проверьте токен и название репозитория.'); }
   }
   async function publish() {
-    const g = ghCfg(); if (!g) { go('publish'); return toast('Сначала подключите GitHub на этой странице'); }
+    const g = ghCfg(); if (!g) return lockScreen('Чтобы опубликовать, войдите с токеном GitHub.');
     const bad = []; JSON.stringify(data, (k, v) => { if (/(^link$|^url$|telegram|instagram)/.test(k) && typeof v === 'string' && !isUrlOk(v)) bad.push(v); return v; });
     if (bad.length) return toast('Есть ссылка без https:// — исправьте: ' + bad[0]);
     $('publish').disabled = true; setStatus('dirty', 'Публикую…');
@@ -383,7 +432,7 @@
   }
   async function upload(file, obj, key, txt, img) {
     if (!file) return; const g = ghCfg();
-    if (!g) { go('publish'); return toast('Чтобы загрузить фото, подключите GitHub'); }
+    if (!g) return lockScreen('Чтобы загрузить фото, войдите с токеном GitHub.');
     if (file.size > 4e6) return toast('Файл больше 4 МБ — уменьшите фото');
     const name = 'img/' + file.name.toLowerCase().replace(/[^a-z0-9.\-_]+/g, '-');
     const content = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.readAsDataURL(file); });
@@ -411,7 +460,59 @@
   $('pv-close').addEventListener('click', () => $('preview').classList.remove('open'));
   addEventListener('beforeunload', (e) => { if (data && JSON.stringify(data) !== published) { e.preventDefault(); e.returnValue = ''; } });
 
-  /* ---------- старт ---------- */
+  /* ---------- вход ---------- */
+  // Сайт статический, поэтому сам файл admin.html открыть может любой, кто знает адрес.
+  // Защита — токен: редактор не показывается без токена, у которого есть право записи в репозиторий,
+  // а опубликовать что-либо без такого токена невозможно — GitHub не примет запись.
+  const local = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  async function verify(g, token) {
+    let r;
+    try { r = await fetch(`https://api.github.com/repos/${encodeURIComponent(g.owner)}/${encodeURIComponent(g.repo)}`,
+      { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }, cache: 'no-store' }); }
+    catch (e) { throw new Error('нет связи с GitHub. Проверьте интернет и попробуйте снова.'); }
+    if (r.status === 401) throw new Error('GitHub не принял токен: он неверный, отозван или просрочен.');
+    if (r.status === 403 || r.status === 404) throw new Error(`репозиторий ${g.owner}/${g.repo} не найден или этот токен к нему не допущен.`);
+    if (!r.ok) throw new Error(`GitHub ответил ${r.status}.`);
+    const j = await r.json();
+    if (!(j.permissions && j.permissions.push)) throw new Error('у этой учётной записи нет права записи в репозиторий сайта.');
+  }
+  let started = false;
+  function lockScreen(msg) {
+    const g = ghConf();
+    $('lk-owner').value = g.owner; $('lk-name').value = g.repo;
+    $('lk-err').textContent = msg || ''; $('lk-local').hidden = !local;
+    $('app').hidden = true; $('lock').hidden = false; $('lk-token').focus();
+  }
+  function unlock() { $('lock').hidden = true; $('app').hidden = false; if (!started) { started = true; start(); } }
+  function logout() {
+    tokenSet(''); toast('Вы вышли. Токен стёрт из этого браузера.');
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    lockScreen();
+  }
+  $('logout').addEventListener('click', logout);
+  $('lk-local').addEventListener('click', () => { unlock(); toast('Локальная копия: править можно, опубликовать — только после входа с токеном.'); });
+  $('lock-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const token = $('lk-token').value.trim(), g = { ...ghConf(), owner: $('lk-owner').value.trim(), repo: $('lk-name').value.trim() };
+    if (!token) return;
+    $('lk-go').disabled = true; $('lk-err').textContent = ''; $('lk-go').textContent = 'Проверяю…';
+    try {
+      await verify(g, token);
+      store.set(GH, { owner: g.owner, repo: g.repo, branch: g.branch, dir: g.dir });
+      tokenSet(token, $('lk-remember').checked); $('lk-token').value = ''; unlock();
+    } catch (err) { $('lk-err').textContent = 'Не удалось войти: ' + err.message; if (!/токен/.test(err.message)) $('lk-repo').open = true; }
+    finally { $('lk-go').disabled = false; $('lk-go').textContent = 'Войти'; }
+  });
+  (async () => {
+    const token = tokenGet();
+    if (!token) return lockScreen();
+    try { await verify(ghConf(), token); unlock(); }
+    catch (err) { if (/GitHub не принял|нет права|не допущен/.test(err.message)) tokenSet(''); lockScreen('Нужно войти заново: ' + err.message); }
+  })();
+
+  /* ---------- старт редактора (только после входа) ---------- */
+  function start() {
+  pv.src = 'index.html#preview';
   fetch('content.json', { cache: 'no-store' }).then((r) => r.json()).then((c) => {
     published = JSON.stringify(c); data = c;
     const d = store.get(DRAFT);
@@ -420,6 +521,7 @@
     }
     renderNav(); renderForm(); dirty();
   }).catch(() => setStatus('err', 'Не удалось загрузить content.json. Админка должна лежать рядом с сайтом на хостинге.'));
+  }
 })();
 </script>
 </body>

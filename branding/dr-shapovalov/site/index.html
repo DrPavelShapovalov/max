@@ -2,7 +2,7 @@
 <meta name="description" content="Павел Шаповалов — кандидат медицинских наук, челюстно-лицевой хирург детского отделения ФГБУ НМИЦ «ЦНИИСиЧЛХ», Москва.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Manrope:wght@400;500;600;700;800&display=swap">
 <style>
   /* Layout: a dark clinical instrument. Emerald wave field behind the hero, slow emerald/gold light
      drifting under the whole page so every panel reads as liquid glass, gold for anything measured,
@@ -22,7 +22,7 @@
     --todo:#e6c987;
     --display:'Unbounded','Arial Black',system-ui,sans-serif;
     --text:'Manrope','Segoe UI',system-ui,-apple-system,sans-serif;
-    --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+    --mono:var(--text);   /* одна гарнитура для текста: моноширинный шрифт не используется */
     color-scheme:dark;
   }
   /* lenis.css 1.3.27 (MIT), встроен: внешние стили в Artifact запрещены */
@@ -42,7 +42,7 @@
   h1,h2,h3{font-family:var(--display); margin:0; text-wrap:balance; letter-spacing:-.01em}
   h2{font-weight:500; font-size:clamp(30px,4.4vw,52px); line-height:1.05}
   h2 em,h2 strong{font-style:normal; font-weight:inherit; color:var(--gold)}
-  .label{margin:0 0 14px; font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--gold)}
+  .label{margin:0 0 14px; font-family:var(--mono); font-size:12px;  color:var(--gold)}
 
   /* ambient light under the whole page: what the glass refracts */
   .ambient{position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden}
@@ -73,13 +73,14 @@
     display:flex; align-items:center; justify-content:space-between; gap:16px; padding:10px 12px 10px 18px; border-radius:999px}
   .brand{display:flex; align-items:center; gap:10px; font-family:var(--mono); font-size:13px}
   .brand svg{width:26px; height:26px; color:var(--gold)}
-  .links{display:flex; gap:20px; font-size:14px; color:var(--mist)}
+  .links{display:flex; gap:20px; font-size:15px; color:var(--mist)}
   .links a{position:relative; padding-block:4px}
   .links a::after{content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:var(--gold); transform:scaleX(0); transform-origin:left; transition:transform .35s}
   .links a:hover{color:var(--ivory)} .links a:hover::after{transform:scaleX(1)}
-  .pill{display:inline-flex; align-items:center; gap:8px; padding:10px 18px; border-radius:999px; font-weight:700; font-size:13px;
-    background:linear-gradient(180deg,var(--gold-hi),var(--gold-lo)); color:#140f06; transition:filter .2s, transform .2s}
-  .pill:hover{filter:brightness(1.08); transform:translateY(-1px)}
+  .pill{display:inline-flex; align-items:center; gap:8px; padding:10px 18px; border-radius:999px; font-weight:700; font-size:14px;
+    background:var(--gold); color:#140f06; transition:background-color .2s, transform .2s}
+  .pill:hover{background:var(--gold-hi); transform:translateY(-1px)}
+  .pill:active{transform:translateY(0) scale(.98)}
   .ghost{display:inline-flex; align-items:center; gap:8px; padding:12px 20px; border-radius:999px; font-weight:700; font-size:14px;
     border:1px solid var(--line); background:rgba(5,8,10,.35); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); transition:border-color .2s, color .2s}
   .ghost:hover{border-color:var(--gold); color:var(--gold-hi)}
@@ -91,27 +92,28 @@
   .hero::after{content:""; position:absolute; inset:auto 0 0 0; height:40%; z-index:1; background:linear-gradient(180deg,transparent,var(--void)); pointer-events:none}
   .hero-in{position:relative; z-index:2; max-width:1160px; width:100%; margin:0 auto; display:grid; grid-template-columns:1.3fr .7fr; gap:40px; align-items:end}
   .hero-in > *{min-width:0}
-  .hero h1{font-weight:300; font-size:clamp(38px,5.4vw,78px); line-height:.98}
+  .hero h1{font-weight:300; font-size:clamp(30px,8.2vw,64px); line-height:1}
+  .hero h1 .given{white-space:nowrap}
   .hero h1 b{display:block; font-weight:700; color:var(--gold)}
-  .lede{margin-top:22px; font-size:18px; color:#c9d2ce; max-width:46ch}
+  .lede{margin-top:22px; font-size:19px; color:#c9d2ce; max-width:46ch}
   .actions{display:flex; flex-wrap:wrap; gap:12px; margin-top:28px}
   .pill.big{padding:13px 22px; font-size:14px}
   .card-id{padding:22px; display:flex; flex-direction:column; gap:16px; align-items:center; text-align:center}
   .portrait{width:min(220px,100%); aspect-ratio:1; border-radius:50%; padding:4px; background:conic-gradient(from 210deg,var(--gold-hi),var(--gold-lo),var(--gold-hi),var(--gold-lo),var(--gold-hi))}
   .portrait img{display:block; width:100%; height:100%; border-radius:50%; object-fit:cover; object-position:50% 30%; background:var(--deep)}
   .signature{width:min(240px,100%); height:auto; display:block; margin-inline:auto}
-  .id-meta{font-family:var(--mono); font-size:12px; color:var(--mist); line-height:1.7}
+  .id-meta{font-family:var(--mono); font-size:14px; color:var(--mist); line-height:1.7}
 
-  .readings{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:-28px; position:relative; z-index:3}
+  .readings{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:28px; position:relative; z-index:3}
   .reading{padding:22px 24px; display:flex; flex-direction:column; gap:6px; min-width:0}
   .val{font-family:var(--display); font-weight:500; font-size:clamp(30px,3.6vw,44px); line-height:1; white-space:nowrap; font-variant-numeric:tabular-nums}
-  .val small{font-family:var(--mono); font-size:13px; color:var(--gold); margin-left:6px; letter-spacing:.06em; text-transform:uppercase}
+  .val small{font-family:var(--mono); font-size:15px; font-weight:600; color:var(--gold); margin-left:6px}
   .val .arr{color:var(--gold)}
-  .reading .lbl{font-size:13px; color:var(--mist)}
+  .reading .lbl{font-size:15px; color:var(--mist)}
 
   .marquee{margin-inline:-20px; overflow:hidden; border-block:1px solid var(--line); padding-block:16px; margin-top:96px; position:relative; z-index:1}
   .marquee-track{display:flex; width:max-content}
-  .marquee-track span{display:flex; align-items:center; gap:26px; padding-right:26px; white-space:nowrap; font-family:var(--mono); font-size:13px; letter-spacing:.04em; color:var(--mist)}
+  .marquee-track span{display:flex; align-items:center; gap:26px; padding-right:26px; white-space:nowrap; font-family:var(--mono); font-size:13px;  color:var(--mist)}
   .marquee-track i{width:5px; height:5px; border-radius:50%; background:var(--gold); display:inline-block}
 
   /* section tabs: one panel open at a time */
@@ -122,14 +124,15 @@
     padding:11px 20px; border-radius:999px; cursor:pointer; transition:color .35s}
   .tabbar button:hover{color:var(--ivory)}
   .tabbar button[aria-selected="true"]{color:#140f06}
+  .t-short{display:none}
   .tab-ink{position:absolute; z-index:0; top:6px; bottom:6px; left:0; width:0; border-radius:999px;
-    background:linear-gradient(180deg,var(--gold-hi),var(--gold-lo)); box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+    background:var(--gold)}
   .stage{padding-top:48px; min-height:70vh; scroll-margin-top:150px}
   .tabpanel{scroll-margin-top:160px}
   .sub-block{padding-top:96px; scroll-margin-top:160px}
   .head{display:grid; grid-template-columns:1fr 1fr; gap:24px 56px; align-items:end; margin-bottom:44px}
   .head > *{min-width:0}
-  .head p{color:var(--mist); max-width:52ch}
+  .head p{color:var(--soft); max-width:52ch; font-size:17px}
 
   .term{font:inherit; color:var(--ivory); background:none; border:0; padding:0; cursor:help; border-bottom:1px dashed var(--gold)}
   .term:hover,.term[aria-expanded="true"]{color:var(--gold-hi)}
@@ -144,24 +147,24 @@
   .about-grid{display:grid; grid-template-columns:1.1fr .9fr; gap:16px}
   .about-grid > *{min-width:0}
   .panel{padding:30px}
-  .panel h3{font-family:var(--mono); font-weight:500; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--gold); margin-bottom:18px}
-  .intro-text{color:var(--soft); font-size:17px}
+  .panel h3{font-family:var(--display); font-weight:500; font-size:20px;  color:var(--gold); margin-bottom:18px}
+  .intro-text{color:var(--ivory); font-size:18px}
   dl.facts{margin:22px 0 0; display:grid; grid-template-columns:max-content 1fr; border-top:1px solid var(--line)}
   .facts dt,.facts dd{margin:0; padding:13px 0; border-bottom:1px solid var(--line)}
-  .facts dt{font-family:var(--mono); font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--mist); padding-right:24px; padding-top:16px}
-  .facts dd{min-width:0}
+  .facts dt{font-family:var(--mono); font-size:14px;  color:var(--mist); padding-right:24px; padding-top:16px}
+  .facts dd{min-width:0; font-size:16px}
   .timeline{list-style:none; margin:0; padding:0; display:flex; flex-direction:column}
   .timeline li{display:grid; grid-template-columns:96px 1fr; gap:16px; padding:14px 0; border-bottom:1px solid var(--line)}
   .timeline li:last-child{border-bottom:0}
-  .timeline .y{font-family:var(--mono); font-size:13px; color:var(--gold); padding-top:2px}
+  .timeline .y{font-family:var(--mono); font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; color:var(--gold); padding-top:2px}
   .timeline b{display:block; font-weight:600}
-  .timeline span{color:var(--mist); font-size:14px}
+  .timeline span{color:var(--soft); font-size:15px}
   .courses{grid-column:1 / -1}
   .course-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
   .course{padding:18px; border-radius:18px; border:1px solid var(--line); background:rgba(255,255,255,.02); display:flex; flex-direction:column; gap:6px; min-width:0}
-  .course .y{font-family:var(--mono); font-size:12px; color:var(--gold)}
+  .course .y{font-family:var(--mono); font-size:14px; color:var(--gold)}
   .course b{font-weight:600; line-height:1.35}
-  .course span{color:var(--mist); font-size:14px}
+  .course span{color:var(--soft); font-size:15px}
 
   /* directions */
   .dirs{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
@@ -169,78 +172,78 @@
   .dir:hover{transform:translateY(-6px)}
   .dir .idx{font-family:var(--mono); font-size:12px; color:var(--gold); letter-spacing:.14em}
   .dir h3{font-weight:500; font-size:22px; line-height:1.15}
-  .dir p{color:var(--mist); font-size:15px}
-  .dir .go{margin-top:auto; padding-top:10px; font-size:13px; font-weight:700; color:var(--gold-hi)}
+  .dir p{color:var(--soft); font-size:16px}
+  .dir .go{margin-top:auto; padding-top:10px; font-size:15px; font-weight:700; color:var(--gold-hi)}
 
   /* cases */
   .cases{display:flex; flex-direction:column; gap:16px}
   .case{display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr); gap:36px; padding:36px; scroll-margin-top:100px}
   .case-text{display:flex; flex-direction:column; gap:16px; min-width:0}
   .tags{display:flex; flex-wrap:wrap; gap:8px}
-  .tag{font-family:var(--mono); font-size:11.5px; letter-spacing:.04em; padding:5px 11px; border-radius:999px; border:1px solid var(--line); color:var(--mist)}
+  .tag{font-family:var(--mono); font-size:13px;  padding:5px 11px; border-radius:999px; border:1px solid var(--line); color:var(--mist)}
   .tag:first-child{border-color:rgba(214,178,102,.45); color:var(--gold-hi)}
   .case h3{font-weight:500; font-size:clamp(22px,2.6vw,30px); line-height:1.15}
   .case ul{margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px}
-  .case li{position:relative; padding-left:22px; color:var(--soft)}
+  .case li{position:relative; padding-left:22px; color:var(--ivory); font-size:17px}
   .case li::before{content:""; position:absolute; left:0; top:.8em; width:12px; height:1px; background:var(--gold)}
   .case li strong{color:var(--ivory); font-weight:600}
   .viz{padding:26px; border-radius:20px; background:rgba(5,8,10,.5); border:1px solid var(--line); display:flex; flex-direction:column; gap:20px; min-width:0}
   .viz .big{font-family:var(--display); font-weight:500; font-size:clamp(46px,6vw,76px); line-height:.95; font-variant-numeric:tabular-nums}
-  .viz .big small{font-family:var(--mono); font-size:15px; color:var(--gold); margin-left:8px; text-transform:uppercase}
+  .viz .big small{font-family:var(--mono); font-size:15px; color:var(--gold); margin-left:8px}
   .viz .big .arr{color:var(--gold); font-weight:300}
-  .viz .cap{font-size:13px; color:var(--mist); margin-top:-10px}
+  .viz .cap{font-size:14px; color:var(--mist); margin-top:-10px}
   .bars{display:flex; flex-direction:column; gap:13px}
-  .bar{display:grid; grid-template-columns:104px 1fr 64px; gap:12px; align-items:center; font-size:13px}
+  .bar{display:grid; grid-template-columns:104px 1fr 64px; gap:12px; align-items:center; font-size:14px}
   .bar .n{color:var(--mist)} .bar .v{text-align:right; font-family:var(--mono)}
   .rail{height:8px; border-radius:99px; background:rgba(237,232,222,.06); overflow:hidden}
   .fill{display:block; height:100%; width:var(--w); border-radius:99px; transform-origin:left; background:rgba(214,178,102,.32)}
   .fill.on{background:linear-gradient(90deg,var(--gold-lo),var(--gold-hi))}
-  .scale{display:grid; grid-template-columns:104px 1fr 64px; gap:12px; font-family:var(--mono); font-size:11px; color:var(--mist)}
+  .scale{display:grid; grid-template-columns:104px 1fr 64px; gap:12px; font-family:var(--mono); font-size:13px; color:var(--mist); font-variant-numeric:tabular-nums}
   .scale .t{display:flex; justify-content:space-between}
 
   /* steps */
   .steps-wrap{display:grid; grid-template-columns:.8fr 1.2fr; gap:56px; align-items:start}
   .steps-wrap > *{min-width:0}
   .steps-intro{position:sticky; top:110px; display:flex; flex-direction:column; gap:18px}
-  .steps-intro p{color:var(--mist)}
+  .steps-intro p{color:var(--soft); font-size:17px}
   .steps{position:relative; list-style:none; margin:0; padding:22px 24px}
   .steps .rail-y,.steps .prog{position:absolute; left:45px; top:44px; bottom:44px; width:1px; background:var(--line)}
   .steps .prog{background:linear-gradient(var(--gold-hi),var(--gold-lo)); transform-origin:top}
   .step{position:relative; display:grid; grid-template-columns:44px 1fr; gap:18px; padding-block:10px}
   .step .n{width:44px; height:44px; border-radius:50%; display:grid; place-items:center; position:relative; z-index:1;
-    background:var(--void); border:1px solid rgba(214,178,102,.5); color:var(--gold-hi); font-family:var(--mono); font-size:13px}
-  .step p{align-self:center; min-width:0}
+    background:var(--void); border:1px solid rgba(214,178,102,.5); color:var(--gold-hi); font-family:var(--mono); font-size:15px; font-weight:600}
+  .step p{align-self:center; min-width:0; font-size:17px}
   .step p span{color:var(--mist)}
 
   /* science */
   .sci{display:grid; grid-template-columns:.95fr 1.05fr; gap:16px; align-items:start}
   .sci > *{min-width:0}
   .diss{padding:34px; display:flex; flex-direction:column; gap:18px; align-items:flex-start; position:sticky; top:110px}
-  .diss .deg{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold)}
+  .diss .deg{font-family:var(--mono); font-size:14px; font-weight:600;  color:var(--gold)}
   .diss h3{font-weight:500; font-size:clamp(20px,2.2vw,26px); line-height:1.25}
-  .diss-sum{color:var(--soft); font-size:15px; padding-left:14px; border-left:2px solid var(--gold)}
-  .diss dl{margin:0; display:grid; grid-template-columns:max-content 1fr; gap:8px 18px; font-size:14px}
-  .diss dt{color:var(--mist); font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:.06em; padding-top:2px}
+  .diss-sum{color:var(--ivory); font-size:17px; padding-left:14px; border-left:2px solid var(--gold)}
+  .diss dl{margin:0; display:grid; grid-template-columns:max-content 1fr; gap:8px 18px; font-size:16px}
+  .diss dt{color:var(--mist); font-family:var(--mono); font-size:14px;  padding-top:2px}
   .diss dd{margin:0}
   .pubs{display:flex; flex-direction:column; gap:12px}
   .pub{padding:24px 26px; display:grid; grid-template-columns:auto 1fr; gap:18px; transition:transform .45s cubic-bezier(.2,.7,.2,1)}
   a.pub:hover{transform:translateX(6px)}
-  .pub .num{font-family:var(--display); font-weight:300; font-size:30px; color:var(--gold); line-height:1}
-  .pub b{display:block; font-weight:600; line-height:1.35}
-  .pub .au{display:block; margin-top:8px; color:var(--soft); font-size:14px}
-  .pub .src{display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; font-family:var(--mono); font-size:12px; color:var(--mist)}
+  .pub .num{font-family:var(--display); font-weight:300; font-size:26px; color:var(--gold); line-height:1.1; font-variant-numeric:tabular-nums}
+  .pub b{display:block; font-weight:600; line-height:1.35; font-size:17px}
+  .pub .au{display:block; margin-top:8px; color:var(--soft); font-size:15px}
+  .pub .src{display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; font-family:var(--mono); font-size:14px; color:var(--mist)}
   .pub .src .lnk{color:var(--gold-hi)}
   .pub .num{min-width:2ch}
   .tabs{display:flex; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; gap:8px; margin-bottom:14px; padding:6px; border-radius:999px; width:max-content; max-width:100%;
     background:rgba(12,26,23,.42); border:1px solid rgba(237,232,222,.13); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px)}
   .tabs::-webkit-scrollbar{display:none}
-  .tabs button{flex:none; white-space:nowrap; font:inherit; font-size:14px; font-weight:600; color:var(--mist); background:none; border:0; cursor:pointer; padding:8px 14px; border-radius:999px; display:flex; gap:8px; align-items:center; transition:background .25s, color .25s}
-  .tabs button span{font-family:var(--mono); font-size:12px; color:var(--gold)}
-  .tabs button[aria-selected="true"]{background:linear-gradient(180deg,var(--gold-hi),var(--gold-lo)); color:#140f06}
+  .tabs button{flex:none; white-space:nowrap; font:inherit; font-size:15px; font-weight:600; color:var(--mist); background:none; border:0; cursor:pointer; padding:8px 14px; border-radius:999px; display:flex; gap:8px; align-items:center; transition:background .25s, color .25s}
+  .tabs button span{font-family:var(--mono); font-size:14px; color:var(--gold)}
+  .tabs button[aria-selected="true"]{background:var(--gold); color:#140f06}
   .tabs button[aria-selected="true"] span{color:#140f06}
   .profiles{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px}
   .chip{display:inline-flex; flex-direction:column; gap:2px; padding:9px 14px; border-radius:14px; border:1px solid var(--line); background:rgba(255,255,255,.03); font-family:var(--mono); font-size:13px}
-  .chip small{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--mist)}
+  .chip small{font-size:13px;  color:var(--mist)}
   a.chip:hover{border-color:var(--gold); color:var(--gold-hi)}
   [hidden]{display:none!important}
 
@@ -248,17 +251,18 @@
   .work{padding:48px; display:grid; grid-template-columns:1.2fr .8fr; gap:36px; align-items:end;
     background:radial-gradient(90% 120% at 100% 0%, rgba(22,66,54,.75), transparent 60%), rgba(12,26,23,.42)}
   .work > *{min-width:0}
-  .work p{color:var(--soft); max-width:50ch; margin-top:16px}
+  .work p{color:var(--soft); max-width:56ch; margin-top:14px}
+  .work-name{margin-top:22px; font-weight:500; font-size:clamp(20px,2.2vw,26px); line-height:1.2}
   .work .side{display:flex; flex-direction:column; gap:12px; align-items:flex-start}
   .contacts{display:grid; grid-template-columns:repeat(4,1fr); gap:14px}
   .contact{padding:24px; display:flex; flex-direction:column; gap:28px; min-width:0; transition:transform .45s cubic-bezier(.2,.7,.2,1)}
   a.contact:hover{transform:translateY(-4px)}
-  .contact small{font-family:var(--mono); font-size:11.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--mist)}
+  .contact small{font-family:var(--mono); font-size:14px;  color:var(--mist)}
   .contact span{font-family:var(--display); font-weight:500; font-size:18px; overflow-wrap:anywhere}
 
   footer{padding-block:120px 0; position:relative; z-index:1}
-  .wordmark{font-family:var(--display); font-weight:300; text-align:center; white-space:nowrap; font-size:clamp(14px,4.6vw,60px); letter-spacing:.14em; color:var(--gold)}
-  .foot{margin-top:28px; padding-top:20px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; font-size:13px; color:var(--mist)}
+  .wordmark{font-family:var(--display); font-weight:300; text-align:center; white-space:nowrap; font-size:clamp(14px,4.6vw,60px);  color:var(--gold)}
+  .foot{margin-top:28px; padding-top:20px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; font-size:14px; color:var(--mist)}
   .foot p{max-width:80ch}
 
   @media (prefers-reduced-motion:no-preference){
@@ -283,7 +287,7 @@
     .work{padding:32px 24px}
   }
   @media (max-width:640px){
-    .readings{grid-template-columns:1fr; margin-top:-12px}
+    .readings{grid-template-columns:1fr; margin-top:20px}
     .contacts{grid-template-columns:1fr}
     .card-id{padding:16px; gap:14px}
     .portrait{width:92px}
@@ -295,8 +299,18 @@
     .timeline li{grid-template-columns:1fr; gap:4px}
     .panel,.diss{padding:24px}
     .pub{grid-template-columns:1fr; gap:10px}
-    .tabbar-wrap{top:calc(env(safe-area-inset-top,0px) + 78px); margin-inline:-20px; padding-inline:12px; margin-top:40px}
-    .tabbar button{padding:10px 15px; font-size:14px}
+    /* телефон: вкладки внизу экрана, под большим пальцем, все пять видны сразу */
+    body{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 104px)}
+    .tabbar-wrap{position:fixed; top:auto; left:10px; right:10px; bottom:calc(env(safe-area-inset-bottom,0px) + 10px); margin:0; z-index:40}
+    .tabbar{width:100%; overflow:visible; border-radius:22px; padding:5px}
+    .tab-ink{top:5px; bottom:5px; border-radius:17px}
+    .tabbar button{flex:1 1 0; min-width:0; padding:13px 2px; font-size:13px; border-radius:17px; text-align:center}
+    .t-long{display:none} .t-short{display:inline}
+    .stage{padding-top:44px; scroll-margin-top:90px}
+    .tabpanel{scroll-margin-top:90px}
+  }
+  @media (max-width:360px){
+    .tabbar button{font-size:12px; padding-inline:0; letter-spacing:-.01em}
     .sub-block{padding-top:72px}
   }
 </style>
@@ -323,7 +337,7 @@
     <div id="waves" aria-hidden="true"></div>
     <div class="hero-in">
       <div>
-        <h1 id="h-name">Павел Игоревич<b>Шаповалов</b></h1>
+        <h1 id="h-name"><span class="given">Павел Игоревич</span><b>Шаповалов</b></h1>
         <p class="lede" id="h-lede"></p>
         <div class="actions">
           <a class="pill big" href="#cases">Смотреть кейсы →</a>
@@ -346,7 +360,7 @@
     <div class="tabbar glass" id="tabbar" role="tablist" aria-label="Разделы сайта">
       <span class="tab-ink" id="tab-ink" aria-hidden="true"></span>
       <button type="button" role="tab" id="tab-about" data-tab="about" aria-controls="about" aria-selected="true">Обо мне</button>
-      <button type="button" role="tab" id="tab-directions" data-tab="directions" aria-controls="directions" aria-selected="false">Направления</button>
+      <button type="button" role="tab" id="tab-directions" data-tab="directions" aria-controls="directions" aria-selected="false"><span class="t-long">Направления</span><span class="t-short">Лечение</span></button>
       <button type="button" role="tab" id="tab-cases" data-tab="cases" aria-controls="cases" aria-selected="false">Кейсы</button>
       <button type="button" role="tab" id="tab-science" data-tab="science" aria-controls="science" aria-selected="false">Наука</button>
       <button type="button" role="tab" id="tab-contacts" data-tab="contacts" aria-controls="contacts" aria-selected="false">Контакты</button>
@@ -356,7 +370,7 @@
   <div class="stage" id="stage">
     <section class="tabpanel" id="about" role="tabpanel" aria-labelledby="tab-about">
     <div class="head reveal">
-      <div><p class="label">Обо мне</p><h2 id="about-h"></h2></div>
+      <div><h2 id="about-h"></h2></div>
       <p>Образование, курсы и то, где я работаю сейчас.</p>
     </div>
     <div class="about-grid">
@@ -368,7 +382,7 @@
 
     <section class="tabpanel" id="directions" role="tabpanel" aria-labelledby="tab-directions" hidden>
     <div class="head reveal">
-      <div><p class="label">Направления</p><h2>Чем я <em>занимаюсь</em></h2></div>
+      <div><h2>Чем я <em>занимаюсь</em></h2></div>
       <p>Термины подчёркнуты пунктиром. Нажмите на любой, чтобы прочитать короткое объяснение.</p>
     </div>
     <div class="dirs" id="dirs"></div>
@@ -376,14 +390,13 @@
 
     <section class="tabpanel" id="cases" role="tabpanel" aria-labelledby="tab-cases" hidden>
     <div class="head reveal">
-      <div><p class="label">Клинические случаи</p><h2>Результат <em>в миллиметрах</em></h2></div>
+      <div><h2>Результат <em>в миллиметрах</em></h2></div>
       <p>Полосы на графиках отложены в масштабе. Фото «до и после» публикуются только в соцсетях и только с согласия пациентов и их законных представителей.</p>
     </div>
     <div class="cases" id="case-list"></div>
       <div class="sub-block" id="steps">
     <div class="steps-wrap">
       <div class="steps-intro reveal">
-        <p class="label">Как проходит операция</p>
         <h2 id="steps-h"></h2>
         <p id="steps-intro"></p>
       </div>
@@ -394,7 +407,7 @@
 
     <section class="tabpanel" id="science" role="tabpanel" aria-labelledby="tab-science" hidden>
     <div class="head reveal">
-      <div><p class="label">Наука</p><h2>Диссертация <em>и статьи</em></h2></div>
+      <div><h2>Диссертация <em>и статьи</em></h2></div>
       <p id="sci-intro"></p>
     </div>
     <div class="sci">
@@ -410,13 +423,13 @@
 
     <section class="tabpanel" id="contacts" role="tabpanel" aria-labelledby="tab-contacts" hidden>
     <div class="head reveal">
-      <div><p class="label">Контакты</p><h2>Где <em>меня найти</em></h2></div>
+      <div><h2>Где <em>меня найти</em></h2></div>
       <p>Новые кейсы выходят в Telegram-канале и в Instagram.</p>
     </div>
     <div class="contacts" id="contact-list"></div>
       <div class="sub-block" id="work">
     <div class="work glass reveal">
-      <div><p class="label">Где работаю</p><h2 id="work-h"></h2><p id="work-text"></p></div>
+      <div><h2>Где я <em>работаю</em></h2><h3 class="work-name" id="work-h"></h3><p id="work-text"></p></div>
       <div class="side" id="work-side"></div>
     </div>
       </div>
@@ -425,7 +438,7 @@
 
   <footer>
     <div class="wordmark" aria-label="Shapovalov">S. H. A. P. O. V. A. L. O. V.</div>
-    <div class="foot"><p id="foot-note"></p><span><a href="admin.html" rel="nofollow">Редактировать</a> · <a href="#top">Наверх ↑</a></span></div>
+    <div class="foot"><p id="foot-note"></p><span><a href="#top">Наверх ↑</a></span></div>
   </footer>
 </main>
 
@@ -458,7 +471,7 @@
   function render(c) {
     TERMS = Object.fromEntries((c.terms || []).map((t) => [t.key, t]));
     const h = c.hero || {};
-    $('h-name').innerHTML = `${esc([h.firstName, h.middleName].filter(Boolean).join(' '))}<b>${esc(h.lastName)}</b>`;
+    $('h-name').innerHTML = `<span class="given">${esc([h.firstName, h.middleName].filter(Boolean).join(' '))}</span><b>${esc(h.lastName)}</b>`;
     $('h-lede').innerHTML = rich(h.lede);
     $('h-card').innerHTML = [h.cardLine1, h.cardLine2].filter(Boolean).map(esc).join('<br>');
     if (safeUrl(h.portrait)) $('h-portrait').src = safeUrl(h.portrait);
@@ -486,7 +499,7 @@
 
     $('dirs').innerHTML = dirs.map((d) => {
       const u = safeUrl(d.link), tag = u ? 'a' : 'div';
-      return `<${tag} class="dir glass reveal"${u ? ` href="${esc(u)}"${ext(u)}` : ''}><span class="idx">${esc(d.code)}</span><h3>${esc(d.title)}</h3>${d.text ? `<p>${rich(d.text)}</p>` : ''}${u && d.linkLabel ? `<span class="go">${esc(d.linkLabel)} →</span>` : ''}</${tag}>`;
+      return `<${tag} class="dir glass reveal"${u ? ` href="${esc(u)}"${ext(u)}` : ''}><h3>${esc(d.title)}</h3>${d.text ? `<p>${rich(d.text)}</p>` : ''}${u && d.linkLabel ? `<span class="go">${esc(d.linkLabel)} →</span>` : ''}</${tag}>`;
     }).join('');
 
     $('case-list').innerHTML = (c.cases || []).map((k) => {
@@ -506,7 +519,7 @@
     $('steps-h').innerHTML = esc(s.heading).replace(/(дистракционного аппарата)/, '<em>$1</em>');
     $('steps-intro').innerHTML = rich(s.intro);
     $('step-list').innerHTML = '<span class="rail-y" aria-hidden="true"></span><span class="prog" aria-hidden="true"></span>' +
-      (s.items || []).map((it, i) => `<li class="step"><span class="n">${String(i + 1).padStart(2, '0')}</span><p>${esc(it.title)} <span>${esc(it.detail)}</span></p></li>`).join('');
+      (s.items || []).map((it, i) => `<li class="step"><span class="n">${i + 1}</span><p>${esc(it.title)} <span>${esc(it.detail)}</span></p></li>`).join('');
 
     const sc = c.science || {}, d = sc.dissertation || {};
     $('sci-intro').innerHTML = rich(sc.intro);
@@ -529,7 +542,7 @@
     $('pubs').innerHTML = pubs.map((p, i) => {
       const u = safeUrl(p.link) || (p.doi ? `https://doi.org/${p.doi}` : '');
       const tag = u ? 'a' : 'div';
-      return `<${tag} class="pub glass reveal"${u ? ` href="${esc(u)}"${ext(u)}` : ''}><span class="num">${String(i + 1).padStart(2, '0')}</span>
+      return `<${tag} class="pub glass reveal"${u ? ` href="${esc(u)}"${ext(u)}` : ''}><span class="num">${esc((String(p.journal).match(/(19|20)\d\d/) || [''])[0])}</span>
         <div><b>${esc(p.title)}</b><span class="au">${esc(p.authors)}</span>
         <span class="src"><span>${esc(p.journal)}</span>${p.doi ? `<span>DOI ${esc(p.doi)}</span>` : ''}${u ? '<span class="lnk">Читать ↗</span>' : ''}</span></div></${tag}>`;
     }).join('') || todo('статьи');
@@ -595,9 +608,13 @@
     if (hasGsap) { lenis.on('scroll', ScrollTrigger.update); gsap.ticker.add((t) => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0); }
   }
   if (hasGsap) gsap.registerPlugin(ScrollTrigger);
+  const phone = matchMedia('(max-width:640px)');
   const scrollToEl = (el, offset = -150) => {
     if (!el) return;
-    if (lenis) lenis.scrollTo(el, { offset, duration: 1.1 });
+    if (phone.matches) offset = offset + 60;   // на телефоне вкладки внизу: сверху только шапка
+    // Lenis сам вычитает scroll-margin-top элемента — возвращаем его, чтобы отступ не считался дважды;
+    // resize — высота страницы только что сменилась вместе с вкладкой
+    if (lenis) { lenis.resize(); lenis.scrollTo(el, { offset: offset + (parseFloat(getComputedStyle(el).scrollMarginTop) || 0), duration: 1.1 }); }
     else scrollTo({ top: el.getBoundingClientRect().top + scrollY + offset, behavior: reduce ? 'auto' : 'smooth' });
   };
 
