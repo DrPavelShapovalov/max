@@ -35,8 +35,8 @@
   .note{position:absolute; inset:0; background:var(--paper); display:flex; align-items:center; justify-content:center; gap:.35em;
     font-family:'PT Mono',monospace; font-weight:700; color:var(--ink); text-align:center; padding:0 40px; box-sizing:border-box}
   .note .big{font-family:'Rubik',sans-serif; font-weight:800; color:var(--marker); font-size:1.9em; line-height:1}
-  .tape{position:absolute; height:54px; background:var(--tape); box-shadow:0 1px 2px rgba(0,0,0,.08);
-    clip-path:polygon(0 8%,4% 0,9% 10%,14% 0,20% 8%,100% 0,96% 12%,100% 24%,95% 38%,100% 52%,96% 66%,100% 80%,95% 92%,100% 100%,0 100%,5% 88%,0 76%,4% 62%,0 48%,5% 34%,0 20%)}
+  .tape{position:absolute; height:54px; background:linear-gradient(90deg, rgba(255,255,255,.35), transparent 8%, transparent 92%, rgba(255,255,255,.35)), var(--tape);
+    box-shadow:0 1px 2px rgba(0,0,0,.1); border-left:1px solid rgba(255,255,255,.5); border-right:1px solid rgba(255,255,255,.5)}
 
   /* папка */
   .folder .back{position:absolute; inset:0; background:color-mix(in srgb,var(--kraft) 88%,#000); border-radius:8px}
