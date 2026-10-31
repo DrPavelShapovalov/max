@@ -226,7 +226,7 @@
     { g: 'Наука' },
     { id: 'diss', title: 'Диссертация', path: 'science.dissertation', fields: [
       F('title', 'Название', 'area'), F('summary', 'Главный вывод', 'area'), F('degree', 'Степень'), F('specialty', 'Специальность', 'text', { sub: 'Шифр и название' }),
-      F('supervisor', 'Научный руководитель'), F('year', 'Защита и присуждение степени'), F('place', 'Где защищена'), F('link', 'Ссылка на диссертацию', 'url')] },
+      F('supervisor', 'Научный руководитель'), F('year', 'Защита и присуждение степени'), F('place', 'Где защищена'), F('link', 'Ссылка на диссертацию', 'url'), F('image', 'Титульный лист', 'image')] },
     { id: 'profiles', title: 'Научные профили', path: 'science.profiles', list: true, item: 'Профиль', titleKey: 'label', fields: [F('label', 'Название', 'text', { sub: 'ORCID, РИНЦ SPIN, ИСТИНА…' }), F('value', 'Номер или ник'), F('url', 'Ссылка', 'url')] },
     { id: 'sciIntro', title: 'Наука: вступление', path: 'science', fields: [F('intro', 'Текст под заголовком', 'area')] },
     { id: 'pubs', title: 'Статьи', path: 'science.publications', list: true, item: 'Статья', titleKey: 'title', fields: [

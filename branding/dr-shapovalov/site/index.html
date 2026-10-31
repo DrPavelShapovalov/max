@@ -313,6 +313,8 @@
   .sci{display:grid; grid-template-columns:.95fr 1.05fr; gap:16px; align-items:start}
   .sci > *{min-width:0}
   .diss{padding:34px; display:flex; flex-direction:column; gap:18px; align-items:flex-start; position:sticky; top:110px}
+  .diss-top{display:flex; justify-content:space-between; align-items:flex-start; gap:18px; width:100%}
+  .diss-top .thumb{width:92px; flex:none}
   .diss .deg{font-family:var(--mono); font-size:14px; font-weight:600;  color:var(--gold)}
   .diss h3{font-weight:500; font-size:clamp(20px,2.2vw,26px); line-height:1.25}
   .diss-sum{color:var(--ivory); font-size:17px; padding-left:14px; border-left:2px solid var(--gold)}
@@ -820,7 +822,7 @@
 
     const sc = c.science || {}, d = sc.dissertation || {};
     $('sci-intro').innerHTML = rich(sc.intro);
-    $('diss').innerHTML = `<span class="deg">${esc(d.degree || 'Кандидатская диссертация')}</span>
+    $('diss').innerHTML = `<div class="diss-top"><span class="deg">${esc(d.degree || 'Кандидатская диссертация')}</span><span id="diss-page"></span></div>
       <h3>${d.title ? esc(d.title) : (todo('название диссертации') || 'Кандидатская диссертация')}</h3>
       ${d.summary ? `<p class="diss-sum">${rich(d.summary)}</p>` : todo('главный вывод')}
       <dl>${[['Специальность', d.specialty, 'шифр и название'], ['Руководитель', d.supervisor, 'научный руководитель'], ['Защита', d.year, 'год защиты'], ['Где', d.place, 'где защищена']]
@@ -852,9 +854,15 @@
         <div><b>${esc(p.title)}</b><span class="au">${esc(p.authors)}</span>
         <span class="src"><span>${esc(p.journal)}</span>${p.doi ? `<span>DOI ${esc(p.doi)}</span>` : ''}${u ? `<a class="lnk" href="${esc(u)}"${ext(u)}>Читать ↗</a>` : ''}</span></div></article>`;
     }).join('') || todo('статьи');
-    // веер: статьи по порядку списка, затем свидетельство о регистрации программы
-    const fanItems = LB.map((it, k) => [it, k]).filter(([it]) => it.fan).sort((a, b) => (a[0].panel === 'soft') - (b[0].panel === 'soft'));
-    $('fan').innerHTML = fanItems.map(([it, k], j) => `<button class="fan-card" type="button" data-lb="${k}" style="z-index:${j + 1}" aria-label="Открыть страницу целиком: ${esc(it.title)}"><img src="${esc(card(it.img))}" data-full="${esc(it.img)}" alt="" loading="lazy"></button>`).join('');
+    // титульный лист диссертации — в карточке диссертации и первым в веере
+    if (safeUrl(d.image)) {
+      const k = addLb({ img: safeUrl(d.image), title: d.title, sub: [d.degree, d.specialty].filter(Boolean).join(' · '), url: safeUrl(d.link), panel: 'diss', id: 'diss', fan: true });
+      $('diss-page').innerHTML = thumb(k);
+    }
+    // веер: диссертация, статьи по порядку списка, затем свидетельство о регистрации программы
+    const rank = (it) => (it.panel === 'diss' ? 0 : it.panel === 'soft' ? 2 : 1);
+    const fanItems = LB.map((it, k) => [it, k]).filter(([it]) => it.fan).sort((a, b) => rank(a[0]) - rank(b[0]));
+    $('fan').innerHTML = fanItems.map(([it, k], j) => `<button class="fan-card" type="button" data-lb="${k}" data-z="${it.panel === 'diss' ? 40 : j + 1}" style="z-index:${it.panel === 'diss' ? 40 : j + 1}" aria-label="Открыть страницу целиком: ${esc(it.title)}"><img src="${esc(card(it.img))}" data-full="${esc(it.img)}" alt="" loading="lazy"></button>`).join('');
     $('fan-wrap').hidden = !fanItems.length;
     document.querySelectorAll('img[data-full]').forEach((im) => im.addEventListener('error', () => { if (im.src.indexOf(im.dataset.full) < 0) im.src = im.dataset.full; }, { once: true }));
     layoutFan(false);
@@ -1063,7 +1071,7 @@
   });
   $('fan').addEventListener('pointerout', (e) => {
     const c = e.target.closest('.fan-card'); if (!c || e.pointerType !== 'mouse' || !window.gsap || reduce || c.contains(e.relatedTarget)) return;
-    c.style.zIndex = [...c.parentNode.children].indexOf(c) + 1; gsap.to(c, { y: +c.dataset.y, scale: 1, duration: 0.3, ease: 'power3.out', overwrite: 'auto' });
+    c.style.zIndex = c.dataset.z; gsap.to(c, { y: +c.dataset.y, scale: 1, duration: 0.3, ease: 'power3.out', overwrite: 'auto' });
   });
   function thumbsFx(root) {
     if (!window.gsap || reduce) return;
