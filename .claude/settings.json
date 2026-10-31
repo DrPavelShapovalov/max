@@ -1,4 +1,7 @@
 {
+  "env": {
+    "ECC_HOOKS_ENABLED": "false"
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -10,6 +13,11 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "impeccable@impeccable": true,
+    "gsap-skills@gsap-skills": true,
+    "ecc@ecc": true
   },
   "extraKnownMarketplaces": {
     "impeccable": {
@@ -23,10 +31,12 @@
         "source": "github",
         "repo": "greensock/gsap-skills"
       }
+    },
+    "ecc": {
+      "source": {
+        "source": "github",
+        "repo": "affaan-m/ECC"
+      }
     }
-  },
-  "enabledPlugins": {
-    "impeccable@impeccable": true,
-    "gsap-skills@gsap-skills": true
   }
 }
