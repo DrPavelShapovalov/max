@@ -206,6 +206,9 @@
     { id: 'about', title: 'О себе', path: 'about', fields: [F('heading', 'Заголовок'), F('text', 'Текст', 'area')] },
     { id: 'facts', title: 'Факты', path: 'about.facts', list: true, item: 'Факт', titleKey: 'label', fields: [F('label', 'Название'), F('value', 'Значение')] },
     { id: 'education', title: 'Образование', path: 'about.education', list: true, item: 'Ступень', titleKey: 'degree', fields: [F('years', 'Годы'), F('degree', 'Что окончил'), F('place', 'Вуз или организация')] },
+    { id: 'reviews', title: 'Отзывы: текст', path: 'reviews', fields: [F('heading', 'Заголовок', 'text', { sub: '*слово* — выделить золотом' }), F('text', 'Пояснение', 'area')] },
+    { id: 'reviewLinks', title: 'Отзывы: площадки', path: 'reviews.links', list: true, item: 'Площадка', titleKey: 'label', fields: [
+      F('label', 'Название', 'text', { sub: 'ПроДокторов, Яндекс…' }), F('note', 'Подпись сверху'), F('url', 'Ссылка на вашу страницу с отзывами', 'url')] },
     { id: 'courses', title: 'Курсы', path: 'about.courses', list: true, item: 'Курс', titleKey: 'title', fields: [F('year', 'Год'), F('title', 'Название курса'), F('org', 'Где проходил')] },
     { g: 'Работа' },
     { id: 'directions', title: 'Направления', path: 'directions', list: true, item: 'Направление', titleKey: 'title', fields: [

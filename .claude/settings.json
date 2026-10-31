@@ -1,6 +1,7 @@
 {
   "env": {
-    "ECC_HOOKS_ENABLED": "false"
+    "ECC_HOOKS_ENABLED": "false",
+    "CHROME_PATH": "/root/.local/bin/chrome-nosandbox"
   },
   "hooks": {
     "SessionStart": [
@@ -17,7 +18,8 @@
   "enabledPlugins": {
     "impeccable@impeccable": true,
     "gsap-skills@gsap-skills": true,
-    "ecc@ecc": true
+    "ecc@ecc": true,
+    "hallmark@hallmark": true
   },
   "extraKnownMarketplaces": {
     "impeccable": {
@@ -36,6 +38,12 @@
       "source": {
         "source": "github",
         "repo": "affaan-m/ECC"
+      }
+    },
+    "hallmark": {
+      "source": {
+        "source": "github",
+        "repo": "Nutlope/hallmark"
       }
     }
   }

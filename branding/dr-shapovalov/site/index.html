@@ -389,6 +389,14 @@
   .contact{padding:24px; display:flex; flex-direction:column; gap:28px; min-width:0; transition:transform .45s cubic-bezier(.2,.7,.2,1)}
   a.contact:hover{transform:translateY(-4px)}
   .contact small{font-family:var(--mono); font-size:14px;  color:var(--mist)}
+  /* отзывы: только ссылки на независимые площадки, без цитат (ст. 24 закона «О рекламе») */
+  .rev-list{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); gap:16px}
+  .rev{padding:28px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px 24px; min-width:0; transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+  .rev > div{min-width:0}
+  .rev small{display:block; font-size:15px; color:var(--mist)}
+  .rev b{display:block; margin-top:6px; font-family:var(--display); font-weight:500; font-size:clamp(24px,2.6vw,32px); line-height:1.1}
+  .rev .go{flex:none; padding:12px 18px; border-radius:999px; background:var(--gold); color:#140f06; font-weight:700; font-size:15px; white-space:nowrap}
+  @media (hover:hover) and (pointer:fine){ a.rev:hover{transform:translateY(-4px)} a.rev:hover .go{background:var(--gold-hi)} }
   .contact span{font-family:var(--display); font-weight:500; font-size:18px; overflow-wrap:anywhere}
 
   footer{padding-block:120px 0; position:relative; z-index:1}
@@ -490,6 +498,7 @@
   <div class="menu-aura" aria-hidden="true"><i></i><i></i><i></i></div>
   <nav class="menu-in" aria-label="Меню сайта">
     <a href="#about">Обо мне</a>
+    <a href="#reviews">Отзывы</a>
     <a href="#distraction">Как растёт кость</a>
     <div class="menu-group"><a href="#directions">Лечение</a><ul class="menu-sub" id="menu-dirs"></ul></div>
     <a href="#cases">Кейсы</a>
@@ -644,6 +653,10 @@
       <div class="panel glass reveal"><h3>Образование</h3><ol class="timeline" id="edu"></ol></div>
       <div class="panel glass courses reveal" id="courses-panel"><h3>Курсы и повышение квалификации</h3><div class="course-grid" id="courses"></div></div>
     </div>
+    <div class="sub-block reviews" id="reviews">
+      <div class="head reveal"><div><h2 id="rev-h"></h2></div><p id="rev-text"></p></div>
+      <div class="rev-list" id="rev-list"></div>
+    </div>
     </section>
 
     <section class="tabpanel" id="directions" role="tabpanel" aria-labelledby="tab-directions" hidden>
@@ -796,6 +809,11 @@
     const courses = (a.courses || []).filter((k) => k.title || PREVIEW);
     $('courses').innerHTML = courses.map((k) => `<div class="course"><span class="y">${val(k.year, 'год')}</span><b>${val(k.title, 'название курса')}</b><span>${val(k.org, 'где проходил')}</span></div>`).join('');
     $('courses-panel').hidden = !courses.length;
+    const rv = c.reviews || {}, rvl = (rv.links || []).filter((l) => safeUrl(l.url) && l.label);
+    $('rev-h').innerHTML = esc(rv.heading || 'Отзывы').replace(/\*(.+?)\*/g, '<em>$1</em>');
+    $('rev-text').innerHTML = rich(rv.text);
+    $('rev-list').innerHTML = rvl.map((l) => `<a class="rev glass reveal" href="${esc(safeUrl(l.url))}"${ext(l.url)}><div><small>${esc(l.note || 'Отзывы')}</small><b>${esc(l.label)}</b></div><span class="go">Читать отзывы ↗</span></a>`).join('');
+    $('reviews').hidden = !rvl.length;
 
     $('dirs').innerHTML = dirs.map((d) => {
       const u = safeUrl(d.link), tag = u ? 'a' : 'div';

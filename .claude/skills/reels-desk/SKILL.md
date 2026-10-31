@@ -77,3 +77,20 @@ description: Собирает вертикальные Reels 1080×1920 в ст�
 (длительность: `ffprobe -show_entries format=duration voice.m4a`). Без голоса ролик держится на субтитрах и звуках маркера.
 
 Пример целиком: `branding/dr-shapovalov/reels/kak-rastet-kost/`.
+
+## Голос и музыка (проверено на «distraktsiya-golos»)
+
+1. **Распознать запись** — нужна для таймингов субтитров. Whisper с Hugging Face здесь недоступен; рабочий путь —
+   модель Whisper small (CTranslate2 int8) из npm-пакетов `@skillninja/shortmovie-telop-model-p0…p3`:
+   `npm pack` (скрипты не запускаются), склеить `model.bin.part0..3`, сверить с `model.sha256` из p0,
+   `pip install faster-whisper`, `WhisperModel(<папка>, compute_type="int8").transcribe(..., language="ru", word_timestamps=True)`.
+   Ошибки распознавания исправлять в субтитрах по смыслу и перечислять автору.
+2. **Смонтировать голос**: паузы найти `silencedetect=noise=-44dB:d=0.25`, длинные сократить до 0,25–0,55 с
+   (внутри фразы короче, между фразами длиннее), куски с фейдом 15–20 мс; цепочка
+   `highpass=f=80,afftdn=nf=-28,acompressor=threshold=-22dB:ratio=3,loudnorm=I=-16:TP=-1.5`. Затем распознать
+   смонтированный файл ещё раз — тайминги слов брать оттуда.
+3. **Музыка**: `python3 scripts/music.py music-dry.wav <длительность>`, затем приглушить под голос:
+   `[0]aecho=0.8:0.6:120|260:0.25|0.15[m];[1]apad[v];[m][v]sidechaincompress=threshold=0.03:ratio=6:attack=60:release=450,loudnorm=I=-29:TP=-6`
+   (0 — музыка, 1 — голос). В reel.json: `"audio": {"voice": "voice.wav", "music": "music.wav", "musicGain": 1}`.
+4. Смена кадра — на начале фразы, обводка — на ключевом слове фразы. Голос автора и итоговые wav не коммитить
+   (`branding/dr-shapovalov/reels/.gitignore`).

@@ -130,6 +130,17 @@ python3 -c "import numpy, cv2; from google import genai" 2>/dev/null \
   || python3 -m pip install -q numpy opencv-python-headless google-genai >/dev/null 2>&1 \
   || echo "ghost-editor: не удалось поставить numpy/opencv/google-genai"
 
+# Браузерные проверки дизайна (hallmark sloplint --render, taste-skill inspect): puppeteer-core
+# и обёртка Chromium с --no-sandbox (в контейнере всё запускается от root). CHROME_PATH задан в settings.json.
+CHROME_BIN=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux64/chrome 2>/dev/null | head -1 || true)
+if [ -n "$CHROME_BIN" ]; then
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/bin/sh\nexec "%s" --no-sandbox "$@"\n' "$CHROME_BIN" > "$HOME/.local/bin/chrome-nosandbox"
+  chmod +x "$HOME/.local/bin/chrome-nosandbox"
+fi
+[ -d "$(npm root -g)/puppeteer-core" ] || npm install -g --silent --no-audit --no-fund puppeteer-core >/dev/null 2>&1 \
+  || echo "Не удалось поставить puppeteer-core — браузерные проверки hallmark пропустятся"
+
 # HyperFrames: видео из HTML. Node.js и FFmpeg в облачном контейнере уже есть,
 # не хватает только Chrome Headless Shell для рендера и локальной копии GSAP
 # (CDN jsdelivr из браузера рендера закрыт).
