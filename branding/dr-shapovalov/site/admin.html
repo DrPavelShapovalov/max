@@ -185,10 +185,22 @@
   const SCHEMA = [
     { g: 'Главная' },
     { id: 'hero', title: 'Первый экран', path: 'hero', fields: [
-      F('firstName', 'Имя'), F('middleName', 'Отчество'), F('lastName', 'Фамилия'), F('lede', 'Текст под именем', 'area'),
+      F('firstName', 'Имя'), F('middleName', 'Отчество'), F('lastName', 'Фамилия'), F('lede', 'Текст под именем — для родителей', 'area'),
+      F('ledePro', 'Текст под именем — для коллег', 'area', { sub: 'Показывается, когда посетитель выбрал «Коллегам»' }),
       F('cardLine1', 'Карточка у фото, строка 1'), F('cardLine2', 'Карточка у фото, строка 2'), F('portrait', 'Фото', 'image')] },
     { id: 'readings', title: 'Цифры под первым экраном', path: 'readings', list: true, item: 'Цифра', titleKey: 'label', fields: [
       F('from', 'Было (необязательно)', 'text', { sub: 'Например 7,93 — тогда покажется «7,93 → 2»' }), F('to', 'Значение'), F('unit', 'Единица'), F('label', 'Подпись')] },
+    { id: 'audience', title: 'Переключатель «Родителям / Коллегам»', path: 'audience', fields: [
+      F('parentsLabel', 'Кнопка для родителей'), F('colleaguesLabel', 'Кнопка для коллег')] },
+    { id: 'ctaParents', title: 'Главная кнопка: для родителей', path: 'audience.parentsCta', fields: [
+      F('label', 'Текст'), F('link', 'Куда ведёт', 'text', { sub: 'Например #distraction' })] },
+    { id: 'ctaColleagues', title: 'Главная кнопка: для коллег', path: 'audience.colleaguesCta', fields: [
+      F('label', 'Текст'), F('link', 'Куда ведёт', 'text', { sub: 'Например #science' })] },
+    { id: 'distraction', title: 'Схема «Как растёт кость»', path: 'distraction', fields: [
+      F('heading', 'Заголовок'), F('intro', 'Вступление для родителей', 'area'), F('introPro', 'Вступление для коллег', 'area'),
+      F('maxMm', 'Удлинение на схеме, мм', 'number', { sub: 'Только для схемы' }), F('note', 'Примечание под схемой', 'area')] },
+    { id: 'dxPhases', title: 'Схема: этапы', path: 'distraction.phases', list: true, item: 'Этап', titleKey: 'title', fields: [
+      F('title', 'Название для родителей'), F('text', 'Текст для родителей', 'area'), F('titlePro', 'Название для коллег'), F('textPro', 'Текст для коллег', 'area')] },
     { id: 'meta', title: 'Ссылки в шапке', path: 'meta', fields: [F('handle', 'Ник в шапке'), F('telegram', 'Telegram', 'url'), F('instagram', 'Instagram', 'url')] },
     { g: 'Обо мне' },
     { id: 'about', title: 'О себе', path: 'about', fields: [F('heading', 'Заголовок'), F('text', 'Текст', 'area')] },
@@ -208,7 +220,8 @@
       F('bars', 'Полосы графика', 'sublist', { item: 'Полоса', fields: [F('name', 'Название'), F('value', 'Значение', 'number'), F('unit', 'Единица'), F('accent', 'Выделить золотом', 'bool')] })] },
     { id: 'steps', title: 'Этапы операции: текст', path: 'steps', fields: [F('heading', 'Заголовок'), F('intro', 'Описание', 'area')] },
     { id: 'stepItems', title: 'Этапы операции: список', path: 'steps.items', list: true, item: 'Этап', titleKey: 'title', fields: [F('title', 'Этап'), F('detail', 'Уточнение (серым)')] },
-    { id: 'work', title: 'Где работаю', path: 'work', fields: [F('name', 'Название'), F('text', 'Описание', 'area'), F('address', 'Адрес приёма')] },
+    { id: 'work', title: 'Где работаю', path: 'work', fields: [F('name', 'Название'), F('text', 'Описание', 'area'), F('address', 'Адрес приёма'),
+      F('mapQuery', 'Адрес для карты', 'text', { sub: 'Так, как его ищут в Яндекс Картах' })] },
     { id: 'workLinks', title: 'Где работаю: ссылки', path: 'work.links', list: true, item: 'Ссылка', titleKey: 'label', fields: [F('label', 'Текст'), F('url', 'Адрес', 'url')] },
     { g: 'Наука' },
     { id: 'diss', title: 'Диссертация', path: 'science.dissertation', fields: [
