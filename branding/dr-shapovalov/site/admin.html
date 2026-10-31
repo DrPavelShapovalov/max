@@ -152,7 +152,7 @@
       <button class="btn sm" id="pv-phone" type="button">Телефон</button>
       <button class="btn sm" id="pv-close" type="button">Закрыть</button>
     </div>
-    <div class="pv-wrap" id="pv-wrap"><iframe id="pv" title="Сайт"></iframe></div>
+    <div class="pv-wrap" id="pv-wrap"><iframe id="pv" title="Сайт" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"></iframe></div>
   </aside>
 </div>
 <div class="lock" id="lock" hidden>
@@ -180,6 +180,14 @@
 
 <script>
 (() => {
+  /* ---------- защита от встраивания ----------
+     Админку нельзя открывать внутри чужой страницы: так её кнопки можно было бы
+     нажать обманом (clickjacking). Внутри своего же сайта — можно. */
+  const framedByOther = (() => { if (window.top === window.self) return false; try { return !window.top.location.href; } catch (e) { return true; } })();
+  if (framedByOther) {
+    document.body.textContent = 'Админка открывается только напрямую, не внутри другой страницы: ' + location.href;
+    return;
+  }
   /* ---------- схема: какие поля в каком разделе ---------- */
   const F = (k, l, t = 'text', extra = {}) => ({ k, l, t, ...extra });
   const SCHEMA = [
@@ -262,7 +270,11 @@
                  set(v) { try { sessionStorage.setItem(TOKEN, v); } catch (e) {} },
                  del() { try { sessionStorage.removeItem(TOKEN); } catch (e) {} } };
   const tokenGet = () => sess.get() || store.get(TOKEN) || '';
-  const tokenSet = (t, remember) => { sess.del(); store.del(TOKEN); if (t) (remember ? store.set(TOKEN, t) : sess.set(t)); };
+  // На *.github.io все проекты одного аккаунта — один «сайт» для браузера и делят localStorage.
+  // Поэтому там токен живёт только во вкладке (sessionStorage), а «Запомнить» доступно на своём домене.
+  const sharedHost = /\.github\.io$/i.test(location.hostname);
+  const tokenSet = (t, remember) => { sess.del(); store.del(TOKEN); if (t) (remember && !sharedHost ? store.set(TOKEN, t) : sess.set(t)); };
+  if (sharedHost && store.get(TOKEN)) { sess.set(store.get(TOKEN)); store.del(TOKEN); }
   { const old = store.get(GH); if (old && old.token) { if (!store.get(TOKEN)) store.set(TOKEN, old.token); delete old.token; store.set(GH, old); } }
   const GH_DEF = { owner: 'DrPavelShapovalov', repo: 'dr-shapovalov-site', branch: 'main', dir: '' };
   const ghConf = () => ({ ...GH_DEF, ...(store.get(GH) || {}) });
@@ -452,7 +464,15 @@
     if (!file) return; const g = ghCfg();
     if (!g) return lockScreen('Чтобы загрузить фото, войдите с токеном GitHub.');
     if (file.size > 4e6) return toast('Файл больше 4 МБ — уменьшите фото');
-    const name = 'img/' + file.name.toLowerCase().replace(/[^a-z0-9.\-_]+/g, '-');
+    // только настоящие JPEG, PNG и WebP: проверяем и расширение, и первые байты файла
+    const ext = (file.name.toLowerCase().match(/\.(jpe?g|png|webp)$/) || [])[1];
+    const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+    const isJpg = head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
+    const isPng = [0x89, 0x50, 0x4e, 0x47].every((b, i) => head[i] === b);
+    const isWebp = String.fromCharCode(...head.slice(0, 4)) === 'RIFF' && String.fromCharCode(...head.slice(8, 12)) === 'WEBP';
+    if (!ext || !(isJpg || isPng || isWebp)) return toast('Можно загружать только фото JPEG, PNG или WebP');
+    const base = file.name.toLowerCase().replace(/\.[a-z0-9]+$/, '').replace(/[^a-z0-9\-_]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'photo';
+    const name = 'img/' + base + '.' + (isJpg ? 'jpg' : isPng ? 'png' : 'webp');
     const content = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.readAsDataURL(file); });
     try {
       const path = ghPath(g, name), cur = await gh(g, 'GET', path);
@@ -470,8 +490,8 @@
 
   /* ---------- предпросмотр ---------- */
   let pvT; const pv = $('pv');
-  function schedulePreview() { clearTimeout(pvT); pvT = setTimeout(() => { try { pv.contentWindow.postMessage({ type: 'shapovalov:content', content: data }, '*'); } catch (e) {} }, 250); }
-  addEventListener('message', (e) => { if (e.data && e.data.type === 'shapovalov:ready') schedulePreview(); });
+  function schedulePreview() { clearTimeout(pvT); pvT = setTimeout(() => { try { pv.contentWindow.postMessage({ type: 'shapovalov:content', content: data }, '*'); /* предпросмотр изолирован: его происхождение «пустое», а черновик не секретный */ } catch (e) {} }, 250); }
+  addEventListener('message', (e) => { if (e.source === pv.contentWindow && e.data && e.data.type === 'shapovalov:ready') schedulePreview(); });
   pv.addEventListener('load', schedulePreview);
   $('pv-phone').addEventListener('click', (e) => { const w = $('pv-wrap'); w.classList.toggle('phone'); e.target.textContent = w.classList.contains('phone') ? 'Компьютер' : 'Телефон'; });
   $('pv-toggle').addEventListener('click', () => { $('preview').classList.add('open'); schedulePreview(); });
@@ -499,6 +519,7 @@
     const g = ghConf();
     $('lk-owner').value = g.owner; $('lk-name').value = g.repo;
     $('lk-err').textContent = msg || ''; $('lk-local').hidden = !local;
+    $('lk-remember').closest('label').hidden = sharedHost;
     $('app').hidden = true; $('lock').hidden = false; $('lk-token').focus();
   }
   function unlock() { $('lock').hidden = true; $('app').hidden = false; if (!started) { started = true; start(); } }
