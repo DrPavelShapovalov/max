@@ -47,3 +47,19 @@ if [ "$(cat "$marker" 2>/dev/null)" != "$REELMIMIC_SHA" ]; then
   cp -r "$HOME/reelmimic/.claude/skills/." "$SKILLS/"
   echo "$REELMIMIC_SHA" > "$marker"
 fi
+
+# HyperFrames: видео из HTML. Node.js и FFmpeg в облачном контейнере уже есть,
+# не хватает только Chrome Headless Shell для рендера и локальной копии GSAP
+# (CDN jsdelivr из браузера рендера закрыт).
+HF_VERSION=0.8.223
+GSAP_VERSION=3.12.5
+HF_VENDOR="$HOME/.cache/hyperframes-vendor"
+if ! ls "$HOME"/.cache/hyperframes/chrome/chrome-headless-shell/*/chrome-headless-shell-linux64/chrome-headless-shell >/dev/null 2>&1; then
+  npx --yes "hyperframes@$HF_VERSION" browser ensure >/dev/null 2>&1 \
+    || echo "HyperFrames: не удалось скачать Chrome Headless Shell — запустите: npx hyperframes browser ensure"
+fi
+if [ ! -f "$HF_VENDOR/node_modules/gsap/dist/gsap.min.js" ]; then
+  npm install --silent --no-audit --no-fund --prefix "$HF_VENDOR" "gsap@$GSAP_VERSION" >/dev/null 2>&1 \
+    || echo "HyperFrames: не удалось установить gsap@$GSAP_VERSION"
+fi
+echo "HyperFrames $HF_VERSION готов (Node, FFmpeg, Chrome Headless Shell). CDN закрыт: в каждом проекте HyperFrames скопируйте $HF_VENDOR/node_modules/gsap/dist/gsap.min.js в vendor/ и подключайте <script src=\"vendor/gsap.min.js\">."
