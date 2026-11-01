@@ -140,6 +140,8 @@
       <span class="chip" data-preset="300,1500" title="Костное окно">Кость</span>
       <span class="chip" data-preset="40,400" title="Мягкие ткани">Мягк.</span>
     </div>
+    <div class="grp" id="seriesWrap" style="display:none;gap:5px" title="Выбор серии DICOM">серия
+      <select id="seriesSel" class="ipt" style="padding:4px;max-width:200px"></select></div>
     <input type="text" id="patName" class="ipt" placeholder="Пациент / № КТ" style="width:150px">
     <span class="spacer"></span>
     <span class="chip" id="undoBtn" title="Отменить (Ctrl+Z)">↩ Отмена</span>
@@ -225,7 +227,9 @@
       </div>
 
       <div class="foot">
-        <button class="b" id="measBtn" style="flex:0 0 auto">📏 Длина</button>
+        <button class="b" id="measBtn" style="flex:0 0 auto" title="Длина на 3D (2 точки)">📏 3D</button>
+        <button class="b mprarm" id="mprLenBtn" style="flex:0 0 auto" title="Длина на срезах (2 точки)">📏 Срез</button>
+        <button class="b mprarm" id="mprAngBtn" style="flex:0 0 auto" title="Угол на срезах (3 точки)">∠ Срез</button>
         <button class="b" id="measClr" style="flex:0 0 auto">Очистить</button>
         <span class="vbadge" id="measVal" style="display:none"></span>
         <span style="flex:1"></span>

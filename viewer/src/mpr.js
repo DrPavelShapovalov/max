@@ -11,11 +11,23 @@ export class MPR {
     this.ix = nx >> 1; this.iy = ny >> 1; this.iz = nz >> 1;  // текущие срезы
     this.wc = 300; this.ww = 1500;
     this._off = document.createElement('canvas');
+    this.view = { axial: null, coronal: null, sagittal: null };  // трансформы последнего рендера
   }
   _lut(v) { const lo = this.wc - this.ww / 2; let p = ((v - lo) / this.ww) * 255; return p < 0 ? 0 : p > 255 ? 255 : p | 0; }
 
+  // Параметры плоскости: оси вокселей (U,V), фиксированная ось, физический шаг.
+  planeInfo(key) {
+    const sp = this.vol.spacing;
+    if (key === 'axial') return { W: this.nx, H: this.ny, su: sp[0], sv: sp[1], fixed: 'z', idx: this.iz };
+    if (key === 'coronal') return { W: this.nx, H: this.nz, su: sp[0], sv: sp[2], fixed: 'y', idx: this.iy };
+    return { W: this.ny, H: this.nz, su: sp[1], sv: sp[2], fixed: 'x', idx: this.ix };
+  }
+  // воксель (i,j) плоскости → пиксели канваса (по трансформе последнего рендера)
+  voxelToCanvas(key, i, j) { const v = this.view[key]; if (!v) return null; return { x: v.dx + (i / v.W) * v.dw, y: v.dy + (j / v.H) * v.dh }; }
+  canvasToVoxel(key, cx, cy) { const v = this.view[key]; if (!v) return null; return { i: (cx - v.dx) / v.dw * v.W, j: (cy - v.dy) / v.dh * v.H }; }
+
   // Универсальный рендер плоскости в canvas с «вписыванием» и перекрестием.
-  _render(cv, W, H, aspectX, aspectY, sample, crossU, crossV) {
+  _render(cv, W, H, aspectX, aspectY, sample, crossU, crossV, key) {
     const off = this._off; off.width = W; off.height = H;
     const octx = off.getContext('2d');
     const img = octx.createImageData(W, H);
@@ -33,6 +45,7 @@ export class MPR {
     const pw = W * aspectX, ph = H * aspectY;
     const s = Math.min(cw / pw, ch / ph) * 0.96;
     const dw = pw * s, dh = ph * s, dx = (cw - dw) / 2, dy = (ch - dh) / 2;
+    if (key) this.view[key] = { dx, dy, dw, dh, W, H };   // сохраняем трансформу для оверлеев/кликов
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(off, 0, 0, W, H, dx, dy, dw, dh);
     // перекрестие
@@ -46,17 +59,17 @@ export class MPR {
   drawAxial(cv) {   // z = iz; оси (x,y)
     const { data } = this.vol, nx = this.nx, ny = this.ny, base = this.iz * nx * ny;
     this._render(cv, nx, ny, this.vol.spacing[0], this.vol.spacing[1],
-      (i, j) => data[base + j * nx + i], this.ix, this.iy);
+      (i, j) => data[base + j * nx + i], this.ix, this.iy, 'axial');
   }
   drawCoronal(cv) { // y = iy; оси (x,z)
     const { data } = this.vol, nx = this.nx, ny = this.ny, nz = this.nz;
     this._render(cv, nx, nz, this.vol.spacing[0], this.vol.spacing[2],
-      (i, j) => data[j * nx * ny + this.iy * nx + i], this.ix, this.iz);
+      (i, j) => data[j * nx * ny + this.iy * nx + i], this.ix, this.iz, 'coronal');
   }
   drawSagittal(cv) { // x = ix; оси (y,z)
     const { data } = this.vol, nx = this.nx, ny = this.ny, nz = this.nz;
     this._render(cv, ny, nz, this.vol.spacing[1], this.vol.spacing[2],
-      (i, j) => data[j * nx * ny + i * nx + this.ix], this.iy, this.iz);
+      (i, j) => data[j * nx * ny + i * nx + this.ix], this.iy, this.iz, 'sagittal');
   }
   drawAll(cvA, cvC, cvS) { if (cvA) this.drawAxial(cvA); if (cvC) this.drawCoronal(cvC); if (cvS) this.drawSagittal(cvS); }
 }

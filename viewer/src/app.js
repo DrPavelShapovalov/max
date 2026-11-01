@@ -42,6 +42,10 @@ let measurePts = [], measureGroup;
 const measurements = [];     // [{ a:[x,y,z], b:[x,y,z], mm }]
 // ── MPR (срезы КТ) ─────────────────────────────────────────────────────────────
 let volume = null, mpr = null, mprOn = false;
+let dicomGroups = null, dicomSeries = null, curSeries = 0;
+let mprMode = null;                 // null | 'len' | 'ang' — измерения на срезах
+let mprPending = null;              // { plane, type, pts:[{i,j}] }
+const mprMeas = [];                 // [{ plane, slice, type, pts:[{i,j}], value }]
 
 function init() {
   canvas = $('cv');
@@ -73,6 +77,9 @@ function init() {
 
   window.addEventListener('resize', resize);
   canvas.addEventListener('pointerdown', onPointerDown);
+  for (const key of ['axial', 'coronal', 'sagittal']) {
+    const el = document.getElementById(MPR_CANVAS[key]); if (el) el.addEventListener('pointerdown', (e) => onMPRClick(key, e));
+  }
   window.addEventListener('keydown', onKey);
   resize();
   animate();
@@ -90,6 +97,16 @@ function init() {
     autoPick(ang) { if (plan) { $('corrAngle').value = ang; autoPickDevice(); } return plan ? plan.deg : null; },
     exportPDF: () => exportPDF(),
     mprInfo: () => mpr ? { on: mprOn, dims: volume.dims, ix: mpr.ix, iy: mpr.iy, iz: mpr.iz } : null,
+    series: () => dicomSeries,
+    selectSeries: (i) => buildFromSeries(i),
+    // имитировать измерение на срезе: клики по воксельным точкам
+    mprMeasure(plane, type, voxPts) {
+      if (!mpr) return null; const info = mpr.planeInfo(plane);
+      const pts = voxPts.map(p => ({ i: p.i, j: p.j }));
+      const val = type === 'len' ? sliceLen(info, pts) : sliceAng(info, pts);
+      mprMeas.push({ plane, slice: info.idx, type, pts, value: val }); if (mprOn) renderMPR(); return val;
+    },
+    overlays: () => ({ hasPlaneTrace: !!cutPlane, hasVector: !!plan, mprMeas: mprMeas.length }),
     state: () => ({ nFrags: frags.length, names: frags.map(f => f.name), tri: frags.map(f => triCount(f.soup)), hasVolume: !!volume, mprOn, plan: plan ? { mobile: getFrag(plan.mobileId)?.name, dir: plan.dir.toArray(), length: plan.length, deg: plan.deg } : null }),
   };
 }
@@ -175,27 +192,51 @@ async function loadSTLFiles(fileList) {
 async function loadDICOM(fileList) {
   status('Чтение DICOM…');
   try {
-    const { buildVolume } = await import('./dicom.js');
-    const { extractSurface } = await import('./mc.js');
-    const vol = await buildVolume(Array.from(fileList), () => { });
-    const thr = +($('thr')?.value || 300);
-    const surf = extractSurface(vol, thr, 220);
-    // индексированный меш → «суп»
-    const soup = new Float32Array(surf.triCount * 9);
-    const { positions, indices } = surf; let o = 0;
-    for (let t = 0; t < indices.length; t += 3)
-      for (let k = 0; k < 3; k++) { const vi = indices[t + k] * 3; soup[o++] = positions[vi]; soup[o++] = positions[vi + 1]; soup[o++] = positions[vi + 2]; }
+    const { loadDicom } = await import('./dicom.js');
     clearAll();
-    const f = addFragment(soup, 'Кость (КТ)', 'bone', 0xe6eef6);
-    volume = vol; initMPR();
-    frameAll(); selectFragment(f.id);
-    status(`Кость построена (порог ${thr} HU). Шаг 1: разорвать контакты и «Отделить НЧ». Срезы — «▦ Срезы».`);
+    const { groups, series } = await loadDicom(Array.from(fileList), (p, msg) => status(msg));
+    dicomGroups = groups; dicomSeries = series;
+    populateSeriesUI(series);
+    let def = series.findIndex(s => s.isBone); if (def < 0) def = 0;   // по умолчанию — костная серия
+    await buildFromSeries(def);
   } catch (e) { console.error(e); alert('DICOM: ' + e.message); status('Ошибка DICOM.'); }
+}
+async function buildFromSeries(idx) {
+  if (!dicomGroups) return;
+  curSeries = idx;
+  status(`Сборка серии: ${dicomSeries[idx]?.label || idx}…`);
+  const { assembleSeries } = await import('./dicom.js');
+  const { extractSurface } = await import('./mc.js');
+  const vol = await assembleSeries(dicomGroups, idx, (p, msg) => status(msg));
+  const thr = +($('thr')?.value || 300);
+  const surf = extractSurface(vol, thr, 220);
+  const soup = new Float32Array(surf.triCount * 9);
+  const { positions, indices } = surf; let o = 0;
+  for (let t = 0; t < indices.length; t += 3)
+    for (let k = 0; k < 3; k++) { const vi = indices[t + k] * 3; soup[o++] = positions[vi]; soup[o++] = positions[vi + 1]; soup[o++] = positions[vi + 2]; }
+  // убираем прежние фрагменты/план, но сохраняем список серий
+  [...frags].forEach(f => removeFragment(f.id));
+  clearCutPlane(); plan = null; clearMeasure(); mprMeas.length = 0; mprPending = null;
+  const f = addFragment(soup, 'Кость (КТ)', 'bone', 0xe6eef6);
+  volume = vol; initMPR();
+  frameAll(); selectFragment(f.id); updatePlanPanel();
+  const sel = $('seriesSel'); if (sel) sel.value = String(idx);
+  status(`Серия «${dicomSeries[idx]?.desc || idx}» · порог ${thr} HU. Шаг 1: разорвать контакты и «Отделить НЧ». Срезы — «▦ Срезы».`);
+}
+function populateSeriesUI(series) {
+  const wrap = $('seriesWrap'), sel = $('seriesSel');
+  if (!wrap || !sel) return;
+  if (series.length > 1) {
+    sel.innerHTML = series.map(s => `<option value="${s.index}">${s.isBone ? '🦴 ' : ''}${s.label}${s.isBone ? '' : ''}</option>`).join('');
+    wrap.style.display = 'flex';
+  } else wrap.style.display = 'none';
 }
 function clearAll() {
   [...frags].forEach(f => removeFragment(f.id));
   clearCutPlane(); plan = null; clearMeasure(); updatePlanPanel();
   volume = null; mpr = null; measurements.length = 0;
+  dicomGroups = null; dicomSeries = null; mprMeas.length = 0; mprPending = null;
+  const sw = $('seriesWrap'); if (sw) sw.style.display = 'none';
 }
 
 function frameAll() {
@@ -308,7 +349,7 @@ function separateMandible() {
 }
 
 // ── ШАГ 2: остеотомия плоскостью ──────────────────────────────────────────────
-function clearCutPlane() { if (cutPlane) { scene.remove(cutPlane.group); cutPlane = null; } }
+function clearCutPlane() { if (cutPlane) { scene.remove(cutPlane.group); cutPlane = null; if (mprOn) renderMPR(); } }
 function placeCutPlaneAt(point, face, frag) {
   clearCutPlane();
   const size = modelRadius * 1.4;
@@ -327,6 +368,7 @@ function placeCutPlaneAt(point, face, frag) {
   $('cutMoveBtn').classList.remove('armed'); $('cutRotBtn').classList.add('armed');
   status('Плоскость поставлена. Двигай/вращай её по углу НЧ, затем «Распилить».');
   updateOsteoInfo();
+  if (mprOn) renderMPR();
 }
 function planeNormalWorld() {
   if (!cutPlane) return null;
@@ -363,6 +405,7 @@ function doOsteotomy() {
   plan = { mobileId: dist.id, fixedId: prox.id, origin, dir: dir.normalize(), deg: 180, length: 0 };
   selectFragment(dist.id, false);
   updatePlanPanel();
+  if (mprOn) renderMPR();
   status('Остеотомия выполнена. Шаг 3: задай вектор и длину дистракции, двигай ползунок.');
 }
 
@@ -399,6 +442,7 @@ function applyDistraction() {
   }
   drawDistractorViz(s);
   updatePlanReadout(s);
+  if (mprOn) renderMPR();
 }
 function updatePlanReadout(s) {
   const el = $('distReadout'); if (!el || !plan) return;
@@ -443,10 +487,16 @@ function updateOsteoInfo() {
 // ── измерения ─────────────────────────────────────────────────────────────────
 function addMeasureDot(p) { const m = new THREE.Mesh(new THREE.SphereGeometry(modelRadius * 0.012, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffc24d })); m.position.copy(p); measureGroup.add(m); }
 function addMeasureLine(a, b) { measureGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), new THREE.LineBasicMaterial({ color: 0xffc24d }))); }
-function clearMeasure() { measurePts = []; measurements.length = 0; [...measureGroup.children].forEach(c => measureGroup.remove(c)); const mv = $('measVal'); if (mv) mv.style.display = 'none'; }
+function clearMeasure() {
+  measurePts = []; measurements.length = 0; [...measureGroup.children].forEach(c => measureGroup.remove(c));
+  mprMeas.length = 0; mprPending = null; if (mprOn) renderMPR();
+  const mv = $('measVal'); if (mv) mv.style.display = 'none';
+}
 
 // ── gizmo / направленное движение ────────────────────────────────────────────────
 function onGizmoChange() {
+  // двигаем плоскость остеотомии — обновляем её след на срезах
+  if (cutPlane && gizmo.object === cutPlane.group) { if (mprOn) renderMPR(); }
   // если двигаем мобильный фрагмент вручную при активном плане — проекция на вектор (рельс)
   if ($('railChk')?.checked && plan && gizmo.object === getFrag(plan.mobileId)?.group) {
     const f = getFrag(plan.mobileId);
@@ -531,7 +581,16 @@ function onKey(e) {
 function arm(btn, m) {
   const on = btn.classList.toggle('armed');
   document.querySelectorAll('.step .armed').forEach(b => { if (b !== btn) b.classList.remove('armed'); });
+  mprMode = null; document.querySelectorAll('.mprarm').forEach(b => b.classList.remove('armed'));
   setMode(on ? m : null);
+}
+function armMPR(btn, m) {
+  const on = btn.classList.toggle('armed');
+  document.querySelectorAll('.mprarm').forEach(b => { if (b !== btn) b.classList.remove('armed'); });
+  setMode(null); document.querySelectorAll('.step .armed, #measBtn').forEach(b => b.classList.remove('armed'));
+  mprMode = on ? m : null; mprPending = null;
+  if (mprMode && !mprOn) toggleMPR(true);
+  status(mprMode ? `Срезы: ставь точки (${m === 'len' ? '2 — длина' : '3 — угол'}).` : '');
 }
 function wireUI() {
   $('loadSTLbtn').onclick = () => $('stlInput').click();
@@ -568,6 +627,11 @@ function wireUI() {
   // MPR-срезы
   $('mprToggle').onclick = () => toggleMPR();
   ['slA', 'slC', 'slS'].forEach((id, k) => { $(id).oninput = () => { if (!mpr) return; const prop = k === 0 ? 'iz' : k === 1 ? 'iy' : 'ix'; mpr[prop] = +$(id).value; renderMPR(); }; });
+  $('mprLenBtn').onclick = () => armMPR($('mprLenBtn'), 'len');
+  $('mprAngBtn').onclick = () => armMPR($('mprAngBtn'), 'ang');
+  // серии DICOM + порог
+  $('seriesSel').onchange = () => buildFromSeries(+$('seriesSel').value);
+  $('thr').onchange = () => { if (dicomGroups) buildFromSeries(curSeries); };
   $('wc').oninput = () => { $('wcv').textContent = $('wc').value; if (mpr) { mpr.wc = +$('wc').value; renderMPR(); } };
   $('ww').oninput = () => { $('wwv').textContent = $('ww').value; if (mpr) { mpr.ww = +$('ww').value; renderMPR(); } };
   document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => { const [wc, ww] = b.dataset.preset.split(',').map(Number); $('wc').value = wc; $('ww').value = ww; $('wcv').textContent = wc; $('wwv').textContent = ww; if (mpr) { mpr.wc = wc; mpr.ww = ww; renderMPR(); } });
@@ -619,12 +683,111 @@ function initMPR() {
   renderMPR();
 }
 function setSlider(id, n, val) { const s = $(id); if (!s) return; s.min = 0; s.max = n - 1; s.value = val; }
+const MPR_CANVAS = { axial: 'mprA', coronal: 'mprC', sagittal: 'mprS' };
 function renderMPR() {
   if (!mpr || !mprOn) return;
   mpr.drawAll($('mprA'), $('mprC'), $('mprS'));
   const L = (id, v, n) => { const e = $(id); if (e) e.textContent = `${v + 1}/${n}`; };
   const [nx, ny, nz] = volume.dims;
   L('mprAn', mpr.iz, nz); L('mprCn', mpr.iy, ny); L('mprSn', mpr.ix, nx);
+  drawMPROverlays();
+}
+
+// мир → воксель (полноразмерная сетка; 3D-кость центрирована в середине объёма)
+function worldToVoxel(wx, wy, wz) {
+  const [nx, ny, nz] = volume.dims, sp = volume.spacing;
+  return { x: wx / sp[0] + nx / 2, y: wy / sp[1] + ny / 2, z: wz / sp[2] + nz / 2 };
+}
+// клип прямой a·i+b·j=c к прямоугольнику [0,W]×[0,H] → два конца или null
+function lineClipRect(a, b, c, W, H) {
+  const pts = [];
+  const add = (i, j) => { if (i >= -0.5 && i <= W + 0.5 && j >= -0.5 && j <= H + 0.5) pts.push([i, j]); };
+  if (Math.abs(b) > 1e-9) { add(0, (c - a * 0) / b); add(W, (c - a * W) / b); }
+  if (Math.abs(a) > 1e-9) { add((c - b * 0) / a, 0); add((c - b * H) / a, H); }
+  if (pts.length < 2) return null;
+  return [pts[0], pts[1]];
+}
+function drawMPROverlays() {
+  for (const key of ['axial', 'coronal', 'sagittal']) {
+    const cv = $(MPR_CANVAS[key]); if (!cv) continue;
+    const ctx = cv.getContext('2d');
+    if (cutPlane) drawPlaneTrace(ctx, key);     // след плоскости остеотомии
+    if (plan) drawVectorTrace(ctx, key);        // проекция вектора дистракции
+    drawSliceMeasures(ctx, key);
+  }
+}
+function drawPlaneTrace(ctx, key) {
+  if (!cutPlane) return;
+  const N = planeNormalWorld(); const P = cutPlane.group.position;
+  const [NX, NY, NZ] = volume.dims, sp = volume.spacing;
+  const D = N.x * P.x + N.y * P.y + N.z * P.z;
+  let a, b, c, W, H;
+  const info = mpr.planeInfo(key);
+  if (key === 'axial') { const Z = (mpr.iz - NZ / 2) * sp[2]; a = N.x * sp[0]; b = N.y * sp[1]; c = (D - N.z * Z) + a * NX / 2 + b * NY / 2; W = NX; H = NY; }
+  else if (key === 'coronal') { const Y = (mpr.iy - NY / 2) * sp[1]; a = N.x * sp[0]; b = N.z * sp[2]; c = (D - N.y * Y) + a * NX / 2 + b * NZ / 2; W = NX; H = NZ; }
+  else { const X = (mpr.ix - NX / 2) * sp[0]; a = N.y * sp[1]; b = N.z * sp[2]; c = (D - N.x * X) + a * NY / 2 + b * NZ / 2; W = NY; H = NZ; }
+  const seg = lineClipRect(a, b, c, W, H); if (!seg) return;
+  const p0 = mpr.voxelToCanvas(key, seg[0][0], seg[0][1]), p1 = mpr.voxelToCanvas(key, seg[1][0], seg[1][1]);
+  if (!p0 || !p1) return;
+  ctx.strokeStyle = 'rgba(255,194,77,.9)'; ctx.lineWidth = 2; ctx.setLineDash([7, 5]);
+  ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke(); ctx.setLineDash([]);
+}
+function drawVectorTrace(ctx, key) {
+  const len = Math.max(+$('distAmt').value, plan.length, 8);
+  const O = worldToVoxel(plan.origin.x, plan.origin.y, plan.origin.z);
+  const T = worldToVoxel(plan.origin.x + plan.dir.x * len, plan.origin.y + plan.dir.y * len, plan.origin.z + plan.dir.z * len);
+  const pick = (v) => key === 'axial' ? [v.x, v.y] : key === 'coronal' ? [v.x, v.z] : [v.y, v.z];
+  const [oi, oj] = pick(O), [ti, tj] = pick(T);
+  const a = mpr.voxelToCanvas(key, oi, oj), b = mpr.voxelToCanvas(key, ti, tj);
+  if (!a || !b) return;
+  ctx.strokeStyle = 'rgba(57,224,143,.95)'; ctx.fillStyle = 'rgba(57,224,143,.95)'; ctx.lineWidth = 2; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  const ang = Math.atan2(b.y - a.y, b.x - a.x), s = 7;      // наконечник
+  ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x - s * Math.cos(ang - 0.4), b.y - s * Math.sin(ang - 0.4));
+  ctx.lineTo(b.x - s * Math.cos(ang + 0.4), b.y - s * Math.sin(ang + 0.4)); ctx.closePath(); ctx.fill();
+}
+function drawSliceMeasures(ctx, key) {
+  const info = mpr.planeInfo(key);
+  const items = mprMeas.filter(m => m.plane === key && m.slice === info.idx);
+  const drawPts = (pts, color, label, mid) => {
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.6; ctx.setLineDash([]);
+    const cs = pts.map(p => mpr.voxelToCanvas(key, p.i, p.j));
+    ctx.beginPath(); cs.forEach((c, k) => k ? ctx.lineTo(c.x, c.y) : ctx.moveTo(c.x, c.y)); ctx.stroke();
+    cs.forEach(c => { ctx.beginPath(); ctx.arc(c.x, c.y, 3, 0, 7); ctx.fill(); });
+    if (label && mid != null) { ctx.font = '12px ui-monospace,monospace'; ctx.fillStyle = '#eafcfd'; ctx.fillText(label, cs[mid].x + 6, cs[mid].y - 6); }
+  };
+  for (const m of items) drawPts(m.pts, m.type === 'len' ? 'rgba(255,194,77,.95)' : 'rgba(138,162,255,.95)', m.type === 'len' ? m.value.toFixed(1) + ' мм' : m.value.toFixed(0) + '°', m.type === 'len' ? 1 : 1);
+  if (mprPending && mprPending.plane === key && mprPending.slice === info.idx) drawPts(mprPending.pts, 'rgba(255,255,255,.8)');
+}
+
+// клик по срезу — измерение
+function onMPRClick(key, ev) {
+  if (!mpr || !mprMode) return;
+  const cv = $(MPR_CANVAS[key]); const r = cv.getBoundingClientRect();
+  const vx = mpr.canvasToVoxel(key, ev.clientX - r.left, ev.clientY - r.top); if (!vx) return;
+  const info = mpr.planeInfo(key);
+  if (!mprPending || mprPending.plane !== key || mprPending.slice !== info.idx || mprPending.type !== mprMode)
+    mprPending = { plane: key, slice: info.idx, type: mprMode, pts: [] };
+  mprPending.pts.push({ i: vx.i, j: vx.j });
+  const need = mprMode === 'len' ? 2 : 3;
+  if (mprPending.pts.length >= need) {
+    const val = mprMode === 'len' ? sliceLen(info, mprPending.pts) : sliceAng(info, mprPending.pts);
+    mprMeas.push({ plane: key, slice: info.idx, type: mprMode, pts: mprPending.pts, value: val });
+    status(`Срез (${key}): ${mprMode === 'len' ? val.toFixed(1) + ' мм' : val.toFixed(0) + '°'}.`);
+    mprPending = null;
+  }
+  renderMPR();
+}
+function sliceLen(info, pts) {
+  const du = (pts[0].i - pts[1].i) * info.su, dv = (pts[0].j - pts[1].j) * info.sv;
+  return Math.hypot(du, dv);
+}
+function sliceAng(info, pts) {
+  const [a, b, c] = pts;                       // вершина — средняя точка b
+  const v1x = (a.i - b.i) * info.su, v1y = (a.j - b.j) * info.sv;
+  const v2x = (c.i - b.i) * info.su, v2y = (c.j - b.j) * info.sv;
+  const d = (v1x * v2x + v1y * v2y) / (Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y) || 1);
+  return Math.acos(Math.max(-1, Math.min(1, d))) * 180 / Math.PI;
 }
 function toggleMPR(on) {
   mprOn = on !== undefined ? on : !mprOn;
@@ -691,9 +854,11 @@ function finishPDF(cv, c, y, img) {
       row(`Аппарат: ${dev?.name || '—'}` + (plan.deg < 180 ? `, поворот регенерата ≈ ${(180 - plan.deg)}°` : ' (прямой)'));
       if (plan.deg < 180 && s > 0) row(`Радиус дуги: ${arcRadius(s, 180 - plan.deg).toFixed(0)} мм`);
     } else row('Остеотомия не выполнена.');
-    if (measurements.length) {
+    if (measurements.length || mprMeas.length) {
       y += 8; c.fillStyle = '#0f766e'; c.font = 'bold 24px Arial'; c.fillText('Измерения', L, y); y += 34;
-      measurements.forEach((m, i) => row(`Замер ${i + 1}: ${m.mm.toFixed(1)} мм`));
+      measurements.forEach((m, i) => row(`3D · замер ${i + 1}: ${m.mm.toFixed(1)} мм`));
+      const PL = { axial: 'аксиал', coronal: 'коронар', sagittal: 'сагиттал' };
+      mprMeas.forEach((m, i) => row(`Срез (${PL[m.plane]}) · ${m.type === 'len' ? m.value.toFixed(1) + ' мм' : m.value.toFixed(0) + '°'}`));
     }
     // футер
     const H = cv.height;
