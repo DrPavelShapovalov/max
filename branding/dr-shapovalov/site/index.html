@@ -109,6 +109,10 @@
     -webkit-mask-composite:source-in; mask-image:linear-gradient(180deg,#000 62%,transparent 97%),linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent); mask-composite:intersect;
     filter:drop-shadow(0 30px 60px rgba(0,0,0,.45))}
   .hero.has-fig .portrait{display:none}
+  /* фото «дышит»: еле заметно поднимается и опускается; translate/scale не мешают transform от GSAP */
+  @keyframes breathe{0%{translate:0 0; scale:1}50%{translate:0 -7px; scale:1.012}100%{translate:0 0; scale:1}}
+  .hero-fig{transform-origin:50% 100%; animation:breathe 7s ease-in-out infinite}
+  @media (prefers-reduced-motion:reduce){.hero-fig{animation:none}}
   .hero.has-fig .card-id{justify-self:end; width:min(320px,100%); padding:18px 20px; gap:8px; transform:translateY(24px)}
   .hero.has-fig .signature{width:200px}
   .id-meta{font-family:var(--mono); font-size:14px; color:var(--mist); line-height:1.7}
@@ -318,6 +322,7 @@
   .steps-wrap > *{min-width:0}
   .steps-intro{position:sticky; top:110px; display:flex; flex-direction:column; gap:18px}
   .steps-intro p{color:var(--soft); font-size:17px}
+  .steps-intro h2{font-size:clamp(26px,2.6vw,38px); overflow-wrap:break-word}
   .steps{position:relative; list-style:none; margin:0; padding:22px 24px}
   .steps .rail-y,.steps .prog{position:absolute; left:45px; top:44px; bottom:44px; width:1px; background:var(--line)}
   .steps .prog{background:linear-gradient(var(--gold-hi),var(--gold-lo)); transform-origin:top}
@@ -326,6 +331,13 @@
     background:var(--void); border:1px solid rgba(214,178,102,.5); color:var(--gold-hi); font-family:var(--mono); font-size:15px; font-weight:600}
   .step p{align-self:center; min-width:0; font-size:17px}
   .step p span{color:var(--mist)}
+  .step.has-ph{grid-template-columns:44px 1fr 76px}
+  .step-ph{width:76px; height:76px; padding:0; border:1px solid var(--line); border-radius:14px; overflow:hidden; background:var(--deep); cursor:zoom-in; position:relative}
+  .step-ph img{display:block; width:100%; height:100%; object-fit:cover; transition:filter .4s ease}
+  .steps-wrap:not(.show-op) .step-ph img{filter:blur(9px) saturate(.35) brightness(.8)}
+  .step-ph:focus-visible{outline:2px solid var(--gold); outline-offset:3px}
+  .op-toggle{align-self:flex-start}
+  @media (max-width:640px){.step.has-ph{grid-template-columns:44px 1fr 60px}.step-ph{width:60px; height:60px}}
 
   /* science */
   .sci{display:grid; grid-template-columns:.95fr 1.05fr; gap:16px; align-items:start}
@@ -704,6 +716,7 @@
       <div class="steps-intro reveal">
         <h2 id="steps-h"></h2>
         <p id="steps-intro"></p>
+        <button class="ghost op-toggle" id="op-toggle" type="button" aria-pressed="false" hidden>Показать фото операции</button>
       </div>
       <ol class="steps glass" id="step-list"></ol>
     </div>
@@ -871,7 +884,11 @@
     $('steps-h').innerHTML = esc(s.heading).replace(/(дистракционного аппарата)/, '<em>$1</em>');
     $('steps-intro').innerHTML = rich(s.intro);
     $('step-list').innerHTML = '<span class="rail-y" aria-hidden="true"></span><span class="prog" aria-hidden="true"></span>' +
-      (s.items || []).map((it, i) => `<li class="step"><span class="n">${i + 1}</span><p>${esc(it.title)} <span>${esc(it.detail)}</span></p></li>`).join('');
+      (s.items || []).map((it, i) => {
+        const ph = safeUrl(it.image), cap = `Этап ${i + 1}: ${[it.title, it.detail].filter(Boolean).join(' ')}`;
+        return `<li class="step${ph ? ' has-ph' : ''}"><span class="n">${i + 1}</span><p>${esc(it.title)} <span>${esc(it.detail)}</span></p>${ph ? `<button class="step-ph" type="button" data-cimg="${esc(ph)}" data-cap="${esc(cap)}" data-case="${esc(s.heading || 'Этапы операции')}" data-alt="${esc('Фото с операции. ' + cap)}" aria-label="Открыть фото: ${esc(cap)}"><img src="${esc(ph)}" alt="" loading="lazy"></button>` : ''}</li>`;
+      }).join('');
+    $('op-toggle').hidden = !(s.items || []).some((it) => safeUrl(it.image));
 
     const sc = c.science || {}, d = sc.dissertation || {};
     $('sci-intro').innerHTML = rich(sc.intro);
@@ -1165,6 +1182,10 @@
     if (e.key === 'Tab') { const f = [$('lb-x'), ...$('lb').querySelectorAll('.lb-acts a:not([hidden]), .lb-acts button:not([hidden])')]; const i = f.indexOf(document.activeElement);
       if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); } }
   });
+  $('op-toggle').addEventListener('click', (e) => {
+    const on = document.querySelector('.steps-wrap').classList.toggle('show-op');
+    e.currentTarget.setAttribute('aria-pressed', String(on)); e.currentTarget.textContent = on ? 'Скрыть фото операции' : 'Показать фото операции';
+  });
   $('lb-go').addEventListener('click', () => {
     const it = lbItem; closeLb(true); if (!it) return;
     const tab = document.querySelector(`#sci-tabs [data-tab="${it.panel}"]`); if (tab && tab.getAttribute('aria-selected') !== 'true') tab.click();
@@ -1295,6 +1316,17 @@
         onEnter: () => gsap.to(o, { v: to, duration: 1.6, ease: 'power2.out', onUpdate: () => { el.textContent = o.v.toFixed(dec).replace('.', ','); } }) });
     });
     gsap.to('.hero-in', { yPercent: -12, autoAlpha: 0.2, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
+    const fig = $('h-figure');
+    if (fig && !fig.hidden) {
+      gsap.from(fig, { autoAlpha: 0, y: 60, duration: 1.4, ease: 'power3.out', delay: 0.15 });
+      gsap.to(fig, { yPercent: 6, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
+      // на компьютере фото чуть следует за курсором
+      if (matchMedia('(pointer:fine)').matches) {
+        const qx = gsap.quickTo(fig, 'x', { duration: 1.2, ease: 'power3.out' }), qr = gsap.quickTo(fig, 'rotation', { duration: 1.2, ease: 'power3.out' });
+        $('top').addEventListener('pointermove', (e) => { const k = e.clientX / innerWidth - 0.5; qx(k * 22); qr(k * 1.2); });
+        $('top').addEventListener('pointerleave', () => { qx(0); qr(0); });
+      }
+    }
   }
   function startDx() {
     if (hasGsap && !reduce) {

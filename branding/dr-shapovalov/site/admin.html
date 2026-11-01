@@ -233,7 +233,7 @@
       F('images', 'Фото пациента', 'sublist', { item: 'Фото', fields: [F('src', 'Картинка', 'image'), F('caption', 'Подпись'), F('alt', 'Описание для незрячих')] }),
       F('consent', 'Строка о согласии', 'text', { sub: 'Например: Публикуется с письменного согласия' })] },
     { id: 'steps', title: 'Этапы операции: текст', path: 'steps', fields: [F('heading', 'Заголовок'), F('intro', 'Описание', 'area')] },
-    { id: 'stepItems', title: 'Этапы операции: список', path: 'steps.items', list: true, item: 'Этап', titleKey: 'title', fields: [F('title', 'Этап'), F('detail', 'Уточнение (серым)')] },
+    { id: 'stepItems', title: 'Этапы операции: список', path: 'steps.items', list: true, item: 'Этап', titleKey: 'title', fields: [F('title', 'Этап'), F('detail', 'Уточнение (серым)'), F('image', 'Фото этапа', 'image', { sub: 'На сайте размыто, пока посетитель не нажмёт «Показать фото операции»' })] },
     { id: 'work', title: 'Где работаю', path: 'work', fields: [F('name', 'Название'), F('text', 'Описание', 'area'), F('address', 'Адрес приёма'),
       F('mapQuery', 'Адрес для карты', 'text', { sub: 'Так, как его ищут в Яндекс Картах' })] },
     { id: 'workLinks', title: 'Где работаю: ссылки', path: 'work.links', list: true, item: 'Ссылка', titleKey: 'label', fields: [F('label', 'Текст'), F('url', 'Адрес', 'url')] },
