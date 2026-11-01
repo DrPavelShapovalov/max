@@ -133,6 +133,8 @@ def main():
         shutil.copy2(HERE / 'content.en.json', DIST / 'content.en.json')
     copy_images(HERE / 'img', DIST / 'img')
     shutil.copytree(HERE / 'vendor', DIST / 'vendor')
+    if (HERE / 'CNAME').exists():                          # свой домен для GitHub Pages (drshapovalov.ru)
+        shutil.copy2(HERE / 'CNAME', DIST / 'CNAME')
     (DIST / '.nojekyll').touch()                    # GitHub Pages: отдавать файлы как есть, без Jekyll
     print('ok', DIST)
 
