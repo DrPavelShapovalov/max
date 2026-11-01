@@ -12,7 +12,10 @@ export class MPR {
     this.wc = 300; this.ww = 1500;
     this._off = document.createElement('canvas');
     this.view = { axial: null, coronal: null, sagittal: null };  // трансформы последнего рендера
+    this.zoom = { axial: 1, coronal: 1, sagittal: 1 };
+    this.pan = { axial: { x: 0, y: 0 }, coronal: { x: 0, y: 0 }, sagittal: { x: 0, y: 0 } };
   }
+  resetView(key) { this.zoom[key] = 1; this.pan[key] = { x: 0, y: 0 }; }
   _lut(v) { const lo = this.wc - this.ww / 2; let p = ((v - lo) / this.ww) * 255; return p < 0 ? 0 : p > 255 ? 255 : p | 0; }
 
   // Параметры плоскости: оси вокселей (U,V), фиксированная ось, физический шаг.
@@ -43,8 +46,11 @@ export class MPR {
     ctx.fillStyle = '#05080b'; ctx.fillRect(0, 0, cw, ch);
     // вписываем с учётом физического соотношения сторон
     const pw = W * aspectX, ph = H * aspectY;
-    const s = Math.min(cw / pw, ch / ph) * 0.96;
-    const dw = pw * s, dh = ph * s, dx = (cw - dw) / 2, dy = (ch - dh) / 2;
+    const base = Math.min(cw / pw, ch / ph) * 0.96;
+    const z = (key && this.zoom[key]) || 1;
+    const pan = (key && this.pan[key]) || { x: 0, y: 0 };
+    const dw = pw * base * z, dh = ph * base * z;
+    const dx = (cw - dw) / 2 + pan.x, dy = (ch - dh) / 2 + pan.y;
     if (key) this.view[key] = { dx, dy, dw, dh, W, H };   // сохраняем трансформу для оверлеев/кликов
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(off, 0, 0, W, H, dx, dy, dw, dh);

@@ -193,7 +193,7 @@
           <div class="step-head"><span class="no">2</span><span class="ti">Остеотомия в углу<small>распил плоскостью → ветвь + тело</small></span><span class="ar">▸</span></div>
           <div class="step-body">
             <div class="note">Выбери нижнюю челюсть, поставь плоскость на <b>угол/ветвь</b>, доверни по линии распила и распили на проксимальный (с мыщелком) и дистальный (тело) фрагменты.</div>
-            <div class="btns"><button class="b" id="osteoPlaceBtn">⊕ Поставить плоскость</button></div>
+            <div class="btns"><button class="b" id="osteoPlaceBtn">⊕ Поставить плоскость</button><button class="b mprarm" id="osteoSliceBtn" title="Клик по срезу ставит плоскость в эту точку">📍 Со среза</button></div>
             <div class="btns"><button class="b" id="cutMoveBtn">✥ Двигать</button><button class="b" id="cutRotBtn">↻ Вращать</button></div>
             <div class="note" id="osteoInfo">Нажми «Поставить плоскость» и кликни по углу нижней челюсти.</div>
             <div class="btns"><button class="b main" id="cutDoBtn">🔪 Распилить</button></div>
@@ -213,7 +213,7 @@
                 <option value="fwddown">Сочетанно (вперёд+вниз)</option>
               </select>
             </div>
-            <div class="btns"><button class="b" id="distPickBtn" title="Задать направление кликом по точке-цели">◎ Вектор по точке</button></div>
+            <div class="btns"><button class="b" id="distPickBtn" title="Задать направление кликом по точке-цели (3D)">◎ Вектор (3D)</button><button class="b mprarm" id="vecSliceBtn" title="2 клика по срезу: от → куда">◎ Вектор со среза</button></div>
             <div class="note">Направление: <span id="distDirTxt">—</span></div>
             <div class="row"><label>Аппарат</label><select id="distDev"></select></div>
             <div class="row"><label>Угол корр.</label><input type="range" id="corrAngle" min="0" max="150" step="1" value="0"><span class="v" id="corrAngleV">0°</span></div>

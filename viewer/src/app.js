@@ -43,8 +43,9 @@ const measurements = [];     // [{ a:[x,y,z], b:[x,y,z], mm }]
 // ── MPR (срезы КТ) ─────────────────────────────────────────────────────────────
 let volume = null, mpr = null, mprOn = false;
 let dicomGroups = null, dicomSeries = null, curSeries = 0;
-let mprMode = null;                 // null | 'len' | 'ang' — измерения на срезах
-let mprPending = null;              // { plane, type, pts:[{i,j}] }
+let mprMode = null;                 // null | 'len' | 'ang' | 'plane' | 'vec' — режим клика по срезу
+let mprPending = null;              // { plane, type, pts:[{i,j}] } — для измерений
+let vecPending = [];               // мировые точки для вектора «со среза»
 const mprMeas = [];                 // [{ plane, slice, type, pts:[{i,j}], value }]
 
 function init() {
@@ -80,6 +81,7 @@ function init() {
   for (const key of ['axial', 'coronal', 'sagittal']) {
     const el = document.getElementById(MPR_CANVAS[key]); if (el) el.addEventListener('pointerdown', (e) => onMPRClick(key, e));
   }
+  wireMPRMouse();
   window.addEventListener('keydown', onKey);
   resize();
   animate();
@@ -107,6 +109,11 @@ function init() {
       mprMeas.push({ plane, slice: info.idx, type, pts, value: val }); if (mprOn) renderMPR(); return val;
     },
     overlays: () => ({ hasPlaneTrace: !!cutPlane, hasVector: !!plan, mprMeas: mprMeas.length }),
+    sliceToWorld: (plane, i, j) => volume ? sliceVoxToWorld(plane, i, j).toArray() : null,
+    placeFromSlice(plane, i, j) { placeCutPlaneAt(sliceVoxToWorld(plane, i, j), null, getFrag(selId) || frags[0]); return cutPlane ? cutPlane.group.position.toArray() : null; },
+    vecFromSlice(plane, a, b) { if (!plan) return null; const w1 = sliceVoxToWorld(plane, a.i, a.j), w2 = sliceVoxToWorld(plane, b.i, b.j); plan.dir = w2.clone().sub(w1).normalize(); applyDistraction(); return plan.dir.toArray(); },
+    voxelVal(vx, vy, vz) { if (!volume) return null; const [nx, ny] = volume.dims; return volume.data[vz * nx * ny + vy * nx + vx]; },
+    scrollSlice(plane, d) { if (!mpr) return; const p = plane === 'axial' ? 'iz' : plane === 'coronal' ? 'iy' : 'ix'; mpr[p] += d; renderMPR(); return mpr[p]; },
     state: () => ({ nFrags: frags.length, names: frags.map(f => f.name), tri: frags.map(f => triCount(f.soup)), hasVolume: !!volume, mprOn, plan: plan ? { mobile: getFrag(plan.mobileId)?.name, dir: plan.dir.toArray(), length: plan.length, deg: plan.deg } : null }),
   };
 }
@@ -588,9 +595,10 @@ function armMPR(btn, m) {
   const on = btn.classList.toggle('armed');
   document.querySelectorAll('.mprarm').forEach(b => { if (b !== btn) b.classList.remove('armed'); });
   setMode(null); document.querySelectorAll('.step .armed, #measBtn').forEach(b => b.classList.remove('armed'));
-  mprMode = on ? m : null; mprPending = null;
+  mprMode = on ? m : null; mprPending = null; vecPending = [];
   if (mprMode && !mprOn) toggleMPR(true);
-  status(mprMode ? `Срезы: ставь точки (${m === 'len' ? '2 — длина' : '3 — угол'}).` : '');
+  const txt = { len: 'Срезы: 2 точки — длина.', ang: 'Срезы: 3 точки — угол.', plane: 'Клик по срезу поставит плоскость остеотомии.', vec: 'Срезы: 2 клика (от → куда) зададут вектор дистракции.' };
+  status(mprMode ? txt[m] : '');
 }
 function wireUI() {
   $('loadSTLbtn').onclick = () => $('stlInput').click();
@@ -629,6 +637,8 @@ function wireUI() {
   ['slA', 'slC', 'slS'].forEach((id, k) => { $(id).oninput = () => { if (!mpr) return; const prop = k === 0 ? 'iz' : k === 1 ? 'iy' : 'ix'; mpr[prop] = +$(id).value; renderMPR(); }; });
   $('mprLenBtn').onclick = () => armMPR($('mprLenBtn'), 'len');
   $('mprAngBtn').onclick = () => armMPR($('mprAngBtn'), 'ang');
+  $('osteoSliceBtn').onclick = () => armMPR($('osteoSliceBtn'), 'plane');
+  $('vecSliceBtn').onclick = () => armMPR($('vecSliceBtn'), 'vec');
   // серии DICOM + порог
   $('seriesSel').onchange = () => buildFromSeries(+$('seriesSel').value);
   $('thr').onchange = () => { if (dicomGroups) buildFromSeries(curSeries); };
@@ -760,12 +770,39 @@ function drawSliceMeasures(ctx, key) {
   if (mprPending && mprPending.plane === key && mprPending.slice === info.idx) drawPts(mprPending.pts, 'rgba(255,255,255,.8)');
 }
 
-// клик по срезу — измерение
+// воксель среза (i,j) → мировая точка (та же привязка, что worldToVoxel)
+function sliceVoxToWorld(key, i, j) {
+  const [nx, ny, nz] = volume.dims, sp = volume.spacing;
+  if (key === 'axial') return new THREE.Vector3((i - nx / 2) * sp[0], (j - ny / 2) * sp[1], (mpr.iz - nz / 2) * sp[2]);
+  if (key === 'coronal') return new THREE.Vector3((i - nx / 2) * sp[0], (mpr.iy - ny / 2) * sp[1], (j - nz / 2) * sp[2]);
+  return new THREE.Vector3((mpr.ix - nx / 2) * sp[0], (i - ny / 2) * sp[1], (j - nz / 2) * sp[2]);
+}
+// клик по срезу — измерение или планирование (плоскость/вектор)
 function onMPRClick(key, ev) {
-  if (!mpr || !mprMode) return;
+  if (ev.button !== 0 || !mpr || !mprMode) return;
   const cv = $(MPR_CANVAS[key]); const r = cv.getBoundingClientRect();
   const vx = mpr.canvasToVoxel(key, ev.clientX - r.left, ev.clientY - r.top); if (!vx) return;
   const info = mpr.planeInfo(key);
+
+  if (mprMode === 'plane') {                     // поставить плоскость остеотомии со среза
+    const w = sliceVoxToWorld(key, vx.i, vx.j);
+    placeCutPlaneAt(w, null, getFrag(selId) || frags[0]);
+    mprMode = null; document.querySelectorAll('.mprarm').forEach(b => b.classList.remove('armed'));
+    status('Плоскость поставлена со среза — доверни в 3D и «Распилить».');
+    return;
+  }
+  if (mprMode === 'vec') {                        // задать вектор дистракции 2 кликами
+    vecPending.push(sliceVoxToWorld(key, vx.i, vx.j));
+    if (vecPending.length >= 2) {
+      const dir = vecPending[1].clone().sub(vecPending[0]);
+      if (dir.length() > 1e-3 && plan) { plan.dir = dir.normalize(); applyDistraction(); updatePlanPanel(); status('Вектор дистракции задан со среза.'); }
+      else status('Нет остеотомии — сначала Шаг 2.');
+      vecPending = []; mprMode = null; document.querySelectorAll('.mprarm').forEach(b => b.classList.remove('armed'));
+    } else status('Вектор: кликни вторую точку (куда).');
+    return;
+  }
+
+  // измерения (длина/угол)
   if (!mprPending || mprPending.plane !== key || mprPending.slice !== info.idx || mprPending.type !== mprMode)
     mprPending = { plane: key, slice: info.idx, type: mprMode, pts: [] };
   mprPending.pts.push({ i: vx.i, j: vx.j });
@@ -777,6 +814,29 @@ function onMPRClick(key, ev) {
     mprPending = null;
   }
   renderMPR();
+}
+// колесо/перетаскивание над срезом: прокрутка срезов, зум (ctrl/shift), панорама (ПКМ)
+function wireMPRMouse() {
+  for (const key of ['axial', 'coronal', 'sagittal']) {
+    const el = $(MPR_CANVAS[key]); if (!el) continue;
+    el.addEventListener('wheel', (e) => {
+      if (!mpr || !mprOn) return; e.preventDefault();
+      if (e.ctrlKey || e.shiftKey) { const f = e.deltaY < 0 ? 1.12 : 1 / 1.12; mpr.zoom[key] = Math.max(0.5, Math.min(8, mpr.zoom[key] * f)); }
+      else { const d = e.deltaY < 0 ? 1 : -1; const prop = key === 'axial' ? 'iz' : key === 'coronal' ? 'iy' : 'ix'; const max = (key === 'axial' ? mpr.nz : key === 'coronal' ? mpr.ny : mpr.nx) - 1; mpr[prop] = Math.max(0, Math.min(max, mpr[prop] + d)); syncSliceSlider(key); }
+      renderMPR();
+    }, { passive: false });
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
+    let panning = false, lx = 0, ly = 0;
+    el.addEventListener('pointerdown', (e) => { if (e.button === 2) { panning = true; lx = e.clientX; ly = e.clientY; el.setPointerCapture(e.pointerId); } });
+    el.addEventListener('pointermove', (e) => { if (panning && mpr) { mpr.pan[key].x += e.clientX - lx; mpr.pan[key].y += e.clientY - ly; lx = e.clientX; ly = e.clientY; renderMPR(); } });
+    el.addEventListener('pointerup', (e) => { if (e.button === 2) panning = false; });
+    el.addEventListener('dblclick', () => { if (mpr) { mpr.resetView(key); renderMPR(); } });
+  }
+}
+function syncSliceSlider(key) {
+  const id = key === 'axial' ? 'slA' : key === 'coronal' ? 'slC' : 'slS';
+  const val = key === 'axial' ? mpr.iz : key === 'coronal' ? mpr.iy : mpr.ix;
+  const s = $(id); if (s) s.value = val;
 }
 function sliceLen(info, pts) {
   const du = (pts[0].i - pts[1].i) * info.su, dv = (pts[0].j - pts[1].j) * info.sv;

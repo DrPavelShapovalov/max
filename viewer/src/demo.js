@@ -1,10 +1,15 @@
 import * as THREE from 'three';
 import { mergeSoups } from './geometry.js';
 
-// Демонстрационная модель: условный «череп + нижняя челюсть», сваренные в ОДНУ
-// связную сетку только через два зубных контакта (слева и справа). Ровно та
-// ситуация, которую мы решаем: пока контакты целы — челюсть «приклеена» к черепу;
-// разорви их — и «Отделить НЧ» отщёлкивает челюсть по связности.
+// Демо-модель: условный «череп + нижняя челюсть», сваренные в ОДНУ связную сетку
+// только через два зубных контакта. Меш и синтетический КТ-объём строятся из
+// ОДНИХ аналитических форм в мировых координатах → оверлеи (плоскость, вектор)
+// и срезы совпадают с 3D так же, как на реальном DICOM.
+
+// ── общие формы в мировых координатах ──
+const SKULL = { c: new THREE.Vector3(0, 12, -4), r: new THREE.Vector3(34, 34 * 1.05, 34 * 1.18) };
+const MAND = { c: new THREE.Vector3(0, -16, 16), euler: [Math.PI / 2, 0, -Math.PI / 2 - Math.PI * 0.075], R: 26, tube: 6.5, arc: Math.PI * 1.15 };
+const BRIDGES = [{ x: -14, y: -2, z: 30 }, { x: 14, y: -2, z: 30 }];
 
 function geoToSoup(geo, matrix) {
   const g = geo.toNonIndexed();
@@ -12,7 +17,6 @@ function geoToSoup(geo, matrix) {
   if (matrix) { for (let i = 0; i < pos.count; i++) { const v = new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(matrix); pos.setXYZ(i, v.x, v.y, v.z); } }
   return new Float32Array(pos.array);
 }
-
 function nearestVertex(soup, p) {
   let bi = 0, bd = Infinity;
   for (let i = 0; i < soup.length; i += 3) {
@@ -21,58 +25,53 @@ function nearestVertex(soup, p) {
   }
   return new THREE.Vector3(soup[bi], soup[bi + 1], soup[bi + 2]);
 }
-
-// Мостик (2 треугольника) между двумя точками на черепе и двумя на челюсти.
-// Концы берутся как ближайшие СУЩЕСТВУЮЩИЕ вершины — тогда union-find их сваривает.
 function bridge(skull, mand, near) {
-  const s = nearestVertex(skull, near);
-  const m = nearestVertex(mand, near);
-  const s2 = s.clone().add(new THREE.Vector3(2, 0, 0));
-  const m2 = m.clone().add(new THREE.Vector3(2, 0, 0));
-  return new Float32Array([
-    s.x, s.y, s.z, s2.x, s2.y, s2.z, m.x, m.y, m.z,
-    s2.x, s2.y, s2.z, m2.x, m2.y, m2.z, m.x, m.y, m.z,
-  ]);
+  const s = nearestVertex(skull, near), m = nearestVertex(mand, near);
+  const s2 = s.clone().add(new THREE.Vector3(2, 0, 0)), m2 = m.clone().add(new THREE.Vector3(2, 0, 0));
+  return new Float32Array([s.x, s.y, s.z, s2.x, s2.y, s2.z, m.x, m.y, m.z, s2.x, s2.y, s2.z, m2.x, m2.y, m2.z, m.x, m.y, m.z]);
 }
 
 export function buildDemo() {
-  // ── череп + верхняя челюсть: вытянутый овоид ──
   const skullGeo = new THREE.SphereGeometry(34, 28, 20);
-  const skullM = new THREE.Matrix4().compose(
-    new THREE.Vector3(0, 12, -4),
-    new THREE.Quaternion(),
-    new THREE.Vector3(1.0, 1.05, 1.18));
+  const skullM = new THREE.Matrix4().compose(SKULL.c, new THREE.Quaternion(), new THREE.Vector3(1.0, 1.05, 1.18));
   const skull = geoToSoup(skullGeo, skullM);
 
-  // ── нижняя челюсть: «подкова» (тор, дуга) лёжа в плоскости XZ ──
-  const mandGeo = new THREE.TorusGeometry(26, 6.5, 16, 48, Math.PI * 1.15);
-  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, -Math.PI / 2 - Math.PI * 0.075));
-  const mandM = new THREE.Matrix4().compose(new THREE.Vector3(0, -16, 16), q, new THREE.Vector3(1, 1, 1));
-  let mand = geoToSoup(mandGeo, mandM);
+  const mandGeo = new THREE.TorusGeometry(MAND.R, MAND.tube, 16, 48, MAND.arc);
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(...MAND.euler));
+  const mandM = new THREE.Matrix4().compose(MAND.c, q, new THREE.Vector3(1, 1, 1));
+  const mand = geoToSoup(mandGeo, mandM);
 
-  // два зубных контакта (спереди слева/справа) — единственные мостики
-  const bL = bridge(skull, mand, new THREE.Vector3(-14, -2, 30));
-  const bR = bridge(skull, mand, new THREE.Vector3(14, -2, 30));
-
-  const soup = mergeSoups([skull, mand, bL, bR]);
-  return { soup, name: 'Череп + НЧ (демо)', bridges: [{ x: -14, y: -2, z: 30 }, { x: 14, y: -2, z: 30 }] };
+  const bL = bridge(skull, mand, new THREE.Vector3(BRIDGES[0].x, BRIDGES[0].y, BRIDGES[0].z));
+  const bR = bridge(skull, mand, new THREE.Vector3(BRIDGES[1].x, BRIDGES[1].y, BRIDGES[1].z));
+  return { soup: mergeSoups([skull, mand, bL, bR]), name: 'Череп + НЧ (демо)', bridges: BRIDGES };
 }
 
-// Синтетический КТ-объём для демонстрации MPR-срезов (без реальных данных).
-// Череп — шаровой свод, нижняя челюсть — дуга-подкова у основания.
+// Синтетический КТ-объём из ТЕХ ЖЕ форм → совпадает с демо-мешем в мире.
+// Отображение воксель↔мир такое же, как worldToVoxel в app: X=(vx-nx/2)*spacing.
 export function buildDemoVolume() {
   const nx = 100, ny = 100, nz = 100, sp = 1.8;
   const data = new Float32Array(nx * ny * nz);
-  const cx = 50, cy = 60, cz = 50;        // центр черепа в вокселях
-  for (let z = 0; z < nz; z++) for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
-    let v = -1000;                         // воздух
-    const dx = x - cx, dy = y - cy, dz = z - cz;
-    const r = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    if (r <= 30) v = r >= 24 ? 900 : 120;  // кортикальная оболочка / внутри мягче
-    // нижняя челюсть: кольцо в плоскости XZ у основания (низкий Y)
-    const ring = Math.abs(Math.sqrt(dx * dx + (dz + 4) * (dz + 4)) - 23);
-    if (y >= 20 && y <= 34 && ring <= 5 && (dz + 4) < 20) v = Math.max(v, 950);
-    data[z * nx * ny + y * nx + x] = v;
+  const qInv = new THREE.Quaternion().setFromEuler(new THREE.Euler(...MAND.euler)).invert();
+  const loc = new THREE.Vector3();
+  const R = MAND.R, tube2 = MAND.tube * MAND.tube;
+  for (let z = 0; z < nz; z++) {
+    const Z = (z - nz / 2) * sp;
+    for (let y = 0; y < ny; y++) {
+      const Y = (y - ny / 2) * sp;
+      for (let x = 0; x < nx; x++) {
+        const X = (x - nx / 2) * sp;
+        let v = -1000;
+        // череп — эллипсоид (оболочка 900, внутри 150)
+        const nX = (X - SKULL.c.x) / SKULL.r.x, nY = (Y - SKULL.c.y) / SKULL.r.y, nZ = (Z - SKULL.c.z) / SKULL.r.z;
+        const d = nX * nX + nY * nY + nZ * nZ;
+        if (d <= 1) v = d >= 0.8 ? 900 : 150;
+        // нижняя челюсть — тор в локальной системе
+        loc.set(X - MAND.c.x, Y - MAND.c.y, Z - MAND.c.z).applyQuaternion(qInv);
+        const qd = Math.sqrt(loc.x * loc.x + loc.y * loc.y) - R;
+        if (qd * qd + loc.z * loc.z <= tube2) v = Math.max(v, 950);
+        data[z * nx * ny + y * nx + x] = v;
+      }
+    }
   }
   return { data, dims: [nx, ny, nz], spacing: [sp, sp, sp], min: -1000, max: 1200, modality: 'CT' };
 }
