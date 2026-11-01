@@ -108,6 +108,7 @@ HEAD = ('<!doctype html>\n<html lang="ru">\n<head>\n<meta charset="utf-8">\n'
 
 # --- SEO: адрес сайта, превью ссылок в соцсетях, разметка «врач» для поисковиков, robots.txt и sitemap.xml ---
 YANDEX_VERIFY = '7bd5bbc6ed6ea4f4'          # Яндекс Вебмастер: подтверждение прав (мета-тег и HTML-файл)
+GOOGLE_VERIFY = 'VwSnJcJLyzA6f2kcEjWkf8xvmopvSX1PFDmwRdQkYRI'   # Google Search Console: подтверждение прав (мета-тег)
 INDEXNOW_KEY = '4b3c078de10cb0485816cd596851f717'
 SITE = 'https://' + ((HERE / 'CNAME').read_text().strip() if (HERE / 'CNAME').exists() else 'drshapovalov.ru') + '/'
 def seo_head(c):
@@ -145,6 +146,7 @@ def seo_head(c):
             '<meta name="twitter:card" content="summary_large_image">\n'
             '<meta name="theme-color" content="#05080a">\n'
             f'<meta name="yandex-verification" content="{YANDEX_VERIFY}">\n'
+            f'<meta name="google-site-verification" content="{GOOGLE_VERIFY}">\n'
             '<script type="application/ld+json">' + json.dumps(ld, ensure_ascii=False).replace('</', '<\\/') + '</script>\n')
 
 
