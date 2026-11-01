@@ -234,7 +234,8 @@
     { id: 'dxPhases', title: 'Схема: этапы', path: 'distraction.phases', list: true, item: 'Этап', titleKey: 'title', fields: [
       F('title', 'Название для родителей'), F('text', 'Текст для родителей', 'area'), F('titlePro', 'Название для коллег'), F('textPro', 'Текст для коллег', 'area')] },
     { id: 'meta', title: 'Ссылки в шапке', path: 'meta', fields: [F('handle', 'Ник в шапке'), F('telegram', 'Telegram', 'url'), F('instagram', 'Instagram', 'url'),
-      F('metrika', 'Номер счётчика Яндекс Метрики', 'text', { sub: 'Только цифры, например 98765432. Пусто — посещения не считаются. Подробнее — в разделе «Статистика»' })] },
+      F('metrika', 'Номер счётчика Яндекс Метрики', 'text', { sub: 'Только цифры, например 98765432. Пусто — посещения не считаются. Подробнее — в разделе «Статистика»' }),
+      F('metaNotice', 'Пояснение о Meta к слову Instagram', 'area', { sub: 'Всплывает при наведении на Instagram везде на сайте; у слова появляется «*». Пусто — пояснения и звёздочки нет' })] },
     { g: 'Обо мне' },
     { id: 'about', title: 'О себе', path: 'about', fields: [F('heading', 'Заголовок'), F('text', 'Текст', 'area')] },
     { id: 'facts', title: 'Факты', path: 'about.facts', list: true, item: 'Факт', titleKey: 'label', fields: [F('label', 'Название'), F('value', 'Значение')] },

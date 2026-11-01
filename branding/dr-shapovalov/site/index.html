@@ -252,6 +252,10 @@
     background:rgba(10,21,19,.9); border:1px solid rgba(214,178,102,.35); color:var(--ivory); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
     opacity:0; transform:translateY(6px); transition:opacity .2s, transform .2s; pointer-events:none}
   .tip.on{opacity:1; transform:none}
+  /* Instagram: пометка «*» и пояснение о Meta при наведении (ст. 4 закона «О СМИ») */
+  .meta-star{color:var(--gold); font-size:.8em; line-height:0; vertical-align:.35em; margin-left:1px}
+  .meta-term{font:inherit; color:inherit; background:none; border:0; padding:0; cursor:help; border-bottom:1px dashed var(--gold)}
+  .meta-term:hover,.meta-term[aria-expanded="true"]{color:var(--gold-hi)}
   .tip b{display:block; font-family:var(--display); font-weight:500; font-size:16px; color:var(--gold-hi); margin-bottom:6px}
   .todo{display:inline-block; padding:3px 10px; border-radius:8px; border:1px dashed var(--todo); color:var(--todo); background:rgba(214,178,102,.08); font-size:13px; font-weight:600}
 
@@ -432,7 +436,7 @@
   .rev b{display:block; margin-top:6px; font-family:var(--display); font-weight:500; font-size:clamp(24px,2.6vw,32px); line-height:1.1}
   .rev .go{flex:none; padding:12px 18px; border-radius:999px; background:var(--gold); color:#140f06; font-weight:700; font-size:15px; white-space:nowrap}
   @media (hover:hover) and (pointer:fine){ a.rev:hover{transform:translateY(-4px)} a.rev:hover .go{background:var(--gold-hi)} }
-  .contact span{font-family:var(--display); font-weight:500; font-size:18px; overflow-wrap:anywhere}
+  .contact > span{font-family:var(--display); font-weight:500; font-size:18px; overflow-wrap:anywhere}
 
   footer{padding-block:120px 0; position:relative; z-index:1}
   .foot-ym{margin-top:14px; font-size:12px; color:var(--mist); max-width:70ch}
@@ -817,6 +821,7 @@
 </main>
 
 <div class="tip" id="tip" role="tooltip"></div>
+<span id="meta-desc" hidden></span>
 
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-labelledby="lb-t" hidden>
   <div class="lb-scrim" data-close></div>
@@ -1430,13 +1435,14 @@
   }
 
   /* ---------- пояснения к терминам ---------- */
-  const tip = $('tip'); let cur = null;
+  const tip = $('tip'); let cur = null, shownAt = 0;
   const show = (btn) => {
-    const t = TERMS[btn.dataset.term]; if (!t) return;
+    const t = btn.dataset.meta ? { text: (CONTENT.meta || {}).metaNotice } : TERMS[btn.dataset.term]; if (!t || !t.text) return;
     if (cur && cur !== btn) cur.setAttribute('aria-expanded', 'false');
-    cur = btn; tip.innerHTML = '';
-    const b = document.createElement('b'); b.textContent = t.title; tip.append(b, document.createTextNode(t.text));
-    btn.setAttribute('aria-expanded', 'true');
+    cur = btn; shownAt = performance.now(); tip.innerHTML = '';
+    if (t.title) { const b = document.createElement('b'); b.textContent = t.title; tip.append(b); }
+    tip.append(document.createTextNode(t.text));
+    if (btn.tagName !== 'A') btn.setAttribute('aria-expanded', 'true');
     const r = btn.getBoundingClientRect(), w = tip.offsetWidth, hh = tip.offsetHeight;
     let top = r.bottom + 10; if (top + hh > innerHeight - 12) top = Math.max(12, r.top - hh - 10);
     tip.style.left = Math.min(Math.max(16, r.left + r.width / 2 - w / 2), innerWidth - w - 16) + 'px'; tip.style.top = top + 'px'; tip.classList.add('on');
@@ -1446,11 +1452,50 @@
     document.querySelectorAll('.term').forEach((btn) => {
       if (btn.dataset.bound) return; btn.dataset.bound = 1;
       btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-describedby', 'tip');
-      btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); cur === btn ? hide() : show(btn); });
+      btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); cur === btn && performance.now() - shownAt > 400 ? hide() : show(btn); });
       btn.addEventListener('mouseenter', () => { if (matchMedia('(hover:hover)').matches) show(btn); });
       btn.addEventListener('mouseleave', () => { if (matchMedia('(hover:hover)').matches) hide(); });
       btn.addEventListener('focus', () => show(btn)); btn.addEventListener('blur', hide);
     });
+  }
+  /* Instagram везде на странице: слово получает «*», при наведении (на телефоне — при касании) всплывает
+     пояснение о Meta из content.json → meta.metaNotice. Ссылки на Instagram остаются ссылками. */
+  let metaTimer = 0;
+  function markMeta() {
+    const note = (CONTENT.meta || {}).metaNotice, desc = $('meta-desc');
+    desc.textContent = note || '';
+    if (!note) return;
+    const skip = ['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'TITLE'];
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: (n) =>
+      /Instagram/.test(n.nodeValue) && !n.parentElement.closest('.meta-w,#tip,#meta-desc') && !skip.includes(n.parentElement.tagName)
+        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
+    const nodes = []; for (let n; (n = w.nextNode());) nodes.push(n);
+    nodes.forEach((n) => {
+      const a = n.parentElement.closest('a');
+      const frag = document.createDocumentFragment();
+      n.nodeValue.split(/(Instagram)/).forEach((part) => {
+        if (part !== 'Instagram') { if (part) frag.append(part); return; }
+        const el = document.createElement(a ? 'span' : 'button');
+        el.className = 'meta-w' + (a ? '' : ' meta-term');
+        if (!a) { el.type = 'button'; bindMeta(el); }
+        el.innerHTML = 'Instagram<span class="meta-star" aria-hidden="true">*</span>';
+        frag.append(el);
+      });
+      n.replaceWith(frag);
+      if (a) bindMeta(a);
+    });
+  }
+  function bindMeta(el) {
+    if (el.dataset.meta) return; el.dataset.meta = 1;
+    el.setAttribute('aria-describedby', 'meta-desc');
+    const link = el.tagName === 'A';
+    if (!link) el.setAttribute('aria-expanded', 'false');
+    // ссылка открывается как обычно; клик не всплывает до document, чтобы пояснение не закрылось сразу
+    el.addEventListener('click', (e) => { e.stopPropagation(); if (link) return; e.preventDefault(); cur === el && performance.now() - shownAt > 400 ? hide() : show(el); });
+    el.addEventListener('pointerdown', (e) => { if (link && e.pointerType !== 'mouse') { show(el); clearTimeout(metaTimer); metaTimer = setTimeout(hide, 6000); } });
+    el.addEventListener('mouseenter', () => { if (matchMedia('(hover:hover)').matches) show(el); });
+    el.addEventListener('mouseleave', () => { if (matchMedia('(hover:hover)').matches) hide(); });
+    el.addEventListener('focus', () => show(el)); el.addEventListener('blur', hide);
   }
   document.addEventListener('click', hide);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
@@ -1479,7 +1524,7 @@
   }
   // вкладки сайта считаются как отдельные страницы: видно, какие разделы смотрят
   const ymHit = (id) => { if (YM && window.ym) window.ym(YM, 'hit', location.pathname + '#' + id, { title: document.title + ' — ' + id }); };
-  function boot(c) { render(c); i18nDom(document.body); metrika((c.meta || {}).metrika); if (booted) return; booted = true; animate(); startDx(); startTabs(); writeSignature(); }
+  function boot(c) { render(c); i18nDom(document.body); markMeta(); metrika((c.meta || {}).metrika); if (booted) return; booted = true; animate(); startDx(); startTabs(); writeSignature(); }
   const ready = () => { if (parent !== window) parent.postMessage({ type: 'shapovalov:ready' }, '*'); };   // в сообщении нет ничего секретного
   const loadContent = (f) => fetch(f, { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
   (LANG === 'en' ? loadContent('content.en.json').catch(() => loadContent('content.json')) : loadContent('content.json')).then((c) => { boot(c); ready(); })
