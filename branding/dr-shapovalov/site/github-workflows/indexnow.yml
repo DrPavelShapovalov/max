@@ -1,0 +1,25 @@
+# Сообщает Яндексу и Bing (протокол IndexNow), что страницы сайта обновились.
+# Запускается после каждого изменения сайта (в том числе из админки); ждёт, пока GitHub Pages выложит новую версию.
+name: IndexNow
+on:
+  push:
+    branches: [main]
+    paths: ['index.html', 'content.json', 'content.en.json', 'sitemap.xml']
+  workflow_dispatch:
+permissions: {}
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Подождать выкладку GitHub Pages
+        run: sleep 120
+      - name: Отправить адреса в IndexNow
+        env:
+          HOST: drshapovalov.ru
+          KEY: 4b3c078de10cb0485816cd596851f717
+        run: |
+          body=$(printf '{"host":"%s","key":"%s","keyLocation":"https://%s/%s.txt","urlList":["https://%s/","https://%s/?lang=en"]}' "$HOST" "$KEY" "$HOST" "$KEY" "$HOST" "$HOST")
+          for ep in https://yandex.com/indexnow https://api.indexnow.org/indexnow; do
+            code=$(curl -s -o /tmp/r.txt -w '%{http_code}' -X POST "$ep" -H 'Content-Type: application/json; charset=utf-8' -d "$body")
+            echo "$ep → HTTP $code"; cat /tmp/r.txt; echo
+          done

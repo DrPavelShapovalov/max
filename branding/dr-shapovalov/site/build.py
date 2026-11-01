@@ -14,6 +14,7 @@ GitHub Pages не даёт задавать заголовки, поэтому �
 
 Запуск: python3 build.py
 """
+import subprocess
 import base64, hashlib, pathlib, re, shutil
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -106,22 +107,33 @@ HEAD = ('<!doctype html>\n<html lang="ru">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n')
 
 # --- SEO: адрес сайта, превью ссылок в соцсетях, разметка «врач» для поисковиков, robots.txt и sitemap.xml ---
+INDEXNOW_KEY = '4b3c078de10cb0485816cd596851f717'
 SITE = 'https://' + ((HERE / 'CNAME').read_text().strip() if (HERE / 'CNAME').exists() else 'drshapovalov.ru') + '/'
 def seo_head(c):
     import html, json
     h = c.get('hero', {}); m = c.get('meta', {})
     name = ' '.join(x for x in (h.get('firstName'), h.get('middleName'), h.get('lastName')) if x)
-    title = f'{name} — детский челюстно-лицевой хирург, к.м.н.'
+    full = ' '.join(x for x in (h.get('lastName'), h.get('firstName'), h.get('middleName')) if x)   # «Шаповалов Павел Игоревич» — так ищут врача
+    title = f'{full} — детский челюстно-лицевой хирург, к.м.н.'
     desc = ('Детский челюстно-лицевой хирург, к.м.н., ЦНИИСиЧЛХ, Москва. Дистракционный остеогенез нижней челюсти, '
             'сужение челюстей, кисты, костная пластика. Клинические случаи и статьи.')
     e = lambda v: html.escape(v, quote=True)
     work = c.get('work', {})
-    same = [u for u in (m.get('instagram'), m.get('telegram')) if u] + [x.get('url') for x in c.get('science', {}).get('profiles', []) if x.get('url')]
-    ld = {'@context': 'https://schema.org', '@type': 'Physician', 'name': name, 'url': SITE,
-          'image': SITE + 'img/og-cover.jpg', 'description': desc,
-          'address': {'@type': 'PostalAddress', 'streetAddress': 'ул. Тимура Фрунзе, д. 16, стр. 5', 'addressLocality': 'Москва', 'addressCountry': 'RU'},
-          'worksFor': {'@type': 'MedicalOrganization', 'name': work.get('name') or 'ФГБУ НМИЦ «ЦНИИСиЧЛХ» Минздрава России'},
-          'sameAs': same}
+    same = [u for u in (m.get('instagram'), m.get('telegram')) if u] + \
+           [k.get('url') for k in c.get('contacts', []) if str(k.get('url', '')).startswith('https://') and k.get('url') not in (m.get('instagram'), m.get('telegram'))] + \
+           [x.get('url') for x in c.get('science', {}).get('profiles', []) if x.get('url')]
+    same = list(dict.fromkeys(same))
+    org = {'@type': 'MedicalOrganization', 'name': work.get('name') or 'ФГБУ НМИЦ «ЦНИИСиЧЛХ» Минздрава России'}
+    addr = {'@type': 'PostalAddress', 'streetAddress': 'ул. Тимура Фрунзе, д. 16, стр. 5', 'addressLocality': 'Москва', 'addressCountry': 'RU'}
+    alt = [full, 'Шаповалов Павел', f"Шаповалов {h.get('firstName', '')[:1]}. {h.get('middleName', '')[:1]}.", 'Pavel Shapovalov', 'Dr. Shapovalov', 'Доктор Шаповалов']
+    ld = {'@context': 'https://schema.org', '@graph': [
+        {'@type': 'WebSite', '@id': SITE + '#site', 'url': SITE, 'name': f'{full} — официальный сайт', 'inLanguage': ['ru', 'en'],
+         'about': {'@id': SITE + '#person'}},
+        {'@type': 'Person', '@id': SITE + '#person', 'name': name, 'alternateName': alt, 'givenName': h.get('firstName'),
+         'additionalName': h.get('middleName'), 'familyName': h.get('lastName'), 'url': SITE, 'image': SITE + 'img/og-cover.jpg',
+         'jobTitle': 'Детский челюстно-лицевой хирург', 'honorificSuffix': 'к.м.н.', 'description': desc, 'worksFor': org, 'sameAs': same},
+        {'@type': 'Physician', '@id': SITE + '#physician', 'name': name, 'url': SITE, 'image': SITE + 'img/og-cover.jpg',
+         'description': desc, 'address': addr, 'parentOrganization': org, 'sameAs': same}]}
     return (f'<link rel="canonical" href="{SITE}">\n'
             f'<link rel="alternate" hreflang="ru" href="{SITE}">\n<link rel="alternate" hreflang="en" href="{SITE}?lang=en">\n'
             f'<link rel="alternate" hreflang="x-default" href="{SITE}">\n'
@@ -170,6 +182,15 @@ def main():
     today = datetime.date.today().isoformat()
     (DIST / 'sitemap.xml').write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         + ''.join(f'  <url><loc>{u}</loc><lastmod>{today}</lastmod></url>\n' for u in (SITE, SITE + '?lang=en')) + '</urlset>\n', encoding='utf-8')
+    # IndexNow (Яндекс, Bing и др.): ключ лежит в корне сайта, по нему поисковик проверяет, что уведомление от владельца
+    (DIST / f'{INDEXNOW_KEY}.txt').write_text(INDEXNOW_KEY, encoding='utf-8')
+    # пререндер: текст из content.json вписывается в HTML, чтобы робот без JavaScript видел весь сайт
+    if shutil.which('node'):
+        subprocess.run(['node', str(HERE / 'prerender.cjs'), str(DIST)], check=True)
+    else:
+        print('внимание: нет Node — пререндер пропущен, текст сайта виден роботам только после JavaScript')
+    (DIST / '.github' / 'workflows').mkdir(parents=True)          # уведомление поисковиков после выкладки
+    shutil.copy2(HERE / 'github-workflows' / 'indexnow.yml', DIST / '.github' / 'workflows' / 'indexnow.yml')
     (DIST / '.nojekyll').touch()                    # GitHub Pages: отдавать файлы как есть, без Jekyll
     print('ok', DIST)
 
