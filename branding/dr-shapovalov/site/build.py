@@ -129,6 +129,8 @@ def main():
     (DIST / 'admin.html').write_text(admin.replace(anchor, anchor + metas(csp), 1), encoding='utf-8')
 
     shutil.copy2(HERE / 'content.json', DIST / 'content.json')
+    if (HERE / 'content.en.json').exists():                # английская версия сайта (?lang=en)
+        shutil.copy2(HERE / 'content.en.json', DIST / 'content.en.json')
     copy_images(HERE / 'img', DIST / 'img')
     shutil.copytree(HERE / 'vendor', DIST / 'vendor')
     (DIST / '.nojekyll').touch()                    # GitHub Pages: отдавать файлы как есть, без Jekyll

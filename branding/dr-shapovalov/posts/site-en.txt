@@ -1,0 +1,15 @@
+My website is live.
+
+I'm a pediatric oral and maxillofacial surgeon (PhD) at the Central Research Institute of Dental and Maxillofacial Surgery in Moscow.
+
+On the site:
+- an interactive diagram of mandibular distraction: the bone grows as you scroll
+- three clinical cases with before/after photos and measurements
+- the steps of distractor placement
+- 10 papers and 7 conference talks, including EACMFS
+
+The site is in Russian.
+
+https://drpavelshapovalov.github.io/dr-shapovalov-site/
+
+#MaxillofacialSurgery #DistractionOsteogenesis
