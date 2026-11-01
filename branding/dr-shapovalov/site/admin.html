@@ -442,8 +442,14 @@
   const YMT = 'shp-ym-token', YMC = 'shp-ym-client';
   const ymTok = { get() { try { return sessionStorage.getItem(YMT) || ''; } catch (e) { return ''; } },
                   set(v) { try { v ? sessionStorage.setItem(YMT, v) : sessionStorage.removeItem(YMT); } catch (e) {} } };
-  { const m = /[#&]access_token=([^&]+)/.exec(location.hash);   // возврат со страницы входа Яндекса
-    if (m) { ymTok.set(decodeURIComponent(m[1])); current = 'stats'; try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} } }
+  const YME = 'shp-ym-err';
+  const ymErr = { get() { try { return sessionStorage.getItem(YME) || ''; } catch (e) { return ''; } },
+                  set(v) { try { v ? sessionStorage.setItem(YME, v) : sessionStorage.removeItem(YME); } catch (e) {} } };
+  { const h = new URLSearchParams(location.hash.replace(/^#/, ''));   // возврат со страницы входа Яндекса
+    if (h.get('access_token') || h.get('error')) {
+      if (h.get('access_token')) { ymTok.set(h.get('access_token')); ymErr.set(''); }
+      else ymErr.set('Яндекс не выдал доступ: ' + (h.get('error_description') || h.get('error')));
+      current = 'stats'; try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} } }
   let ymDays = 30;
   const TAB_NAMES = { about: 'Обо мне', directions: 'Лечение', cases: 'Кейсы', science: 'Наука', contacts: 'Контакты', top: 'Главная' };
   const fmt = (n) => Math.round(n).toLocaleString('ru-RU');
@@ -473,7 +479,10 @@
       el('a', { className: 'btn', href: dash, target: '_blank', rel: 'noopener' }, 'Открыть в Метрике ↗'),
       tok ? el('button', { type: 'button', className: 'btn sm', on: { click: () => { ymTok.set(''); renderForm(); } } }, 'Выйти из Метрики') : null);
     box.append(top);
+    const err = ymErr.get();
+    if (err) box.append(el('div', { className: 'note-box', style: 'border-color:var(--err)' }, el('b', { style: 'color:var(--err)' }, 'Что пошло не так: '), err));
     if (!tok) { box.append(ymLogin()); return; }
+    box.append(el('p', { className: 'muted' }, '✓ Вход в Метрику выполнен. Счётчик ' + id + '.'));
     const out = el('div', { style: 'display:flex; flex-direction:column; gap:14px' }, el('p', { className: 'muted' }, 'Загружаю…'));
     box.append(out);
     loadStats(id, tok, out, dash);
@@ -518,13 +527,16 @@
         ymQuery(id, tok, 'ym:s:visits,ym:s:users', 'ym:s:date', { sort: 'ym:s:date', limit: '100' })]);
     } catch (e) {
       out.innerHTML = '';
-      if (e.status === 401 || e.status === 403) { ymTok.set(''); out.append(el('div', { className: 'note-box' }, el('b', {}, 'Метрика не приняла вход. '), e.message + '. Войдите заново.'), ymLogin()); return; }
-      out.append(el('div', { className: 'note-box' }, el('b', {}, 'Не удалось получить статистику. '),
-        e instanceof TypeError ? 'Браузер не пустил запрос к Метрике напрямую. Полная статистика открывается по кнопке «Открыть в Метрике».' : e.message),
+      const why = e instanceof TypeError
+        ? 'браузер не пустил запрос к Метрике (api-metrika.yandex.net) напрямую из админки — ' + e.message
+        : `Метрика ответила ${e.status}: ${e.message}` + (e.status === 403 ? '. Обычно это значит: у приложения на oauth.yandex.ru не отмечен доступ «Получение статистики…», или вы вошли не тем Яндекс-аккаунтом, которому принадлежит счётчик ' + id + '.' : e.status === 401 ? '. Токен не подошёл — войдите заново.' : '');
+      ymErr.set(why);
+      if (e.status === 401 || e.status === 403) { ymTok.set(''); renderForm(); return; }
+      out.append(el('div', { className: 'note-box', style: 'border-color:var(--err)' }, el('b', { style: 'color:var(--err)' }, 'Не удалось получить статистику: '), why),
         el('a', { className: 'btn primary', href: dash, target: '_blank', rel: 'noopener' }, 'Открыть в Метрике ↗'));
       return;
     }
-    out.innerHTML = '';
+    out.innerHTML = ''; ymErr.set('');
     const t = (total.totals || []);
     const dur = t[4] || 0;
     out.append(el('div', { className: 'kpis' }, ...[
