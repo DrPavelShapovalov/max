@@ -49,3 +49,10 @@ three.js r134, Vanta 0.5.24 (WAVES), Lenis 1.3.27, GSAP 3.12.5 + ScrollTrigger.
 - **Тексты** из `content.json` экранируются, ссылки пропускаются только `https:`, `mailto:`, `tel:`, `#` и `img/`.
 - GitHub Pages не даёт задавать HTTP-заголовки, поэтому `frame-ancestors` и HSTS недоступны; для своего домена
   включите в настройках Pages «Enforce HTTPS».
+
+## Статистика (Яндекс Метрика)
+
+- Счётчик включается номером в `content.json` → `meta.metrika` (в админке: «Ссылки в шапке» → «Номер счётчика Яндекс Метрики»). Пусто — на сайт не грузится ничего.
+- Скрипт `mc.yandex.ru/metrika/tag.js` грузится только на живом сайте (не в предпросмотре админки). Вебвизор выключен. Вкладки сайта отправляются как отдельные просмотры (`#about`, `#cases`…).
+- CSP в `build.py` разрешает `mc.yandex.ru`, `mc.yandex.com`, `yastatic.net` по справке Метрики: https://yandex.ru/support/metrica/code/install-counter-csp.html
+- В админке раздел «Статистика» читает отчёты через API Метрики (`api-metrika.yandex.net/stat/v1/data`) OAuth-токеном с правом `metrika:read`. Токен получается входом через Яндекс (своё OAuth-приложение, Redirect URI = адрес `admin.html`) и хранится только во вкладке.

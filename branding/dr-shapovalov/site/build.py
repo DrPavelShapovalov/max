@@ -30,8 +30,12 @@ CDN_TO_VENDOR = {
 COMMON = ("default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; "
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; "
           "upgrade-insecure-requests")
-CSP_SITE = COMMON + "; script-src 'self' {hashes}; img-src 'self' data: blob:; connect-src 'self'; frame-src https://yandex.ru"
-CSP_ADMIN = COMMON + "; script-src {hashes}; img-src 'self' data: blob:; connect-src 'self' https://api.github.com; frame-src 'self'"
+# Яндекс Метрика (https://yandex.ru/support/metrica/code/install-counter-csp.html): счётчик, отправка данных,
+# карты кликов в интерфейсе Метрики (blob:). Вебвизор выключен, поэтому mc.webvisor.com и wss:// не нужны.
+YM = "https://mc.yandex.ru https://mc.yandex.com"
+CSP_SITE = (COMMON + "; script-src 'self' {hashes} " + YM + " https://yastatic.net; img-src 'self' data: blob: " + YM
+            + "; connect-src 'self' " + YM + "; frame-src https://yandex.ru blob: " + YM + "; child-src blob: " + YM)
+CSP_ADMIN = COMMON + "; script-src {hashes}; img-src 'self' data: blob:; connect-src 'self' https://api.github.com https://api-metrika.yandex.net; frame-src 'self'"
 
 
 def inline_hashes(html):

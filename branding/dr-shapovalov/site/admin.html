@@ -96,6 +96,28 @@
   .note-box{border:1px solid rgba(214,178,102,.35); background:rgba(214,178,102,.06); border-radius:14px; padding:14px 16px; font-size:13.5px; color:#d9cfb8}
   .note-box b{color:var(--gold-hi)}
   .note-box ol{margin:6px 0 0; padding-left:20px}
+  /* статистика */
+  .seg{display:inline-flex; gap:4px; padding:4px; border:1px solid var(--line-2); border-radius:999px}
+  .seg button{border:0; background:none; color:var(--mist); padding:6px 12px; border-radius:999px; cursor:pointer; font:inherit; font-size:13px}
+  .seg button[aria-pressed="true"]{background:var(--gold); color:#140f06; font-weight:700}
+  .kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px}
+  .kpi{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px 14px}
+  .kpi b{display:block; font-size:26px; font-variant-numeric:tabular-nums; line-height:1.15}
+  .kpi span{font-size:12px; color:var(--mist)}
+  .chart{position:relative}
+  .chart svg{display:block; width:100%; height:auto; overflow:visible}
+  .chart .ax{font:11px var(--mono); fill:var(--mist)}
+  .tip{position:absolute; pointer-events:none; background:#0a1110; border:1px solid var(--line-2); border-radius:10px; padding:6px 10px; font-size:12px; white-space:nowrap; transform:translate(-50%,-110%)}
+  .tip b{color:var(--ink)} .tip span{color:var(--mist)}
+  .brk{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px}
+  .brk .card{gap:10px}
+  .brk h3{margin:0; font-size:14px}
+  .rowv{display:grid; grid-template-columns:minmax(0,1fr) 54px 44px; gap:10px; align-items:center; font-size:13px}
+  .rowv .lbl{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .rowv .bar{grid-column:1 / -1; height:6px; border-radius:99px; background:rgba(237,232,222,.06); margin-top:-6px}
+  .rowv .bar i{display:block; height:100%; border-radius:99px; background:var(--gold)}
+  .rowv .v{text-align:right; font-variant-numeric:tabular-nums} .rowv .pc{text-align:right; color:var(--mist); font-variant-numeric:tabular-nums}
+  .muted{color:var(--mist); font-size:13px}
   pre.json{margin:0; max-height:300px; overflow:auto; font:12px/1.5 var(--mono); background:#0a1110; border:1px solid var(--line); border-radius:12px; padding:12px; color:var(--mist)}
 
   @media (max-width:1200px){
@@ -210,7 +232,8 @@
       F('maxMm', 'Удлинение на схеме, мм', 'number', { sub: 'Только для схемы' }), F('note', 'Примечание под схемой', 'area')] },
     { id: 'dxPhases', title: 'Схема: этапы', path: 'distraction.phases', list: true, item: 'Этап', titleKey: 'title', fields: [
       F('title', 'Название для родителей'), F('text', 'Текст для родителей', 'area'), F('titlePro', 'Название для коллег'), F('textPro', 'Текст для коллег', 'area')] },
-    { id: 'meta', title: 'Ссылки в шапке', path: 'meta', fields: [F('handle', 'Ник в шапке'), F('telegram', 'Telegram', 'url'), F('instagram', 'Instagram', 'url')] },
+    { id: 'meta', title: 'Ссылки в шапке', path: 'meta', fields: [F('handle', 'Ник в шапке'), F('telegram', 'Telegram', 'url'), F('instagram', 'Instagram', 'url'),
+      F('metrika', 'Номер счётчика Яндекс Метрики', 'text', { sub: 'Только цифры, например 98765432. Пусто — посещения не считаются. Подробнее — в разделе «Статистика»' })] },
     { g: 'Обо мне' },
     { id: 'about', title: 'О себе', path: 'about', fields: [F('heading', 'Заголовок'), F('text', 'Текст', 'area')] },
     { id: 'facts', title: 'Факты', path: 'about.facts', list: true, item: 'Факт', titleKey: 'label', fields: [F('label', 'Название'), F('value', 'Значение')] },
@@ -257,6 +280,7 @@
       F('key', 'Ключ', 'text', { sub: 'Латиницей. В тексте: [[ключ|слово]]' }), F('title', 'Термин'), F('text', 'Объяснение', 'area')] },
     { id: 'footer', title: 'Подвал', path: 'footer', fields: [F('note', 'Текст в подвале', 'area')] },
     { g: 'Сервис' },
+    { id: 'stats', title: 'Статистика', special: 'stats' },
     { id: 'publish', title: 'Публикация', special: 'publish' }
   ];
   const SECTIONS = SCHEMA.filter((s) => s.id);
@@ -396,6 +420,7 @@
     const s = SECTIONS.find((x) => x.id === current); const box = $('form-in'); box.innerHTML = '';
     box.append(el('h1', {}, s.title));
     if (s.special === 'publish') return renderPublish(box);
+    if (s.special === 'stats') return renderStats(box);
     box.append(el('p', { className: 'hint' }, 'Изменения сразу видны в предпросмотре. Жирный: ', el('code', {}, '**слово**'),
       '. Термин с пояснением: ', el('code', {}, '[[ключ|слово]]'), ' (ключи — в разделе «Словарь терминов»). Пустые поля на сайте не показываются.'));
     if (s.list) {
@@ -409,6 +434,160 @@
       const obj = getPath(data, s.path); const card = el('div', { className: 'card' });
       s.fields.forEach((f) => card.append(input(obj, f))); box.append(card);
     }
+  }
+
+  /* ---------- статистика: Яндекс Метрика ----------
+     Счётчик стоит на сайте (номер — в «Ссылки в шапке»). Отчёты берутся из API Метрики с OAuth-токеном
+     «только чтение статистики». Токен живёт во вкладке (sessionStorage) и уходит только на api-metrika.yandex.net. */
+  const YMT = 'shp-ym-token', YMC = 'shp-ym-client';
+  const ymTok = { get() { try { return sessionStorage.getItem(YMT) || ''; } catch (e) { return ''; } },
+                  set(v) { try { v ? sessionStorage.setItem(YMT, v) : sessionStorage.removeItem(YMT); } catch (e) {} } };
+  const YME = 'shp-ym-err';
+  const ymErr = { get() { try { return sessionStorage.getItem(YME) || ''; } catch (e) { return ''; } },
+                  set(v) { try { v ? sessionStorage.setItem(YME, v) : sessionStorage.removeItem(YME); } catch (e) {} } };
+  { const h = new URLSearchParams(location.hash.replace(/^#/, ''));   // возврат со страницы входа Яндекса
+    if (h.get('access_token') || h.get('error')) {
+      if (h.get('access_token')) { ymTok.set(h.get('access_token')); ymErr.set(''); }
+      else ymErr.set('Яндекс не выдал доступ: ' + (h.get('error_description') || h.get('error')));
+      current = 'stats'; try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} } }
+  let ymDays = 30;
+  const TAB_NAMES = { about: 'Обо мне', directions: 'Лечение', cases: 'Кейсы', science: 'Наука', contacts: 'Контакты', top: 'Главная' };
+  const fmt = (n) => Math.round(n).toLocaleString('ru-RU');
+  const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
+  async function ymQuery(id, tok, metrics, dims, extra = {}) {
+    const q = new URLSearchParams({ ids: id, metrics, date1: `${ymDays - 1}daysAgo`, date2: 'today', lang: 'ru', accuracy: 'full', limit: '10', ...extra });
+    if (dims) q.set('dimensions', dims);
+    const r = await fetch('https://api-metrika.yandex.net/stat/v1/data?' + q, { headers: { Authorization: 'OAuth ' + tok } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(j.message || ('ошибка ' + r.status)); e.status = r.status; throw e; }
+    return j;
+  }
+  function renderStats(box) {
+    const meta = (data.meta ||= {}), id = String(meta.metrika || '').trim(), tok = ymTok.get();
+    const dash = id ? `https://metrika.yandex.ru/dashboard?id=${encodeURIComponent(id)}` : 'https://metrika.yandex.ru/';
+    box.append(el('p', { className: 'hint' }, 'Посещаемость сайта из Яндекс Метрики: сколько людей зашло, откуда, из каких городов, с каких устройств и какие разделы смотрели.'));
+    if (!/^\d{5,12}$/.test(id)) {
+      box.append(el('div', { className: 'note-box' }, el('b', {}, 'Сначала подключите счётчик. '),
+        el('ol', {}, el('li', {}, 'Откройте metrika.yandex.ru, войдите своим Яндекс-аккаунтом и нажмите «Добавить счётчик».'),
+          el('li', {}, 'Адрес сайта: ' + location.origin + location.pathname.replace(/admin\.html$/, '') + '. Вебвизор можно не включать.'),
+          el('li', {}, 'Скопируйте номер счётчика (только цифры) в раздел «Ссылки в шапке» → «Номер счётчика Яндекс Метрики» и нажмите «Опубликовать».'),
+          el('li', {}, 'Метрика начнёт считать с момента публикации; первые цифры появятся через несколько минут.'))),
+        el('a', { className: 'btn primary', href: 'https://metrika.yandex.ru/add', target: '_blank', rel: 'noopener' }, 'Создать счётчик ↗'));
+      return;
+    }
+    const top = el('div', { style: 'display:flex; gap:10px; flex-wrap:wrap; align-items:center' },
+      el('div', { className: 'seg', role: 'group', 'aria-label': 'Период' }, ...[7, 30, 90].map((d) => el('button', { type: 'button', 'aria-pressed': String(d === ymDays), on: { click: () => { ymDays = d; renderForm(); } } }, d + ' дней'))),
+      el('a', { className: 'btn', href: dash, target: '_blank', rel: 'noopener' }, 'Открыть в Метрике ↗'),
+      tok ? el('button', { type: 'button', className: 'btn sm', on: { click: () => { ymTok.set(''); renderForm(); } } }, 'Выйти из Метрики') : null);
+    box.append(top);
+    const err = ymErr.get();
+    if (err) box.append(el('div', { className: 'note-box', style: 'border-color:var(--err)' }, el('b', { style: 'color:var(--err)' }, 'Что пошло не так: '), err));
+    if (!tok) { box.append(ymLogin()); return; }
+    box.append(el('p', { className: 'muted' }, '✓ Вход в Метрику выполнен. Счётчик ' + id + '.'));
+    const out = el('div', { style: 'display:flex; flex-direction:column; gap:14px' }, el('p', { className: 'muted' }, 'Загружаю…'));
+    box.append(out);
+    loadStats(id, tok, out, dash);
+  }
+  function ymLogin() {
+    let cid = store.get(YMC) || '';
+    const back = location.origin + location.pathname;
+    const go = () => { if (!/^[0-9a-f]{32}$/i.test(cid)) return toast('Вставьте ClientID приложения — 32 знака'); store.set(YMC, cid);
+      location.href = `https://oauth.yandex.ru/authorize?response_type=token&client_id=${encodeURIComponent(cid)}&redirect_uri=${encodeURIComponent(back)}`; };
+    let pasted = '';
+    return el('div', { className: 'card' }, el('b', {}, 'Вход в Метрику — один раз настроить'),
+      el('ol', { className: 'hint', style: 'margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px' },
+        el('li', {}, 'Откройте oauth.yandex.ru/client/new (кнопка ниже) и создайте приложение «Админка сайта», платформа «Веб-сервисы».'),
+        el('li', {}, 'Redirect URI: ', el('code', {}, back)),
+        el('li', {}, 'Доступ: «Яндекс Метрика» → «Получение статистики, чтение параметров своих и доверенных счётчиков».'),
+        el('li', {}, 'Скопируйте ClientID приложения сюда и нажмите «Войти через Яндекс».')),
+      el('div', { style: 'display:flex; gap:10px; flex-wrap:wrap' }, el('a', { className: 'btn', href: 'https://oauth.yandex.ru/client/new', target: '_blank', rel: 'noopener' }, 'Создать приложение ↗')),
+      el('div', { className: 'field' }, el('label', { htmlFor: 'ym-cid' }, 'ClientID приложения'),
+        el('input', { id: 'ym-cid', type: 'text', value: cid, autocomplete: 'off', spellcheck: false, on: { input: (e) => { cid = e.target.value.trim(); } } })),
+      el('div', {}, el('button', { type: 'button', className: 'btn primary', on: { click: go } }, 'Войти через Яндекс')),
+      el('details', {}, el('summary', { className: 'hint' }, 'Уже есть токен Метрики? Вставить вручную'),
+        el('div', { className: 'field', style: 'margin-top:8px' }, el('input', { type: 'password', autocomplete: 'off', on: { input: (e) => { pasted = e.target.value.trim(); } } }),
+          el('div', {}, el('button', { type: 'button', className: 'btn sm', on: { click: () => { if (pasted) { ymTok.set(pasted); renderForm(); } } } }, 'Сохранить на время вкладки')))));
+  }
+  async function loadStats(id, tok, out, dash) {
+    const panel = (title, dims, metric, map) => ({ title, dims, metric, map });
+    const parts = [
+      panel('Откуда приходят', 'ym:s:lastTrafficSource', 'ym:s:visits'),
+      panel('С каких сайтов', 'ym:s:lastReferalSource', 'ym:s:visits'),
+      panel('Поисковые системы', 'ym:s:lastSearchEngine', 'ym:s:visits'),
+      panel('Соцсети и мессенджеры', 'ym:s:lastSocialNetwork', 'ym:s:visits'),
+      panel('Города', 'ym:s:regionCity', 'ym:s:visits'),
+      panel('Страны', 'ym:s:regionCountry', 'ym:s:visits'),
+      panel('Устройства', 'ym:s:deviceCategory', 'ym:s:visits'),
+      panel('Браузеры', 'ym:s:browser', 'ym:s:visits'),
+      panel('Разделы сайта', 'ym:pv:URL', 'ym:pv:pageviews', (u) => { const h = (String(u).split('#')[1] || 'top'); return TAB_NAMES[h] || '#' + h; }),
+    ];
+    let total, daily;
+    try {
+      [total, daily] = await Promise.all([
+        ymQuery(id, tok, 'ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:avgVisitDurationSeconds,ym:s:percentNewVisitors', ''),
+        ymQuery(id, tok, 'ym:s:visits,ym:s:users', 'ym:s:date', { sort: 'ym:s:date', limit: '100' })]);
+    } catch (e) {
+      out.innerHTML = '';
+      const why = e instanceof TypeError
+        ? 'браузер не пустил запрос к Метрике (api-metrika.yandex.net) напрямую из админки — ' + e.message
+        : `Метрика ответила ${e.status}: ${e.message}` + (e.status === 403 ? '. Обычно это значит: у приложения на oauth.yandex.ru не отмечен доступ «Получение статистики…», или вы вошли не тем Яндекс-аккаунтом, которому принадлежит счётчик ' + id + '.' : e.status === 401 ? '. Токен не подошёл — войдите заново.' : '');
+      ymErr.set(why);
+      if (e.status === 401 || e.status === 403) { ymTok.set(''); renderForm(); return; }
+      out.append(el('div', { className: 'note-box', style: 'border-color:var(--err)' }, el('b', { style: 'color:var(--err)' }, 'Не удалось получить статистику: '), why),
+        el('a', { className: 'btn primary', href: dash, target: '_blank', rel: 'noopener' }, 'Открыть в Метрике ↗'));
+      return;
+    }
+    out.innerHTML = ''; ymErr.set('');
+    const t = (total.totals || []);
+    const dur = t[4] || 0;
+    out.append(el('div', { className: 'kpis' }, ...[
+      [fmt(t[0] || 0), 'визиты'], [fmt(t[1] || 0), 'посетители'], [fmt(t[2] || 0), 'просмотры страниц'],
+      [(t[3] || 0).toFixed(1).replace('.', ',') + '%', 'отказы'], [`${Math.floor(dur / 60)}:${String(Math.round(dur % 60)).padStart(2, '0')}`, 'время на сайте, мин:с'],
+      [(t[5] || 0).toFixed(0) + '%', 'новые посетители']].map(([v, l]) => el('div', { className: 'kpi' }, el('b', {}, v), el('span', {}, l)))));
+    out.append(el('div', { className: 'card' }, el('b', {}, `Визиты по дням, последние ${ymDays} дней`), chart(daily)));
+    const brk = el('div', { className: 'brk' }); out.append(brk);
+    await Promise.all(parts.map(async (p) => {
+      const card = el('div', { className: 'card' }, el('h3', {}, p.title), el('p', { className: 'muted' }, 'Загружаю…')); brk.append(card);
+      try {
+        const r = await ymQuery(id, tok, p.metric, p.dims, { sort: '-' + p.metric });
+        const rows = (r.data || []).map((d) => [p.map ? p.map(d.dimensions[0].name) : (d.dimensions[0].name || 'не определено'), d.metrics[0]]);
+        // одинаковые разделы (разные адреса одной вкладки) складываем
+        const agg = new Map(); rows.forEach(([k, v]) => agg.set(k, (agg.get(k) || 0) + v));
+        const list = [...agg].sort((a, b) => b[1] - a[1]), sum = (r.totals || [])[0] || list.reduce((a, x) => a + x[1], 0), max = list[0] ? list[0][1] : 1;
+        card.lastChild.replaceWith(list.length ? el('div', { style: 'display:flex; flex-direction:column; gap:10px' }, ...list.map(([k, v]) =>
+          el('div', { className: 'rowv' }, el('span', { className: 'lbl', title: k }, k), el('span', { className: 'v' }, fmt(v)), el('span', { className: 'pc' }, sum ? Math.round(v / sum * 100) + '%' : ''),
+            el('span', { className: 'bar' }, el('i', { style: `width:${Math.max(2, v / max * 100).toFixed(1)}%` }))))) : el('p', { className: 'muted' }, 'Пока нет данных'));
+      } catch (e) { card.lastChild.replaceWith(el('p', { className: 'muted' }, 'Нет данных: ' + e.message)); }
+    }));
+  }
+  function chart(daily) {
+    // Метрика отдаёт только дни с визитами — дополняем период нулями, чтобы у каждого дня был свой столбик
+    const got = new Map((daily.data || []).map((d) => [d.dimensions[0].name, d.metrics]));
+    if (!got.size) return el('p', { className: 'muted' }, 'Пока нет визитов за этот период');
+    const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const rows = [];
+    for (let i = ymDays - 1; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const k = iso(d), m = got.get(k) || [0, 0]; rows.push({ day: k, v: m[0], u: m[1] }); }
+    const NS = 'http://www.w3.org/2000/svg', W = 600, H = 160, pad = 18, n = rows.length, bw = (W - 2) / n, max = Math.max(1, ...rows.map((r) => r.v));
+    const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H + pad}`);
+    svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Визиты по дням: ' + rows.map((r) => `${r.day} — ${r.v}`).join(', '));
+    const mk = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
+    svg.append(mk('line', { x1: 0, x2: W, y1: H, y2: H, stroke: 'rgba(237,232,222,.2)', 'stroke-width': 1, 'vector-effect': 'non-scaling-stroke' }));
+    const wrap = el('div', { className: 'chart' }), tip = el('div', { className: 'tip', hidden: true });
+    rows.forEach((r, i) => {
+      const h = Math.max(r.v ? 2 : 0, r.v / max * (H - 8)), x = i * bw + 1, w = Math.max(1, bw - 2), y = H - h, rr = Math.min(4, w / 2, h);
+      if (h) svg.append(mk('path', { d: `M${x},${H} V${y + rr} Q${x},${y} ${x + rr},${y} H${x + w - rr} Q${x + w},${y} ${x + w},${y + rr} V${H} Z`, fill: '#d6b266' }));
+      const hit = mk('rect', { x: i * bw, y: 0, width: bw, height: H, fill: 'transparent' });
+      hit.addEventListener('pointerenter', () => { const d = new Date(r.day + 'T12:00'); tip.hidden = false;
+        tip.replaceChildren(el('b', {}, `${fmt(r.v)} ${plural(r.v, 'визит', 'визита', 'визитов')}`), el('br'), el('span', {}, `${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} · ${fmt(r.u)} ${plural(r.u, 'посетитель', 'посетителя', 'посетителей')}`));
+        const f = (i + 0.5) / n; tip.style.transform = `translate(${f > 0.8 ? -100 : f < 0.2 ? 0 : -50}%,-110%)`;
+        tip.style.left = ((i + 0.5) / n * 100) + '%'; tip.style.top = (svg.offsetTop + y / (H + pad) * svg.clientHeight) + 'px'; });
+      hit.addEventListener('pointerleave', () => { tip.hidden = true; });
+      svg.append(hit);
+    });
+    const lab = (i, anchor) => { const d = new Date(rows[i].day + 'T12:00'); const t = mk('text', { x: anchor === 'end' ? W : anchor === 'start' ? 0 : (i + 0.5) * bw, y: H + 14, 'text-anchor': anchor, class: 'ax' });
+      t.textContent = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }); return t; };
+    svg.append(lab(0, 'start'), lab(n - 1, 'end'));
+    wrap.append(el('p', { className: 'muted', style: 'margin:0 0 8px' }, `Больше всего — ${fmt(max)} в день · всего за период ${fmt(rows.reduce((a, r) => a + r.v, 0))}`), svg, tip); return wrap;
   }
 
   /* ---------- публикация на GitHub ---------- */
