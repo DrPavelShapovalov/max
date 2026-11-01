@@ -150,15 +150,20 @@ def card(canvas, t, t0):
     if a <= 0: return
     w, h = 820, 360; x, y = (W - w) // 2, 1110 + int((1 - a) * 40)
     S = 2; im = Image.new('RGBA', (w * S, h * S)); d = ImageDraw.Draw(im)
-    # «стекло» как .glass на сайте: изумрудная полупрозрачная заливка, блик сверху-слева, светлая тонкая рамка
-    d.rounded_rectangle([0, 0, w * S - 1, h * S - 1], 40 * S, fill=(22, 66, 54, 200))
-    gy, gx = np.mgrid[0:h * S, 0:w * S]
-    hl = Image.fromarray((np.clip(1 - (gx / (w * S) * 0.55 + gy / (h * S)) / 0.85, 0, 1) * 26).astype(np.uint8))   # блик 165°, как linear-gradient на сайте
-    mask = Image.new('L', (w * S, h * S)); ImageDraw.Draw(mask).rounded_rectangle([0, 0, w * S - 1, h * S - 1], 40 * S, fill=255)
+    # «жидкое стекло»: прозрачная светлая заливка, блик сверху, яркая рамка с градиентом и мягкая тень
     from PIL import ImageChops
-    white = Image.new('RGBA', (w * S, h * S), (255, 255, 255, 0)); white.putalpha(ImageChops.multiply(hl, mask))
-    im.alpha_composite(white)
-    ImageDraw.Draw(im).rounded_rectangle([0, 0, w * S - 1, h * S - 1], 40 * S, outline=(237, 232, 222, 70), width=2 * S)
+    mask = Image.new('L', (w * S, h * S)); ImageDraw.Draw(mask).rounded_rectangle([0, 0, w * S - 1, h * S - 1], 44 * S, fill=255)
+    gy, gx = np.mgrid[0:h * S, 0:w * S]
+    body = np.clip(30 + 28 * (1 - gy / (h * S)), 0, 255)                                           # заливка: светлее сверху
+    spec = np.clip(1 - np.hypot((gx - w * S * 0.3) / (w * S * 0.55), (gy - h * S * 0.02) / (h * S * 0.45)), 0, 1) ** 2 * 70   # блик
+    fill = Image.new('RGBA', (w * S, h * S), (255, 255, 255, 0))
+    fill.putalpha(ImageChops.multiply(Image.fromarray(np.clip(body + spec, 0, 255).astype(np.uint8)), mask))
+    im.alpha_composite(fill)
+    ring = Image.new('L', (w * S, h * S)); rd = ImageDraw.Draw(ring)
+    rd.rounded_rectangle([0, 0, w * S - 1, h * S - 1], 44 * S, outline=255, width=3 * S)
+    edge = np.asarray(ring, np.float32) * (0.35 + 0.65 * np.clip(1 - gy / (h * S) * 1.4, 0, 1))      # рамка ярче сверху
+    border = Image.new('RGBA', (w * S, h * S), (255, 255, 255, 0)); border.putalpha(Image.fromarray(edge.astype(np.uint8)))
+    im.alpha_composite(border)
     im = im.resize((w, h), Image.LANCZOS)
     sw = 560; sig, pen = written(max(0.0, t - t0 - 0.35), sw); sx, sy = (w - sw) // 2, 26
     im.alpha_composite(sig, (sx, sy))
@@ -172,6 +177,8 @@ def card(canvas, t, t0):
             f = ImageFont.truetype(MANROPE.format(600), 32)
             d.text((w / 2, yy), txt, font=f, fill=MIST + (int(255 * clamp(la * 1.4 - k * 0.3)),), anchor='mm')
     if a < 1: im.putalpha(im.getchannel('A').point(lambda v: int(v * a)))
+    sh = Image.new('RGBA', (w + 120, h + 120)); ImageDraw.Draw(sh).rounded_rectangle([60, 80, w + 60, h + 70], 44, fill=(0, 0, 0, int(90 * a)))
+    canvas.alpha_composite(sh.filter(ImageFilter.GaussianBlur(28)), (x - 60, y - 60))                # мягкая тень под стеклом
     canvas.alpha_composite(im, (x, y))
 
 # --- расписание подписей ---
