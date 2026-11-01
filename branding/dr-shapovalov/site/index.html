@@ -77,6 +77,10 @@
   .links a{position:relative; padding-block:4px}
   .links a::after{content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:var(--gold); transform:scaleX(0); transform-origin:left; transition:transform .35s}
   .links a:hover{color:var(--ivory)} .links a:hover::after{transform:scaleX(1)}
+  .lang-sw{display:inline-grid; place-items:center; min-width:44px; height:44px; padding:0 10px; border-radius:999px; border:1px solid var(--line);
+    font-family:var(--mono); font-size:13px; font-weight:600; letter-spacing:.06em; color:var(--ivory); text-decoration:none}
+  .lang-sw:hover{border-color:var(--gold); color:var(--gold-hi)}
+  .menu-lang{font-size:.7em!important; opacity:.8}
   .pill{display:inline-flex; align-items:center; gap:8px; padding:10px 18px; border-radius:999px; font-weight:700; font-size:14px;
     background:var(--gold); color:#140f06; transition:background-color .2s, transform .2s}
   .pill:hover{background:var(--gold-hi); transform:translateY(-1px)}
@@ -528,6 +532,7 @@
     <a href="#about">Обо мне</a><a href="#directions">Направления</a><a href="#cases">Кейсы</a><a href="#science">Наука</a><a href="#contacts">Контакты</a>
   </div>
   <div class="nav-end">
+    <a class="lang-sw" id="lang-sw" href="?lang=en" hreflang="en" lang="en" aria-label="English version">EN</a>
     <a class="pill" id="nav-tg" href="https://t.me/SHAPOVALOV_DR" target="_blank" rel="noopener">Telegram</a>
     <button class="burger" id="burger" type="button" aria-expanded="false" aria-controls="menu"><span></span><span></span><b class="sr">Меню</b></button>
   </div>
@@ -543,6 +548,7 @@
     <a href="#cases">Кейсы</a>
     <a href="#science">Наука</a>
     <a href="#contacts">Контакты</a>
+    <a class="menu-lang" id="menu-lang" href="?lang=en" hreflang="en" lang="en">English version</a>
   </nav>
   <div class="menu-foot" id="menu-foot"></div>
 </div>
@@ -709,8 +715,8 @@
 
     <section class="tabpanel" id="cases" role="tabpanel" aria-labelledby="tab-cases" hidden>
     <div class="head reveal">
-      <div><h2>Результат <em>в миллиметрах</em></h2></div>
-      <p>Полосы на графиках отложены в масштабе. Фото «до и после» публикуются только в соцсетях и только с согласия пациентов и их законных представителей.</p>
+      <div><h2>Результат <em>в цифрах</em></h2></div>
+      <p>Полосы на графиках отложены в масштабе. Фото пациентов публикуются только с письменного согласия пациентов и их законных представителей.</p>
     </div>
     <div class="cases" id="case-list"></div>
       <div class="sub-block" id="steps">
@@ -808,6 +814,51 @@
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = (id) => document.getElementById(id);
   let PREVIEW = location.hash === '#preview';   // в админке пустые поля видны как «Добавить»
+  /* ---------- язык: ?lang=en — английская версия (текст из content.en.json, подписи интерфейса — из EN) ---------- */
+  const LANG = /[?&]lang=en\b/.test(location.search) ? 'en' : 'ru';
+  const EN = {
+    'Обо мне': 'About', 'Направления': 'Treatment', 'Кейсы': 'Cases', 'Наука': 'Research', 'Контакты': 'Contacts', 'Меню': 'Menu',
+    'Отзывы': 'Reviews', 'Как растёт кость': 'How bone grows', 'Лечение': 'Treatment', 'Родителям': 'For parents', 'Коллегам': 'For colleagues',
+    'Как растёт кость →': 'How bone grows →',
+    'Схема: дистракция нижней челюсти. Задний фрагмент неподвижен, передний отходит вперёд, в щели формируется новая кость.': 'Diagram: mandibular distraction. The posterior fragment stays still, the anterior one moves forward, and new bone forms in the gap.',
+    'ветвь': 'ramus', 'челюсть': 'mandible', 'мм': 'mm', 'Покрутите аппарат': 'Turn the device',
+    'Образование, курсы и то, где я работаю сейчас.': 'Education, courses and where I work now.', 'Образование': 'Education',
+    'Курсы и повышение квалификации': 'Courses and training', 'Чем я': 'What I', 'занимаюсь': 'treat',
+    'Термины подчёркнуты пунктиром. Нажмите на любой, чтобы прочитать короткое объяснение.': 'Terms are underlined with dots. Tap any of them to read a short explanation.',
+    'Результат': 'Results', 'в цифрах': 'in numbers',
+    'Полосы на графиках отложены в масштабе. Фото пациентов публикуются только с письменного согласия пациентов и их законных представителей.': 'Bars are drawn to scale. Patient photos are published only with the written consent of the patients and their legal guardians.',
+    'Показать фото операции': 'Show surgery photos', 'Скрыть фото операции': 'Hide surgery photos', 'Диссертация': 'Dissertation', 'и статьи': 'and papers',
+    'Нажмите на страницу, чтобы открыть её целиком': 'Tap a page to open it in full', 'Где': 'Where', 'меня найти': 'to find me',
+    'Новые кейсы выходят в Telegram-канале и в Instagram.': 'New cases are posted on my Telegram channel and Instagram (in Russian).',
+    'Где я': 'Where I', 'работаю': 'work', 'Здесь карта не встраивается. Откройте её в Яндекс Картах или 2ГИС: кнопки ниже.': 'The map cannot be embedded here. Open it in Yandex Maps or 2GIS with the buttons below.',
+    'Показать карту': 'Show map', 'Яндекс Карты ↗': 'Yandex Maps ↗', '2ГИС ↗': '2GIS ↗', 'Наверх ↑': 'Back to top ↑',
+    'Сайт считает посещения с помощью сервиса': 'This site counts visits with', 'Яндекс Метрика': 'Yandex Metrica',
+    ': страницы, источник перехода, город, устройство — без имён и контактов.': ': pages, referral source, city, device — no names or contact details.',
+    'Открыть статью ↗': 'Open paper ↗', 'К публикации в списке': 'Go to the paper in the list', 'Разделы': 'Sections', 'Наверх': 'Back to top',
+    'Меню сайта': 'Site menu', 'Павел Шаповалов в кабинете': 'Pavel Shapovalov in his office', 'Кому рассказать': 'Audience',
+    'Павел Шаповалов': 'Pavel Shapovalov', 'Разделы сайта': 'Site sections', 'Титульные страницы публикаций': 'Title pages of publications',
+    'Научные работы': 'Research work', 'Закрыть': 'Close', 'Закрыть меню': 'Close menu',
+    'Работа с ортодонтом': 'Work with orthodontists', 'Статьи': 'Papers', 'Доклады': 'Talks', 'Программы для ЭВМ': 'Software',
+    'Кандидатская диссертация': 'PhD dissertation', 'Специальность': 'Specialty', 'Руководитель': 'Supervisor', 'Защита': 'Defence',
+    'Открыть диссертацию →': 'Open the dissertation →', 'ЭВМ': 'SW', 'Читать ↗': 'Read ↗', 'Этап': 'Step', 'Страница: ': 'Page: ', 'Карта: ': 'Map: ',
+    'тело нижней челюсти': 'mandibular body', 'English version': 'Русская версия', 'Читать отзывы ↗': 'Read reviews ↗'
+  };
+  const tr = (ru) => (LANG === 'en' && EN[ru] != null ? EN[ru] : ru);
+  // подписи интерфейса в HTML и в разметке, которую собирает render(): точное совпадение текста узла или атрибута
+  function i18nDom(root) {
+    if (LANG !== 'en') return;
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode());) { const k = n.nodeValue.replace(/\s+/g, ' ').trim(); if (k && EN[k] != null) n.nodeValue = n.nodeValue.replace(n.nodeValue.trim(), EN[k]); }
+    root.querySelectorAll('[aria-label],[alt],[title]').forEach((e) => ['aria-label', 'alt', 'title'].forEach((a) => { const v = e.getAttribute(a); if (v && EN[v] != null) e.setAttribute(a, EN[v]); }));
+  }
+  if (LANG === 'en') {
+    document.documentElement.lang = 'en';
+    document.querySelector('meta[name="description"]')?.setAttribute('content', 'Pavel Shapovalov, MD, PhD, pediatric oral and maxillofacial surgeon in Moscow: mandibular distraction osteogenesis, clinical cases, research.');
+    for (const id of ['lang-sw', 'menu-lang']) { const a = $(id); if (a) { a.href = location.pathname; a.hreflang = 'ru'; a.lang = 'ru'; } }
+    $('lang-sw').textContent = 'RU'; $('lang-sw').setAttribute('aria-label', 'Русская версия');
+    i18nDom(document.body);
+  }
+
   let TERMS = {};
 
   /* ---------- текст из content.json ---------- */
@@ -879,16 +930,16 @@
           <h3>${esc(k.title)}</h3><ul>${(k.points || []).map((p) => `<li>${rich(p)}</li>`).join('')}</ul></div>
         <div class="viz"><div class="big">${metric}<small>${esc(k.metricUnit)}</small></div><p class="cap">${rich(k.metricCaption)}</p>
           <div class="bars" role="img" aria-label="${esc((k.bars || []).map((b) => `${b.name} ${b.value} ${b.unit}`).join(', '))}">
-            ${(k.bars || []).map((b) => `<div class="bar"><span class="n">${esc(b.name)}</span><span class="rail"><span class="fill${b.accent ? ' on' : ''}" style="--w:${Math.min(100, (+b.value / max) * 100).toFixed(2)}%"></span></span><span class="v">${esc(String(b.value).replace('.', ','))} ${esc(b.unit)}</span></div>`).join('')}
+            ${(k.bars || []).map((b) => `<div class="bar"><span class="n">${esc(b.name)}</span><span class="rail"><span class="fill${b.accent ? ' on' : ''}" style="--w:${Math.min(100, (+b.value / max) * 100).toFixed(2)}%"></span></span><span class="v">${esc(LANG === 'en' ? String(b.value) : String(b.value).replace('.', ','))} ${esc(b.unit)}</span></div>`).join('')}
             <div class="scale"><span></span><span class="t">${ticks}</span><span></span></div></div></div>${gallery(k)}</article>`;
     }).join('');
 
     const s = c.steps || {};
-    $('steps-h').innerHTML = esc(s.heading).replace(/(дистракционного аппарата)/, '<em>$1</em>');
+    $('steps-h').innerHTML = esc(s.heading).replace(/(дистракционного аппарата|distraction device)/i, '<em>$1</em>');
     $('steps-intro').innerHTML = rich(s.intro);
     $('step-list').innerHTML = '<span class="rail-y" aria-hidden="true"></span><span class="prog" aria-hidden="true"></span>' +
       (s.items || []).map((it, i) => {
-        const ph = safeUrl(it.image), cap = `Этап ${i + 1}: ${[it.title, it.detail].filter(Boolean).join(' ')}`;
+        const ph = safeUrl(it.image), cap = `${tr('Этап')} ${i + 1}: ${[it.title, it.detail].filter(Boolean).join(' ')}`;
         return `<li class="step${ph ? ' has-ph' : ''}"><span class="n">${i + 1}</span><p>${esc(it.title)} <span>${esc(it.detail)}</span></p>${ph ? `<button class="step-ph" type="button" data-cimg="${esc(ph)}" data-cap="${esc(cap)}" data-case="${esc(s.heading || 'Этапы операции')}" data-alt="${esc('Фото с операции. ' + cap)}" aria-label="Открыть фото: ${esc(cap)}"><img src="${esc(ph)}" alt="" loading="lazy"></button>` : ''}</li>`;
       }).join('');
     $('op-toggle').hidden = !(s.items || []).some((it) => safeUrl(it.image));
@@ -915,7 +966,7 @@
     $('talks').innerHTML = talks.map((t, i) => {
       const k = safeUrl(t.image) ? addLb({ img: safeUrl(t.image), title: t.title, sub: [t.event, t.type && t.type + ' доклад'].filter(Boolean).join(' · '), panel: 'talks', id: 'talk-' + i, tall: true }) : -1;
       return `<div class="pub glass" id="talk-${i}">${k >= 0 ? thumb(k, true) : `<span class="num">${esc(t.year)}</span>`}<div><b>${esc(t.title)}</b><span class="au">${esc(t.authors)}</span>
-      <span class="src"><span>${esc(t.event)}</span>${t.type ? `<span class="lnk">${esc(t.type)} доклад</span>` : ''}</span></div></div>`; }).join('');
+      <span class="src"><span>${esc(t.event)}</span>${t.type ? `<span class="lnk">${esc(t.type)}${LANG === 'en' ? '' : ' доклад'}</span>` : ''}</span></div></div>`; }).join('');
     $('soft').innerHTML = soft.map((t, i) => {
       const k = safeUrl(t.image) ? addLb({ img: safeUrl(t.image), title: t.title, sub: t.number, panel: 'soft', id: 'soft-' + i, fan: true }) : -1;
       return `<div class="pub glass" id="soft-${i}">${k >= 0 ? thumb(k) : '<span class="num">ЭВМ</span>'}<div><b>${esc(t.title)}</b><span class="au">${esc(t.authors)}</span>
@@ -960,7 +1011,7 @@
     // дистракция
     const dxc = c.distraction || {};
     DX = { max: +dxc.maxMm > 0 ? +dxc.maxMm : 15, phases: dxc.phases || [] };
-    $('dx-h').innerHTML = esc(dxc.heading || '').replace(/(кость|кости)$/, '<em>$1</em>');
+    $('dx-h').innerHTML = esc(dxc.heading || '').replace(/(кость|кости|bone)$/i, '<em>$1</em>');
     $('dx-note').innerHTML = rich(dxc.note);
 
     // карта
@@ -999,7 +1050,7 @@
     if (cta.label && safeUrl(cta.link)) { $('h-cta').textContent = cta.label + ' →'; $('h-cta').href = safeUrl(cta.link); }
     $('dx-intro').innerHTML = rich(pro() && dxc.introPro ? dxc.introPro : dxc.intro);
     $('dx-steps').innerHTML = DX.phases.map((ph) => `<li><i><b></b></i>${esc(pro() && ph.titlePro ? ph.titlePro : ph.title)}</li>`).join('');
-    $('dx-lbl-body').textContent = pro() ? 'тело нижней челюсти' : 'челюсть';
+    $('dx-lbl-body').textContent = tr(pro() ? 'тело нижней челюсти' : 'челюсть');
     dxIdx = -1; dxSet(dxP);
   }
   function setAud(a) {
@@ -1023,7 +1074,7 @@
 
   /* ---------- дистракция: прокрутка раздвигает фрагменты челюсти ---------- */
   let DX = { max: 15, phases: [] }, dxIdx = -1, dxP = 0;
-  const fmt1 = (v) => v.toFixed(1).replace('.', ',');
+  const fmt1 = (v) => (LANG === 'en' ? v.toFixed(1) : v.toFixed(1).replace('.', ','));
   function dxSet(p) {
     dxP = p;
     const s = (a, b) => Math.max(0, Math.min(1, (p - a) / (b - a)));
@@ -1040,7 +1091,7 @@
     $('dx-dim').setAttribute('opacity', act > 0.02 ? 1 : 0);
     $('dx-dim-r').setAttribute('transform', `translate(${dx.toFixed(2)} 0)`);
     $('dx-dim-l').setAttribute('x2', (345 + dx).toFixed(2));
-    $('dx-dim-t').setAttribute('x', (345 + dx / 2).toFixed(2)); $('dx-dim-t').textContent = fmt1(mm) + ' мм';
+    $('dx-dim-t').setAttribute('x', (345 + dx / 2).toFixed(2)); $('dx-dim-t').textContent = fmt1(mm) + ' ' + tr('мм');
     $('dx-mm').textContent = fmt1(mm);
     const fills = [cut, lat, act, con];
     document.querySelectorAll('#dx-steps b').forEach((b, i) => b.style.setProperty('--f', fills[i] ?? 0));
@@ -1070,7 +1121,7 @@
   let menuOpen = false;
   function openMenu() {
     if (menuOpen) return; menuOpen = true;
-    burger.setAttribute('aria-expanded', 'true'); burger.querySelector('.sr').textContent = 'Закрыть меню';
+    burger.setAttribute('aria-expanded', 'true'); burger.querySelector('.sr').textContent = tr('Закрыть меню');
     document.body.classList.add('menu-open'); menu.hidden = false; if (lenis) lenis.stop();
     const r = burger.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
     const R = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
@@ -1083,7 +1134,7 @@
   }
   function closeMenu(focusBack = true) {
     if (!menuOpen) return; menuOpen = false;
-    burger.setAttribute('aria-expanded', 'false'); burger.querySelector('.sr').textContent = 'Меню';
+    burger.setAttribute('aria-expanded', 'false'); burger.querySelector('.sr').textContent = tr('Меню');
     document.body.classList.remove('menu-open'); if (lenis) lenis.start();
     const done = () => { menu.hidden = true; if (window.gsap) gsap.set(menu, { clearProps: 'all' }); };
     if (window.gsap && !reduce) {
@@ -1109,7 +1160,7 @@
     if (!MAPQ) return;
     const f = document.createElement('iframe');
     f.src = 'https://yandex.ru/map-widget/v1/?mode=search&z=16&text=' + encodeURIComponent(MAPQ);
-    f.title = 'Карта: ' + MAPQ; f.allowFullscreen = true; f.referrerPolicy = 'strict-origin-when-cross-origin';
+    f.title = tr('Карта: ') + MAPQ; f.allowFullscreen = true; f.referrerPolicy = 'strict-origin-when-cross-origin';
     f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox');
     $('map-frame').append(f); $('map-frame').classList.add('on'); $('map-load').hidden = true;
   });
@@ -1156,7 +1207,7 @@
   let lbItem = null, lbBack = null;
   function openLb(k, from) {
     const it = LB[k]; if (!it) return; lbItem = it; lbBack = from || null;
-    const im = new Image(); im.src = it.img; im.alt = it.alt || ('Страница: ' + it.title); $('lb-fig').replaceChildren(im);
+    const im = new Image(); im.src = it.img; im.alt = it.alt || (tr('Страница: ') + it.title); $('lb-fig').replaceChildren(im);
     $('lb-go').hidden = !it.panel; $('lb').classList.toggle('clean', !!it.clean);
     $('lb-t').textContent = it.title; $('lb-s').textContent = it.sub || '';
     $('lb-link').hidden = !it.url; if (it.url) $('lb-link').href = it.url;
@@ -1187,7 +1238,7 @@
   });
   $('op-toggle').addEventListener('click', (e) => {
     const on = document.querySelector('.steps-wrap').classList.toggle('show-op');
-    e.currentTarget.setAttribute('aria-pressed', String(on)); e.currentTarget.textContent = on ? 'Скрыть фото операции' : 'Показать фото операции';
+    e.currentTarget.setAttribute('aria-pressed', String(on)); e.currentTarget.textContent = tr(on ? 'Скрыть фото операции' : 'Показать фото операции');
   });
   $('lb-go').addEventListener('click', () => {
     const it = lbItem; closeLb(true); if (!it) return;
@@ -1317,7 +1368,7 @@
       const raw = el.dataset.to, to = num(raw); if (isNaN(to)) return;
       const dec = (raw.split(/[.,]/)[1] || '').length, o = { v: 0 };
       ScrollTrigger.create({ trigger: el, start: 'top 95%', once: true,
-        onEnter: () => gsap.to(o, { v: to, duration: 1.6, ease: 'power2.out', onUpdate: () => { el.textContent = o.v.toFixed(dec).replace('.', ','); } }) });
+        onEnter: () => gsap.to(o, { v: to, duration: 1.6, ease: 'power2.out', onUpdate: () => { el.textContent = LANG === 'en' ? o.v.toFixed(dec) : o.v.toFixed(dec).replace('.', ','); } }) });
     });
     gsap.to('.hero-in', { yPercent: -12, autoAlpha: 0.2, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
     const fig = $('h-figure');
@@ -1402,9 +1453,10 @@
   }
   // вкладки сайта считаются как отдельные страницы: видно, какие разделы смотрят
   const ymHit = (id) => { if (YM && window.ym) window.ym(YM, 'hit', location.pathname + '#' + id, { title: document.title + ' — ' + id }); };
-  function boot(c) { render(c); metrika((c.meta || {}).metrika); if (booted) return; booted = true; animate(); startDx(); startTabs(); writeSignature(); }
+  function boot(c) { render(c); i18nDom(document.body); metrika((c.meta || {}).metrika); if (booted) return; booted = true; animate(); startDx(); startTabs(); writeSignature(); }
   const ready = () => { if (parent !== window) parent.postMessage({ type: 'shapovalov:ready' }, '*'); };   // в сообщении нет ничего секретного
-  fetch('content.json', { cache: 'no-store' }).then((r) => r.json()).then((c) => { boot(c); ready(); })
+  const loadContent = (f) => fetch(f, { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  (LANG === 'en' ? loadContent('content.en.json').catch(() => loadContent('content.json')) : loadContent('content.json')).then((c) => { boot(c); ready(); })
     .catch(() => { if (PREVIEW) return ready();   // предпросмотр получит текст из админки
       document.body.insertAdjacentHTML('afterbegin', '<p style="position:fixed;z-index:99;bottom:16px;left:16px;right:16px;padding:12px 16px;border-radius:12px;background:#2a2416;color:#e6c987;font-size:14px">Не удалось загрузить content.json. Откройте сайт через веб-сервер, а не как файл.</p>'); });
 })();

@@ -1,0 +1,691 @@
+{
+  "meta": {
+    "handle": "dr__shapovalov",
+    "telegram": "https://t.me/SHAPOVALOV_DR",
+    "instagram": "https://www.instagram.com/dr__shapovalov/",
+    "metrika": "113980040"
+  },
+  "hero": {
+    "firstName": "Pavel",
+    "lastName": "Shapovalov",
+    "lede": "Oral and maxillofacial surgeon, PhD (Candidate of Medical Sciences). Pediatric Clinic of Maxillofacial Surgery, Central Research Institute of Dental and Maxillofacial Surgery, Moscow. I treat children and teenagers.",
+    "cardLine1": "PhD · oral and maxillofacial surgery",
+    "cardLine2": "CRIDMS · pediatric clinic",
+    "portrait": "img/portrait.jpg",
+    "middleName": "",
+    "ledePro": "Oral and maxillofacial surgeon, PhD (specialty 3.1.2 Oral and Maxillofacial Surgery). Dissertation on the clinical effectiveness of distraction osteogenesis in children with mandibular hypoplasia. 10 papers and 7 talks, including at the EACMFS Congress.",
+    "figure": "img/hero-figure-2.webp"
+  },
+  "readings": [
+    {
+      "from": "",
+      "to": "6",
+      "unit": "years",
+      "label": "in oral and maxillofacial surgery"
+    },
+    {
+      "from": "",
+      "to": "10",
+      "unit": "papers",
+      "label": "in peer-reviewed journals"
+    },
+    {
+      "from": "",
+      "to": "7",
+      "unit": "talks",
+      "label": "at conferences, including the EACMFS Congress"
+    }
+  ],
+  "audience": {
+    "parentsLabel": "For parents",
+    "colleaguesLabel": "For colleagues",
+    "parentsCta": {
+      "label": "How bone grows",
+      "link": "#distraction"
+    },
+    "colleaguesCta": {
+      "label": "Dissertation and papers",
+      "link": "#science"
+    }
+  },
+  "distraction": {
+    "heading": "How bone grows",
+    "intro": "If the lower jaw is underdeveloped, it can be lengthened. The bone is cut, a small device is attached, and the fragments are moved apart little by little. New bone of the child’s own grows in the gap. Scroll down and the device will start working.",
+    "introPro": "Mandibular distraction osteogenesis: osteotomy, fixation of a compact distraction device, gradual separation of the fragments and formation of the regenerate. Scrolling walks through the phases.",
+    "maxMm": 15,
+    "note": "This is a diagram, not a patient’s scan. The amount and rate of lengthening are planned for each child individually.",
+    "phases": [
+      {
+        "title": "Surgery",
+        "text": "The bone is carefully cut and a small device, a distractor, is fixed to it.",
+        "titlePro": "Osteotomy and device placement",
+        "textPro": "Mandibular osteotomy and fixation of the compact distraction device to the fragments."
+      },
+      {
+        "title": "Pause",
+        "text": "The device is left untouched for a while: healing begins at the cut.",
+        "titlePro": "Latency period",
+        "textPro": "A period without activation before distraction starts."
+      },
+      {
+        "title": "Lengthening",
+        "text": "The device is turned a little each day, usually about a millimetre per day. The fragments move apart and new bone fills the gap.",
+        "titlePro": "Activation",
+        "textPro": "Separation of the fragments at a set rate and rhythm; the classic rate after G. A. Ilizarov is 1 mm per day."
+      },
+      {
+        "title": "Consolidation",
+        "text": "The new bone matures and hardens. The device stays in place for some time and is then removed.",
+        "titlePro": "Consolidation",
+        "textPro": "Stabilisation of the device until the regenerate mineralises, then device removal."
+      }
+    ]
+  },
+  "about": {
+    "heading": "Surgeon at a **pediatric clinic**",
+    "text": "Since 2021 I have worked as an oral and maxillofacial surgeon in the Department of Surgical Treatment of Craniomaxillofacial Anomalies, Pediatric Clinic of Maxillofacial Surgery, Central Research Institute of Dental and Maxillofacial Surgery (Moscow). I operate on children and teenagers: I place mandibular distraction devices, expand the upper and lower jaws, remove jaw cysts and benign tumours, and perform bone grafting. On my blog I show real cases with numbers and terms that make sense to both patients and colleagues.",
+    "facts": [
+      {
+        "label": "Degree",
+        "value": "PhD (Candidate of Medical Sciences), specialty 3.1.2 Oral and Maxillofacial Surgery (2026)"
+      },
+      {
+        "label": "Position",
+        "value": "Oral and maxillofacial surgeon"
+      },
+      {
+        "label": "Workplace",
+        "value": "Department of Surgical Treatment of Craniomaxillofacial Anomalies, Pediatric Clinic of Maxillofacial Surgery, Federal State Budgetary Institution National Medical Research Center «Central Research Institute of Dental and Maxillofacial Surgery» of the Ministry of Health of the Russian Federation, Moscow"
+      },
+      {
+        "label": "Experience",
+        "value": "6 years"
+      },
+      {
+        "label": "Patients",
+        "value": "Children and teenagers"
+      },
+      {
+        "label": "Membership",
+        "value": "European Association for Cranio-Maxillo-Facial Surgery (EACMFS), since 2021"
+      }
+    ],
+    "education": [
+      {
+        "years": "2014–2019",
+        "degree": "Specialist degree in Dentistry (DDS equivalent), Faculty of Dentistry",
+        "place": "A. I. Evdokimov Moscow State University of Medicine and Dentistry of the Ministry of Health of the Russian Federation (since 2023 — Russian University of Medicine)"
+      },
+      {
+        "years": "2019–2021",
+        "degree": "Residency in Oral and Maxillofacial Surgery",
+        "place": "Department of Pediatric Maxillofacial Surgery and Oral Surgery, A. I. Evdokimov Moscow State University of Medicine and Dentistry"
+      },
+      {
+        "years": "2022–2025",
+        "degree": "Postgraduate studies (PhD programme), specialty 3.1.2 Oral and Maxillofacial Surgery",
+        "place": "Federal State Budgetary Institution National Medical Research Center «Central Research Institute of Dental and Maxillofacial Surgery» of the Ministry of Health of the Russian Federation"
+      },
+      {
+        "years": "2026",
+        "degree": "PhD (Candidate of Medical Sciences)",
+        "place": "Dissertation defended on 30 June 2026; the degree was awarded by order No. 888/нк of the Ministry of Science and Higher Education of the Russian Federation of 13 October 2026"
+      }
+    ],
+    "courses": [
+      {
+        "year": "",
+        "title": "",
+        "org": ""
+      }
+    ]
+  },
+  "reviews": {
+    "heading": "Patient *reviews*",
+    "text": "Reviews by patients and their parents are published on independent websites (in Russian). Read them where they were written.",
+    "links": [
+      {
+        "label": "ProDoctorov",
+        "note": "Doctor review website",
+        "url": "https://prodoctorov.ru/moskva/vrach/928950-shapovalov/"
+      },
+      {
+        "label": "Yandex",
+        "note": "Doctor profile on Yandex",
+        "url": "https://ya.ru/medicine/doctor/shapovalov_pavel_Z1NCEuO06GIwJ"
+      }
+    ]
+  },
+  "directions": [
+    {
+      "code": "DIST",
+      "title": "Mandibular distraction osteogenesis",
+      "text": "Placement of distraction devices on an underdeveloped lower jaw: the bone is lengthened gradually, from the patient’s own tissue.",
+      "link": "#cases",
+      "linkLabel": "Clinical cases"
+    },
+    {
+      "code": "MAND",
+      "title": "Narrow lower jaw",
+      "text": "Mandibular expansion with symphyseal distractors.",
+      "link": "",
+      "linkLabel": ""
+    },
+    {
+      "code": "MAX",
+      "title": "Narrow upper jaw",
+      "text": "Le Fort I and midpalatal osteotomy with expansion using Haas-type appliances.",
+      "link": "",
+      "linkLabel": ""
+    },
+    {
+      "code": "CYST",
+      "title": "Jaw cysts",
+      "text": "Cystectomy and cystotomy.",
+      "link": "",
+      "linkLabel": ""
+    },
+    {
+      "code": "TUM",
+      "title": "Benign jaw tumours",
+      "text": "Removal of benign jaw lesions.",
+      "link": "",
+      "linkLabel": ""
+    },
+    {
+      "code": "GRAFT",
+      "title": "Bone grafting of the upper and lower jaw",
+      "text": "",
+      "link": "",
+      "linkLabel": ""
+    }
+  ],
+  "cases": [
+    {
+      "id": "case-1",
+      "tags": [
+        "Microsomia",
+        "12 years old",
+        "before and at 6 months"
+      ],
+      "title": "Bilateral microsomia: mandibular lengthening",
+      "points": [
+        "Bilateral involvement: mandibular hypoplasia on both sides and a deformity of the right ear",
+        "Complaints: malocclusion, difficulty eating, night-time snoring, appearance",
+        "Based on [[plan|3D planning]], curvilinear Conmet [[kda|distraction devices]] with a 50° radius of curvature were chosen",
+        "Plan: 15 mm. Considering the patient’s age and growth spurt, [[hyper|overcorrection]] was performed: **[[regen|regenerate]] 21 mm on each side**"
+      ],
+      "metric": "21",
+      "metricUnit": "mm",
+      "metricCaption": "regenerate on each side",
+      "scaleMax": 24,
+      "bars": [
+        {
+          "name": "Initial gap",
+          "value": 14,
+          "unit": "mm",
+          "accent": false
+        },
+        {
+          "name": "Plan",
+          "value": 15,
+          "unit": "mm",
+          "accent": false
+        },
+        {
+          "name": "Regenerate",
+          "value": 21,
+          "unit": "mm",
+          "accent": true
+        }
+      ],
+      "images": [
+        {
+          "src": "img/cases/micro-face.webp",
+          "caption": "Face before and after: frontal view and both profiles",
+          "alt": "Patient, 12, with bilateral microsomia: frontal view, right and left profiles before and after treatment. Eyes covered."
+        },
+        {
+          "src": "img/cases/micro-bite.webp",
+          "caption": "Occlusion before and after",
+          "alt": "Occlusion before treatment and after, with braces."
+        }
+      ],
+      "consent": "Published with written consent."
+    },
+    {
+      "id": "case-2",
+      "tags": [
+        "Distraction",
+        "17 years old",
+        "devices removed after 5 months"
+      ],
+      "title": "Distraction instead of orthognathic surgery",
+      "points": [
+        "The patient was a candidate for [[ortho|orthognathic surgery]]",
+        "Together with the orthodontist we chose bilateral mandibular [[dist|distraction osteogenesis]] with devices of 70° curvature radius",
+        "Plan: 11 mm on the right, 7 mm on the left. Under orthodontic control distraction was stopped early: **7 mm regenerate on both sides**",
+        "After finishing orthodontic treatment, orthognathic surgery was **not needed**"
+      ],
+      "metric": "7.93 → 2",
+      "metricUnit": "mm",
+      "metricCaption": "[[overjet|overjet]] before and after treatment",
+      "scaleMax": 8,
+      "bars": [
+        {
+          "name": "Before",
+          "value": 7.93,
+          "unit": "mm",
+          "accent": false
+        },
+        {
+          "name": "After",
+          "value": 2,
+          "unit": "mm",
+          "accent": true
+        }
+      ],
+      "images": [
+        {
+          "src": "img/cases/dist-face.webp",
+          "caption": "Face before and after: frontal view and profile",
+          "alt": "Patient, 17: frontal view and profile before and after treatment. Eyes covered."
+        },
+        {
+          "src": "img/cases/dist-bite.webp",
+          "caption": "Occlusion before and after",
+          "alt": "Occlusion with braces before and after distraction."
+        },
+        {
+          "src": "img/cases/dist-ct.webp",
+          "caption": "CT before and after: overjet 7.93 → 2.0 mm",
+          "alt": "3D CT and CT slices before and after: overjet 7.93 mm before treatment and 2.0 mm after."
+        }
+      ],
+      "consent": "Published with written consent."
+    },
+    {
+      "id": "case-3",
+      "tags": [
+        "TMJ ankylosis",
+        "16 years old",
+        "before and at 6 months"
+      ],
+      "title": "Left TMJ ankylosis: distraction and coronoidectomy",
+      "points": [
+        "Ankylosis of the left temporomandibular joint. Mouth opening before surgery: 2.5 cm",
+        "A second obstacle was a large coronoid process that extended under the zygomatic arch and hit it",
+        "In one operation: mandibular [[dist|distraction osteogenesis]] with a curvilinear Conmet R70 [[kda|distraction device]], 20 mm of distraction, and coronoidectomy",
+        "Histology: ankylotic masses. After discharge: mouth-opening exercises with a lateral mouth gag",
+        "Mouth opening in surgery: 3.5 cm; **at 6 months, at device removal: still 3.5 cm**"
+      ],
+      "metric": "2.5 → 3.5",
+      "metricUnit": "cm",
+      "metricCaption": "mouth opening before surgery and at 6 months",
+      "scaleMax": 4,
+      "bars": [
+        {
+          "name": "Before",
+          "value": 2.5,
+          "unit": "cm",
+          "accent": false
+        },
+        {
+          "name": "Surgery",
+          "value": 3.5,
+          "unit": "cm",
+          "accent": false
+        },
+        {
+          "name": "6 months",
+          "value": 3.5,
+          "unit": "cm",
+          "accent": true
+        }
+      ],
+      "images": [
+        {
+          "src": "img/cases/ankiloz-open-en.webp",
+          "caption": "Mouth opening with a ruler: before surgery and at 6 months",
+          "alt": "Patient, 16, opening the mouth next to a ruler: 2.5 cm before surgery, 3.5 cm at 6 months. Eyes covered."
+        },
+        {
+          "src": "img/cases/ankiloz-ct-en.webp",
+          "caption": "3D CT before surgery and at 6 months. Red arrow: coronoid process",
+          "alt": "3D CT of the skull, side and bottom views, before surgery and at 6 months; arrows on the pre-op scans point to the coronoid process."
+        }
+      ],
+      "consent": "Published with written consent."
+    }
+  ],
+  "steps": {
+    "heading": "Placing a distraction device",
+    "intro": "Steps of horizontal mandibular [[osteo|osteotomy]] with placement of a curvilinear Conmet R50 device. Each step has a surgery photo on the right; the photos stay blurred until you tap «Show surgery photos».",
+    "items": [
+      {
+        "title": "Marking the incision line",
+        "detail": "with brilliant green solution",
+        "image": "img/cases/step-01.webp"
+      },
+      {
+        "title": "Exposure",
+        "detail": "of the mandibular body, angle and ramus",
+        "image": "img/cases/step-02.webp"
+      },
+      {
+        "title": "Fitting",
+        "detail": "the surgical guide for the osteotomy",
+        "image": "img/cases/step-03.webp"
+      },
+      {
+        "title": "Partial osteotomy",
+        "detail": "",
+        "image": "img/cases/step-04.webp"
+      },
+      {
+        "title": "Fitting",
+        "detail": "the distraction device",
+        "image": "img/cases/step-05.webp"
+      },
+      {
+        "title": "Marking",
+        "detail": "the exit point of the activation rod on the skin",
+        "image": "img/cases/step-06.webp"
+      },
+      {
+        "title": "Trocar",
+        "detail": "and bringing out the activation rod",
+        "image": "img/cases/step-07.webp"
+      },
+      {
+        "title": "Device fixation:",
+        "detail": "screws through a trocar from a separate puncture",
+        "image": "img/cases/step-08.webp"
+      },
+      {
+        "title": "Completing the osteotomy",
+        "detail": "",
+        "image": "img/cases/step-09.webp"
+      },
+      {
+        "title": "Check:",
+        "detail": "the device is turned until the fragments separate",
+        "image": "img/cases/step-10.webp"
+      }
+    ]
+  },
+  "science": {
+    "intro": "PhD dissertation, papers, talks and a registered software program. Data from my eLIBRARY and ISTINA profiles. Papers are in Russian; titles are translated.",
+    "dissertation": {
+      "title": "Clinical effectiveness of distraction osteogenesis in children with mandibular hypoplasia",
+      "degree": "Dissertation for the degree of Candidate of Medical Sciences (PhD)",
+      "specialty": "3.1.2 Oral and Maxillofacial Surgery",
+      "supervisor": "Anatoly A. Kulakov, Academician of the Russian Academy of Sciences, MD, PhD, Professor, Honoured Scientist of the Russian Federation",
+      "year": "Defended on 30 June 2026; degree awarded by order No. 888/нк of the Ministry of Science and Higher Education of the Russian Federation of 13 October 2026",
+      "place": "Dissertation council 21.1.079.02, Central Research Institute of Dental and Maxillofacial Surgery, Moscow",
+      "link": "https://search.rsl.ru/ru/record/01015615229",
+      "summary": "Indications for distraction osteogenesis were defined from morphometric measurements, and integral indices were developed to determine these indications.",
+      "image": "img/pubs/dissertation-2026.jpg"
+    },
+    "publications": [
+      {
+        "authors": "Losev F. F., Shapovalov P. I., Gevorkyan O. V.",
+        "title": "Mandibular distraction osteogenesis in adolescents as an alternative to orthognathic surgery: a case series",
+        "journal": "Avicenna Bulletin (Vestnik Avitsenny). 2026; 28(3): 887–897",
+        "doi": "10.25005/2074-0581-2026-28-3-887-897",
+        "link": "",
+        "image": "img/pubs/avicenna-2026.jpg"
+      },
+      {
+        "authors": "Shapovalov P. I., Losev F. F., Kulakov A. A., Gevorkyan O. V.",
+        "title": "Errors and complications of mandibular distraction osteogenesis in children and adolescents: a report of three clinical cases",
+        "journal": "Operative Surgery and Clinical Anatomy (Pirogov Scientific Journal). 2026; 10(1): 45–54",
+        "doi": "10.17116/operhirurg20261001145",
+        "link": "",
+        "image": "img/pubs/pirogov-2026.jpg"
+      },
+      {
+        "authors": "Losev F. F., Shapovalov P. I., Khodyachiy A. E., Kulakov A. A.",
+        "title": "Accuracy of mandibular distraction osteogenesis in children: a clinical and radiological analysis",
+        "journal": "Medical Bulletin of the Ministry of Internal Affairs. 2025; 139(6): 2–9",
+        "doi": "10.52341/20738080_2025_139_6_2",
+        "link": "",
+        "image": "img/pubs/mvd-2025.jpg"
+      },
+      {
+        "authors": "Losev F. F., Shapovalov P. I., Kulakov A. A.",
+        "title": "Choosing the type of distraction device for mandibular hypoplasia based on mandibular morphometric parameters",
+        "journal": "Stomatologiya. 2025; 104(6-2): 38–43",
+        "doi": "10.17116/stomat202510406238",
+        "link": "https://www.mediasphera.ru/issues/stomatologiya/2025/6-2/1003917352025062038",
+        "image": "img/pubs/stomat-2025-6-38.jpg"
+      },
+      {
+        "authors": "Losev F. F., Shapovalov P. I., Kulakov A. A., Gevorkyan O. V.",
+        "title": "Comparative morphometric analysis of mandibular body and ramus dimensions in adolescents with different forms of hypoplasia: a classification of severity and an algorithm for choosing surgical tactics",
+        "journal": "Stomatologiya. 2025; 104(6-2): 65–72",
+        "doi": "10.17116/stomat202510406265",
+        "link": "",
+        "image": "img/pubs/stomat-2025-6-65.jpg"
+      },
+      {
+        "authors": "Losev F. F., Shapovalov P. I., Rakhmatullin D. I.",
+        "title": "Personalised control of the rate of mandibular distraction osteogenesis: the influence of mechanical and physical factors on bone regenerate maturation",
+        "journal": "Stomatologiya. 2025; 104(5): 84–91",
+        "doi": "10.17116/stomat202510405184",
+        "link": "https://www.mediasphera.ru/issues/stomatologiya/2025/5/1003917352025051084",
+        "image": "img/pubs/stomat-2025-5.jpg"
+      },
+      {
+        "authors": "Shapovalov P. I., Losev F. F.",
+        "title": "Comparison of surgical approaches for mandibular distractor placement in adolescents: a review of anatomical, surgical and aesthetic aspects",
+        "journal": "Pediatric Dentistry and Dental Prophylaxis. 2025; 25(3): 292–304",
+        "doi": "10.33925/1683-3031-2025-924",
+        "link": "",
+        "image": "img/pubs/sdv-2025-924.jpg"
+      },
+      {
+        "authors": "Shapovalov P. I., Losev F. F., Kulakov A. A., Gevorkyan O. V.",
+        "title": "Mandibular distraction osteogenesis in adolescents as an alternative to orthognathic surgery: clinical experience",
+        "journal": "Pediatric Dentistry and Dental Prophylaxis. 2025; 25(3): 323–331",
+        "doi": "10.33925/1683-3031-2025-953",
+        "link": "",
+        "image": "img/pubs/sdv-2025-953.jpg"
+      },
+      {
+        "authors": "Shapovalov P. I.",
+        "title": "Comparative analysis of the results of surgical correction of transverse facial cleft",
+        "journal": "Stomatologiya. 2023; 102(3): 99–100",
+        "doi": "",
+        "link": ""
+      },
+      {
+        "authors": "Tyshchenko N. S., Kopytov A. A., Poklad S. V., Shapovalov P. I.",
+        "title": "Modifying the conditioner with an acrylic–maleic acid copolymer to increase the bond strength of glass ionomer cements to hard dental tissues",
+        "journal": "Clinical Dentistry (Klinicheskaya Stomatologiya). 2019; 2(90): 72–75",
+        "doi": "",
+        "link": "",
+        "image": "img/pubs/kstom-2019.jpg"
+      }
+    ],
+    "profiles": [
+      {
+        "label": "ORCID",
+        "value": "0000-0002-1929-717X",
+        "url": "https://orcid.org/0000-0002-1929-717X"
+      },
+      {
+        "label": "ResearcherID",
+        "value": "RJT-7657-2026",
+        "url": "https://www.webofscience.com/wos/author/record/RJT-7657-2026"
+      },
+      {
+        "label": "RSCI SPIN",
+        "value": "7218-2940",
+        "url": ""
+      },
+      {
+        "label": "ISTINA",
+        "value": "shapovalov_pi",
+        "url": "https://istina.msu.ru/profile/shapovalov_pi/"
+      }
+    ],
+    "talks": [
+      {
+        "year": "2026",
+        "title": "A semi-axial CT-based method for quantitative assessment of mandibular asymmetry using a novel integral asymmetry index",
+        "authors": "Shapovalov P. I., Khodyachiy A. E., Kulakov A. A.",
+        "event": "28th Congress of the European Association for Cranio-Maxillo-Facial Surgery, Athens, Greece, 15–18 September 2026",
+        "type": "Oral presentation"
+      },
+      {
+        "year": "2026",
+        "title": "Mandibular anatomical segments as a quantitative assessment tool for growth dynamics and asymmetry in pediatric patients",
+        "authors": "Shapovalov P. I., Khodyachiy A. E., Kulakov A. A.",
+        "event": "28th Congress of the European Association for Cranio-Maxillo-Facial Surgery, Athens, Greece, 15–18 September 2026",
+        "type": "Poster",
+        "image": "img/pubs/eacmfs-2026-poster.jpg"
+      },
+      {
+        "year": "2026",
+        "title": "Mandibular distraction osteogenesis in adolescents as an alternative to orthognathic surgery: clinical experience",
+        "authors": "Tekucheva S. V., Shapovalov P. I.",
+        "event": "Scientific and practical conference with international participation on modern diagnosis and treatment in pediatric dentistry, orthodontics and outpatient dental practice, St Petersburg, 2–4 April 2026",
+        "type": "Oral presentation"
+      },
+      {
+        "year": "2025",
+        "title": "Mandibular distraction osteogenesis in adolescents as an alternative to orthognathic surgery: clinical experience",
+        "authors": "Shapovalov P. I., Kulakov A. A.",
+        "event": "8th All-Russian conference with international participation «Kolesov Readings: congenital and hereditary pathology of the head, face and neck in children», Russian University of Medicine, 30 October – 1 November 2025",
+        "type": "Oral presentation"
+      },
+      {
+        "year": "2024",
+        "title": "Effectiveness of rehabilitation of patients with bilateral cleft lip and palate at the bone grafting stage",
+        "authors": "Romanenko A. P., Ivanov A. L., Shapovalov P. I.",
+        "event": "3rd All-Russian Congress of the Society of Specialists in Oral and Maxillofacial Surgery with international participation, St Petersburg, 24–25 May 2024",
+        "type": "Poster"
+      },
+      {
+        "year": "2024",
+        "title": "Mandibular distraction osteogenesis in adolescents as an alternative to orthognathic surgery: clinical experience",
+        "authors": "Shapovalov P. I.",
+        "event": "52nd All-Russian conference of the Dental Association of Russia (StAR) at the 57th Moscow International Dental Forum «Dental Salon», Moscow, 14–16 April 2024",
+        "type": "Oral presentation"
+      },
+      {
+        "year": "2023",
+        "title": "Techniques for repair of transverse facial cleft",
+        "authors": "Shapovalov P. I.",
+        "event": "14th conference of young scientists «Scientific achievements of modern dentistry and maxillofacial surgery», 30 May 2023",
+        "type": "Oral presentation"
+      }
+    ],
+    "software": [
+      {
+        "title": "Functional and morphometric analyser of indications for mandibular distraction osteogenesis",
+        "authors": "Shapovalov P. I., Khodyachiy A. E., Arzhantsev A. P.",
+        "number": "Certificate of state registration of computer program No. 2026614230 of 13.02.2026 (application of 04.02.2026)",
+        "image": "img/pubs/soft-2026614230.jpg"
+      }
+    ]
+  },
+  "work": {
+    "name": "Central Research Institute of Dental and Maxillofacial Surgery",
+    "text": "Federal State Budgetary Institution National Medical Research Center «Central Research Institute of Dental and Maxillofacial Surgery» of the Ministry of Health of the Russian Federation. Pediatric Clinic of Maxillofacial Surgery, Department of Surgical Treatment of Craniomaxillofacial Anomalies. I see children and teenagers. Treatment under compulsory medical insurance (OMS) and high-tech medical care quotas (VMP) is available for patients eligible in Russia.",
+    "address": "Moscow, 16 Timura Frunze St., bldg. 5",
+    "links": [
+      {
+        "label": "Appointments via call centre: +7 (499) 255-27-22",
+        "url": "tel:+74992552722"
+      },
+      {
+        "label": "My page on the institute website (in Russian)",
+        "url": "https://cniis.ru/specialists/otdelenie-khirurgicheskogo-lecheniya-anomaliy-cherepno-chelyustno-litsevoy-oblasti/shapovalov-pavel-igorevich/"
+      },
+      {
+        "label": "Reviews on ProDoctorov (in Russian)",
+        "url": "https://prodoctorov.ru/moskva/vrach/928950-shapovalov/"
+      }
+    ],
+    "mapQuery": "Москва, улица Тимура Фрунзе, 16с5"
+  },
+  "contacts": [
+    {
+      "label": "Appointments, call centre",
+      "value": "+7 (499) 255-27-22",
+      "url": "tel:+74992552722"
+    },
+    {
+      "label": "Doctor’s phone",
+      "value": "+7 977 882-00-70",
+      "url": "tel:+79778820070"
+    },
+    {
+      "label": "Email",
+      "value": "shapovalov_pi@cniis.ru",
+      "url": "mailto:shapovalov_pi@cniis.ru"
+    },
+    {
+      "label": "Telegram",
+      "value": "SHAPOVALOV_DR",
+      "url": "https://t.me/SHAPOVALOV_DR"
+    },
+    {
+      "label": "Instagram",
+      "value": "@dr__shapovalov",
+      "url": "https://www.instagram.com/dr__shapovalov/"
+    },
+    {
+      "label": "X",
+      "value": "@dr_shapovalov",
+      "url": "https://x.com/dr_shapovalov"
+    }
+  ],
+  "terms": [
+    {
+      "key": "dist",
+      "title": "Distraction osteogenesis",
+      "text": "The bone is cut, and a device then gradually moves the fragments apart. New tissue, the regenerate, forms in the gap between them."
+    },
+    {
+      "key": "regen",
+      "title": "Regenerate",
+      "text": "New tissue that forms in the gap between the separated bone fragments during distraction."
+    },
+    {
+      "key": "kda",
+      "title": "Distraction device",
+      "text": "A compression-distraction device used to move bone fragments apart gradually. Curvilinear devices differ in their radius of curvature."
+    },
+    {
+      "key": "hyper",
+      "title": "Overcorrection",
+      "text": "Lengthening beyond the plan, leaving a reserve for further growth of the child’s facial skeleton."
+    },
+    {
+      "key": "ortho",
+      "title": "Orthognathic surgery",
+      "text": "Moving the jaws into the correct position in a single operation."
+    },
+    {
+      "key": "overjet",
+      "title": "Overjet",
+      "text": "The horizontal distance between the incisal edges of the upper and lower incisors."
+    },
+    {
+      "key": "osteo",
+      "title": "Osteotomy",
+      "text": "Cutting the bone. Partial osteotomy comes before device placement, completion after the device is fixed."
+    },
+    {
+      "key": "plan",
+      "title": "3D planning",
+      "text": "The surgery is modelled on a computer from CT data: the device type is chosen and the amount of distraction is calculated."
+    }
+  ],
+  "footer": {
+    "note": "Information on this site is for general reference and does not replace an in-person consultation with a doctor."
+  }
+}

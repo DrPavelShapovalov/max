@@ -161,6 +161,7 @@
       <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="3"/><g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><path d="M31 29V62"/><path d="M48 29V62"/><path d="M65 29V62"/><path d="M25 64H71"/></g><circle cx="76" cy="71" r="5" fill="currentColor"/></svg>
       Админка <small>dr__shapovalov</small>
     </div>
+    <div class="seg" id="clang" role="group" aria-label="Язык сайта, который вы правите" title="Какую версию сайта править"><button type="button" data-l="ru">RU</button><button type="button" data-l="en">EN</button></div>
     <div class="status" id="status" role="status"><i></i><span id="status-text">Загружаю…</span></div>
     <button class="btn" id="pv-toggle" type="button">Предпросмотр</button>
     <button class="btn primary" id="publish" type="button">Опубликовать</button>
@@ -286,7 +287,7 @@
   const SECTIONS = SCHEMA.filter((s) => s.id);
 
   /* ---------- состояние ---------- */
-  const DRAFT = 'shp-admin-draft', GH = 'shp-admin-github';
+  const GH = 'shp-admin-github';
   const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
                   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
                   del(k) { try { localStorage.removeItem(k); } catch (e) {} } };
@@ -305,6 +306,10 @@
   { const old = store.get(GH); if (old && old.token) { if (!store.get(TOKEN)) store.set(TOKEN, old.token); delete old.token; store.set(GH, old); } }
   const GH_DEF = { owner: 'DrPavelShapovalov', repo: 'dr-shapovalov-site', branch: 'main', dir: '' };
   const ghConf = () => ({ ...GH_DEF, ...(store.get(GH) || {}) });
+  /* какую версию сайта правим: русскую (content.json) или английскую (content.en.json); у каждой свой черновик */
+  const CLANG = store.get('shp-admin-lang') === 'en' ? 'en' : 'ru';
+  const CFILE = CLANG === 'en' ? 'content.en.json' : 'content.json';
+  const DRAFT = CLANG === 'en' ? 'shp-admin-draft-en' : 'shp-admin-draft';
   let data = null, published = '', current = 'hero', undoSnap = null;
   const $ = (id) => document.getElementById(id);
   const el = (tag, attrs = {}, ...kids) => { const n = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) {
@@ -597,7 +602,7 @@
       el('input', { id: 'gh-' + k, type: t, value: gh[k] || '', autocomplete: 'off', on: { input: (e) => { gh[k] = e.target.value.trim(); store.set(GH, gh); } } }));
       if (sub) w.append(el('span', { className: 'sub' }, sub)); return w; };
     box.append(el('div', { className: 'note-box' }, el('b', {}, 'Как это работает. '),
-      'Весь текст сайта лежит в одном файле content.json. Кнопка «Опубликовать» записывает его в ваш репозиторий на GitHub, а хостинг (GitHub Pages) через минуту показывает новую версию сайта.',
+      'Текст сайта лежит в content.json (русская версия) и content.en.json (английская, переключатель RU / EN вверху). Кнопка «Опубликовать» записывает файл открытой версии в ваш репозиторий на GitHub, а хостинг (GitHub Pages) через минуту показывает новую версию сайта.',
       el('ol', {}, el('li', {}, 'На GitHub: Settings → Developer settings → Fine-grained tokens → Generate new token.'),
         el('li', {}, 'Repository access: только репозиторий сайта. Permissions → Contents: Read and write.'),
         el('li', {}, 'Токен вводится на экране входа. Он хранится только в этом браузере и никуда, кроме GitHub, не отправляется. Кнопка «Выйти» стирает его.'))));
@@ -627,7 +632,7 @@
   const b64 = (str) => { const bytes = new TextEncoder().encode(str); let s = ''; bytes.forEach((b) => { s += String.fromCharCode(b); }); return btoa(s); };
   async function testGh() {
     const g = ghCfg(); if (!g) return toast('Заполните владельца и репозиторий и войдите с токеном');
-    try { const f = await gh(g, 'GET', ghPath(g, 'content.json')); toast(f ? 'Подключено: content.json найден' : 'Подключено, но content.json в этой папке нет — он будет создан'); }
+    try { const f = await gh(g, 'GET', ghPath(g, CFILE)); toast(f ? `Подключено: ${CFILE} найден` : `Подключено, но ${CFILE} в этой папке нет — он будет создан`); }
     catch (e) { toast('Не получилось: ' + e.message + '. Проверьте токен и название репозитория.'); }
   }
   async function publish() {
@@ -636,7 +641,7 @@
     if (bad.length) return toast('Есть ссылка без https:// — исправьте: ' + bad[0]);
     $('publish').disabled = true; setStatus('dirty', 'Публикую…');
     try {
-      const path = ghPath(g, 'content.json'), cur = await gh(g, 'GET', path);
+      const path = ghPath(g, CFILE), cur = await gh(g, 'GET', path);
       await gh(g, 'PUT', path, { message: 'Обновить содержимое сайта (админка)', content: b64(JSON.stringify(data, null, 2) + '\n'), sha: cur?.sha, branch: g.branch || 'main' });
       published = JSON.stringify(data); dirty(); toast('Опубликовано. Сайт обновится примерно через минуту.');
     } catch (e) { setStatus('err', 'Не опубликовано: ' + e.message); toast('Не опубликовано: ' + e.message); }
@@ -669,6 +674,11 @@
     catch (e) { const pre = document.querySelector('pre.json'); const r = document.createRange(); r.selectNodeContents(pre); getSelection().removeAllRanges(); getSelection().addRange(r); toast('Текст выделен — нажмите Ctrl+C или «Копировать»'); }
   }
   $('publish').addEventListener('click', publish);
+  // переключатель RU / EN: черновик каждой версии сохраняется отдельно, поэтому можно просто перезагрузить
+  document.querySelectorAll('#clang button').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.l === CLANG));
+    b.addEventListener('click', () => { if (b.dataset.l === CLANG) return; store.set('shp-admin-lang', b.dataset.l); location.reload(); });
+  });
 
   /* ---------- предпросмотр ---------- */
   let pvT; const pv = $('pv');
@@ -733,15 +743,15 @@
 
   /* ---------- старт редактора (только после входа) ---------- */
   function start() {
-  pv.src = 'index.html#preview';
-  fetch('content.json', { cache: 'no-store' }).then((r) => r.json()).then((c) => {
+  pv.src = CLANG === 'en' ? 'index.html?lang=en#preview' : 'index.html#preview';
+  fetch(CFILE, { cache: 'no-store' }).then((r) => r.json()).then((c) => {
     published = JSON.stringify(c); data = c;
     const d = store.get(DRAFT);
     if (d && d.data && JSON.stringify(d.data) !== published) {
       data = d.data; toast(`Открыт черновик от ${new Date(d.at).toLocaleString('ru-RU')}. Опубликуйте его или сбросьте в разделе «Публикация».`);
     }
     renderNav(); renderForm(); dirty();
-  }).catch(() => setStatus('err', 'Не удалось загрузить content.json. Админка должна лежать рядом с сайтом на хостинге.'));
+  }).catch(() => setStatus('err', `Не удалось загрузить ${CFILE}. Админка должна лежать рядом с сайтом на хостинге.`));
   }
 })();
 </script>
