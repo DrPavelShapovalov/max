@@ -27,7 +27,7 @@
       "from": "",
       "to": "10",
       "unit": "papers",
-      "label": "in peer-reviewed journals"
+      "label": "in peer-reviewed journals (VAK and Scopus)"
     },
     {
       "from": "",
@@ -74,7 +74,7 @@
         "textPro": "Separation of the fragments at a set rate and rhythm; the classic rate after G. A. Ilizarov is 1 mm per day."
       },
       {
-        "title": "Consolidation",
+        "title": "Rest",
         "text": "The new bone matures and hardens. The device stays in place for some time and is then removed.",
         "titlePro": "Consolidation",
         "textPro": "Stabilisation of the device until the regenerate mineralises, then device removal."
