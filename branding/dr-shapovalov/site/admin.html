@@ -453,6 +453,7 @@
   let ymDays = 30;
   const TAB_NAMES = { about: 'Обо мне', directions: 'Лечение', cases: 'Кейсы', science: 'Наука', contacts: 'Контакты', top: 'Главная' };
   const fmt = (n) => Math.round(n).toLocaleString('ru-RU');
+  const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
   async function ymQuery(id, tok, metrics, dims, extra = {}) {
     const q = new URLSearchParams({ ids: id, metrics, date1: `${ymDays - 1}daysAgo`, date2: 'today', lang: 'ru', accuracy: 'full', limit: '10', ...extra });
     if (dims) q.set('dimensions', dims);
@@ -560,8 +561,12 @@
     }));
   }
   function chart(daily) {
-    const rows = (daily.data || []).map((d) => ({ day: d.dimensions[0].name, v: d.metrics[0], u: d.metrics[1] }));
-    if (!rows.length) return el('p', { className: 'muted' }, 'Пока нет визитов за этот период');
+    // Метрика отдаёт только дни с визитами — дополняем период нулями, чтобы у каждого дня был свой столбик
+    const got = new Map((daily.data || []).map((d) => [d.dimensions[0].name, d.metrics]));
+    if (!got.size) return el('p', { className: 'muted' }, 'Пока нет визитов за этот период');
+    const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const rows = [];
+    for (let i = ymDays - 1; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const k = iso(d), m = got.get(k) || [0, 0]; rows.push({ day: k, v: m[0], u: m[1] }); }
     const NS = 'http://www.w3.org/2000/svg', W = 600, H = 160, pad = 18, n = rows.length, bw = (W - 2) / n, max = Math.max(1, ...rows.map((r) => r.v));
     const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H + pad}`);
     svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Визиты по дням: ' + rows.map((r) => `${r.day} — ${r.v}`).join(', '));
@@ -572,17 +577,17 @@
       const h = Math.max(r.v ? 2 : 0, r.v / max * (H - 8)), x = i * bw + 1, w = Math.max(1, bw - 2), y = H - h, rr = Math.min(4, w / 2, h);
       if (h) svg.append(mk('path', { d: `M${x},${H} V${y + rr} Q${x},${y} ${x + rr},${y} H${x + w - rr} Q${x + w},${y} ${x + w},${y + rr} V${H} Z`, fill: '#d6b266' }));
       const hit = mk('rect', { x: i * bw, y: 0, width: bw, height: H, fill: 'transparent' });
-      hit.addEventListener('pointerenter', () => { const d = new Date(r.day); tip.hidden = false;
-        tip.replaceChildren(el('b', {}, `${fmt(r.v)} визитов`), el('br'), el('span', {}, `${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} · ${fmt(r.u)} посетителей`));
-        tip.style.left = ((i + 0.5) / n * 100) + '%'; tip.style.top = (y / (H + pad) * 100) + '%'; });
+      hit.addEventListener('pointerenter', () => { const d = new Date(r.day + 'T12:00'); tip.hidden = false;
+        tip.replaceChildren(el('b', {}, `${fmt(r.v)} ${plural(r.v, 'визит', 'визита', 'визитов')}`), el('br'), el('span', {}, `${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} · ${fmt(r.u)} ${plural(r.u, 'посетитель', 'посетителя', 'посетителей')}`));
+        const f = (i + 0.5) / n; tip.style.transform = `translate(${f > 0.8 ? -100 : f < 0.2 ? 0 : -50}%,-110%)`;
+        tip.style.left = ((i + 0.5) / n * 100) + '%'; tip.style.top = (svg.offsetTop + y / (H + pad) * svg.clientHeight) + 'px'; });
       hit.addEventListener('pointerleave', () => { tip.hidden = true; });
       svg.append(hit);
     });
-    const lab = (i, anchor) => { const d = new Date(rows[i].day); const t = mk('text', { x: anchor === 'end' ? W : anchor === 'start' ? 0 : (i + 0.5) * bw, y: H + 14, 'text-anchor': anchor, class: 'ax' });
+    const lab = (i, anchor) => { const d = new Date(rows[i].day + 'T12:00'); const t = mk('text', { x: anchor === 'end' ? W : anchor === 'start' ? 0 : (i + 0.5) * bw, y: H + 14, 'text-anchor': anchor, class: 'ax' });
       t.textContent = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }); return t; };
     svg.append(lab(0, 'start'), lab(n - 1, 'end'));
-    const maxT = mk('text', { x: 0, y: 10, class: 'ax' }); maxT.textContent = 'макс. ' + fmt(max) + ' в день'; svg.append(maxT);
-    wrap.append(svg, tip); return wrap;
+    wrap.append(el('p', { className: 'muted', style: 'margin:0 0 8px' }, `Больше всего — ${fmt(max)} в день · всего за период ${fmt(rows.reduce((a, r) => a + r.v, 0))}`), svg, tip); return wrap;
   }
 
   /* ---------- публикация на GitHub ---------- */
