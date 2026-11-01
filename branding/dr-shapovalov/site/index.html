@@ -430,6 +430,8 @@
   .contact span{font-family:var(--display); font-weight:500; font-size:18px; overflow-wrap:anywhere}
 
   footer{padding-block:120px 0; position:relative; z-index:1}
+  .foot-ym{margin-top:14px; font-size:12px; color:var(--mist); max-width:70ch}
+  .foot-ym a{color:inherit; text-decoration:underline; text-underline-offset:3px}
   .wordmark{font-family:var(--display); font-weight:300; text-align:center; white-space:nowrap; font-size:clamp(14px,4.6vw,60px);  color:var(--gold)}
   .foot{margin-top:28px; padding-top:20px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; font-size:14px; color:var(--mist)}
   .foot p{max-width:80ch}
@@ -778,6 +780,7 @@
   <footer>
     <div class="wordmark" aria-label="Shapovalov">S. H. A. P. O. V. A. L. O. V.</div>
     <div class="foot"><p id="foot-note"></p><span><a href="#top">Наверх ↑</a></span></div>
+    <p class="foot-ym" id="foot-ym" hidden>Сайт считает посещения с помощью сервиса <a href="https://yandex.ru/legal/metrica_termsofuse/" target="_blank" rel="noopener">Яндекс Метрика</a>: страницы, источник перехода, город, устройство — без имён и контактов.</p>
   </footer>
 </main>
 
@@ -1278,6 +1281,7 @@
     tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === id)));
     placeInk();
     try { history.replaceState(null, '', '#' + id); } catch (e) {}
+    ymHit(id);
     const swap = () => {
       out.hidden = true; inn.hidden = false;
       if (hasGsap && !reduce) {
@@ -1383,7 +1387,20 @@
     if (e.data && e.data.type === 'shapovalov:content' && e.data.content && typeof e.data.content === 'object') { PREVIEW = true; boot(e.data.content); if (hasGsap) ScrollTrigger.refresh(); }
   });
   let booted = false;
-  function boot(c) { render(c); if (booted) return; booted = true; animate(); startDx(); startTabs(); writeSignature(); }
+  /* ---------- Яндекс Метрика: включается номером счётчика в content.json (meta.metrika) ----------
+     Не грузится в предпросмотре админки и во встроенном окне. Вебвизор выключен: записи действий посетителей не ведутся. */
+  let YM = 0;
+  function metrika(id) {
+    if (YM || PREVIEW || parent !== window || !/^\d{5,12}$/.test(String(id || ''))) return;
+    YM = +id;
+    window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); }; window.ym.l = +new Date();
+    const sc = document.createElement('script'); sc.async = true; sc.src = 'https://mc.yandex.ru/metrika/tag.js'; document.head.append(sc);
+    window.ym(YM, 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true, webvisor: false });
+    $('foot-ym').hidden = false;
+  }
+  // вкладки сайта считаются как отдельные страницы: видно, какие разделы смотрят
+  const ymHit = (id) => { if (YM && window.ym) window.ym(YM, 'hit', location.pathname + '#' + id, { title: document.title + ' — ' + id }); };
+  function boot(c) { render(c); metrika((c.meta || {}).metrika); if (booted) return; booted = true; animate(); startDx(); startTabs(); writeSignature(); }
   const ready = () => { if (parent !== window) parent.postMessage({ type: 'shapovalov:ready' }, '*'); };   // в сообщении нет ничего секретного
   fetch('content.json', { cache: 'no-store' }).then((r) => r.json()).then((c) => { boot(c); ready(); })
     .catch(() => { if (PREVIEW) return ready();   // предпросмотр получит текст из админки
