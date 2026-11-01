@@ -186,6 +186,29 @@ def place(canvas, img, box, x, y, w, h, label, dark, photo=None):
         badge(canvas, x, y, w, h, b['value'], b.get('caption', ''), dark)
 
 
+ARROW_RED = (226, 81, 43)
+F_LEGEND = ImageFont.truetype(manrope(700), 24)
+
+
+def legend(canvas, y, text):
+    """Centered line under the grid: the same red arrow as on the photos, then what it marks."""
+    d = ImageDraw.Draw(canvas)
+    icon, gap = 34, 12
+    tw = d.textlength(text, font=F_LEGEND)
+    x = int((W - (icon + gap + tw)) / 2)
+    k = SS * 2
+    big = Image.new('RGBA', (icon * k, icon * k), (0, 0, 0, 0))
+    b = ImageDraw.Draw(big)
+    t, tail, head, wid = (5 * k, 5 * k), (icon - 5) * k, 13 * k, 7 * k
+    bx = by = t[0] + head / 2 ** 0.5
+    tri = [t, (bx + wid / 2 ** 0.5, by - wid / 2 ** 0.5), (bx - wid / 2 ** 0.5, by + wid / 2 ** 0.5)]
+    b.line([(tail, tail), (bx, by)], fill=INK, width=7 * k); b.polygon(tri, fill=INK, outline=INK, width=3 * k)
+    b.line([(tail, tail), (bx, by)], fill=ARROW_RED, width=4 * k); b.polygon(tri, fill=ARROW_RED)
+    big = big.resize((icon, icon), Image.LANCZOS)
+    canvas.paste(big, (x, y - icon // 2), big)
+    d.text((x + icon + gap, y), text, font=F_LEGEND, fill=INK, anchor='lm')
+
+
 WM_H = 66                     # footer watermark height; stays inside the 4:5 safe band
 
 
@@ -311,6 +334,8 @@ def slide_justified(slide, labels, base):
             place(c, im, b, x, y, w, h, labels[j], j == 1, p)
             x += w + GUT
         y += h + GUT
+    if slide.get('legend'):
+        legend(c, y + 24, slide['legend'])
     return c
 
 

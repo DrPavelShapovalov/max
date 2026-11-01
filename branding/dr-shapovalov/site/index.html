@@ -102,6 +102,19 @@
   .portrait{width:min(220px,100%); aspect-ratio:1; border-radius:50%; padding:4px; background:conic-gradient(from 210deg,var(--gold-hi),var(--gold-lo),var(--gold-hi),var(--gold-lo),var(--gold-hi))}
   .portrait img{display:block; width:100%; height:100%; border-radius:50%; object-fit:cover; object-position:50% 30%; background:var(--deep)}
   .signature{width:min(240px,100%); height:auto; display:block; margin-inline:auto}
+  /* фото во весь рост без фона: встаёт из нижнего края первого экрана, низ и бока растворяются */
+  .hero-fig{position:absolute; z-index:1; bottom:0; right:max(0px, calc((100% - 1160px) / 2 - 30px)); height:min(84%, 780px); width:auto; max-width:none;
+    pointer-events:none; user-select:none;
+    -webkit-mask-image:linear-gradient(180deg,#000 62%,transparent 97%),linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);
+    -webkit-mask-composite:source-in; mask-image:linear-gradient(180deg,#000 62%,transparent 97%),linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent); mask-composite:intersect;
+    filter:drop-shadow(0 30px 60px rgba(0,0,0,.45))}
+  .hero.has-fig .portrait{display:none}
+  /* фото «дышит»: еле заметно поднимается и опускается; translate/scale не мешают transform от GSAP */
+  @keyframes breathe{0%{translate:0 0; scale:1}50%{translate:0 -7px; scale:1.012}100%{translate:0 0; scale:1}}
+  .hero-fig{transform-origin:50% 100%; animation:breathe 7s ease-in-out infinite}
+  @media (prefers-reduced-motion:reduce){.hero-fig{animation:none}}
+  .hero.has-fig .card-id{justify-self:end; width:min(320px,100%); padding:18px 20px; gap:8px; transform:translateY(24px)}
+  .hero.has-fig .signature{width:200px}
   .id-meta{font-family:var(--mono); font-size:14px; color:var(--mist); line-height:1.7}
 
   /* огромные цифры: число на пол-экрана, единица золотом, подпись под ним */
@@ -281,6 +294,15 @@
   .case li{position:relative; padding-left:22px; color:var(--ivory); font-size:17px}
   .case li::before{content:""; position:absolute; left:0; top:.8em; width:12px; height:1px; background:var(--gold)}
   .case li strong{color:var(--ivory); font-weight:600}
+  .case-gal{grid-column:1 / -1; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); gap:16px; margin:0}
+  .case-gal figure{margin:0; display:flex; flex-direction:column; gap:10px; min-width:0}
+  .case-gal button{display:block; width:100%; padding:0; border:0; background:none; cursor:zoom-in; border-radius:18px; overflow:hidden}
+  .case-gal img{display:block; width:100%; height:auto; transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+  .case-gal button:hover img{transform:scale(1.02)}
+  .case-gal button:focus-visible{outline:2px solid var(--gold); outline-offset:4px}
+  .case-gal figcaption{font-size:14px; color:var(--mist)}
+  .case-note{grid-column:1 / -1; font-size:13px; color:var(--mist); margin-top:-12px}
+  .lb.clean .lb-fig img{background:none; box-shadow:none}
   .viz{padding:26px; border-radius:20px; background:rgba(5,8,10,.5); border:1px solid var(--line); display:flex; flex-direction:column; gap:20px; min-width:0}
   .viz .big{font-family:var(--display); font-weight:500; font-size:clamp(46px,6vw,76px); line-height:.95; font-variant-numeric:tabular-nums}
   .viz .big small{font-family:var(--mono); font-size:15px; color:var(--gold); margin-left:8px}
@@ -300,6 +322,7 @@
   .steps-wrap > *{min-width:0}
   .steps-intro{position:sticky; top:110px; display:flex; flex-direction:column; gap:18px}
   .steps-intro p{color:var(--soft); font-size:17px}
+  .steps-intro h2{font-size:clamp(26px,2.6vw,38px); overflow-wrap:break-word}
   .steps{position:relative; list-style:none; margin:0; padding:22px 24px}
   .steps .rail-y,.steps .prog{position:absolute; left:45px; top:44px; bottom:44px; width:1px; background:var(--line)}
   .steps .prog{background:linear-gradient(var(--gold-hi),var(--gold-lo)); transform-origin:top}
@@ -308,6 +331,13 @@
     background:var(--void); border:1px solid rgba(214,178,102,.5); color:var(--gold-hi); font-family:var(--mono); font-size:15px; font-weight:600}
   .step p{align-self:center; min-width:0; font-size:17px}
   .step p span{color:var(--mist)}
+  .step.has-ph{grid-template-columns:44px 1fr 76px}
+  .step-ph{width:76px; height:76px; padding:0; border:1px solid var(--line); border-radius:14px; overflow:hidden; background:var(--deep); cursor:zoom-in; position:relative}
+  .step-ph img{display:block; width:100%; height:100%; object-fit:cover; transition:filter .4s ease}
+  .steps-wrap:not(.show-op) .step-ph img{filter:blur(9px) saturate(.35) brightness(.8)}
+  .step-ph:focus-visible{outline:2px solid var(--gold); outline-offset:3px}
+  .op-toggle{align-self:flex-start}
+  @media (max-width:640px){.step.has-ph{grid-template-columns:44px 1fr 60px}.step-ph{width:60px; height:60px}}
 
   /* science */
   .sci{display:grid; grid-template-columns:.95fr 1.05fr; gap:16px; align-items:start}
@@ -419,6 +449,12 @@
     .hero-in,.head,.steps-wrap,.about-grid,.sci,.work{grid-template-columns:1fr}
     .card-id{flex-direction:row; text-align:left; align-items:center}
     .portrait{width:120px; flex:none}
+    .hero.has-fig{align-content:end; padding-top:88px}
+    .hero-fig{position:relative; grid-row:1; display:block; justify-self:center; right:auto; height:auto; width:min(100%,460px); margin:0 auto -64px;
+      -webkit-mask-image:linear-gradient(180deg,#000 70%,transparent 99%),linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);
+      mask-image:linear-gradient(180deg,#000 70%,transparent 99%),linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
+    .hero.has-fig .hero-in{grid-row:2}
+    .hero.has-fig .card-id{justify-self:stretch; width:auto; transform:none; flex-direction:column; align-items:flex-start}
     .dirs,.course-grid{grid-template-columns:1fr}
     .case{grid-template-columns:1fr; padding:26px}
     .steps-intro,.diss{position:static}
@@ -452,6 +488,7 @@
     .portrait{width:92px}
     .signature{width:170px; margin-inline:0}
     .bar,.scale{grid-template-columns:78px 1fr 56px; gap:10px}
+    .viz .big{font-size:42px; white-space:nowrap}
     dl.facts,.diss dl{grid-template-columns:1fr}
     .facts dt{padding-bottom:0; border-bottom:0}
     .facts dd{padding-top:4px}
@@ -509,8 +546,9 @@
 </div>
 
 <main class="wrap">
-  <header class="hero" id="top">
+  <header class="hero has-fig" id="top">
     <div id="waves" aria-hidden="true"></div>
+    <img class="hero-fig" id="h-figure" src="img/hero-figure-2.webp" alt="Павел Шаповалов в кабинете" width="900" height="1002" fetchpriority="high" decoding="async">
     <div class="hero-in">
       <div>
         <h1 id="h-name"><span class="given">Павел Игоревич</span><b>Шаповалов</b></h1>
@@ -678,6 +716,7 @@
       <div class="steps-intro reveal">
         <h2 id="steps-h"></h2>
         <p id="steps-intro"></p>
+        <button class="ghost op-toggle" id="op-toggle" type="button" aria-pressed="false" hidden>Показать фото операции</button>
       </div>
       <ol class="steps glass" id="step-list"></ol>
     </div>
@@ -788,6 +827,9 @@
     $('h-name').innerHTML = `<span class="given">${esc([h.firstName, h.middleName].filter(Boolean).join(' '))}</span><b>${esc(h.lastName)}</b>`;
     $('h-card').innerHTML = [h.cardLine1, h.cardLine2].filter(Boolean).map(esc).join('<br>');
     if (safeUrl(h.portrait)) $('h-portrait').src = safeUrl(h.portrait);
+    const fig = safeUrl(h.figure);
+    $('h-figure').hidden = !fig; document.querySelector('.hero').classList.toggle('has-fig', !!fig);
+    if (fig) $('h-figure').src = fig;
     const m = c.meta || {};
     $('nav-handle').textContent = m.handle || '';
     if (safeUrl(m.telegram)) $('nav-tg').href = safeUrl(m.telegram);
@@ -820,6 +862,11 @@
       return `<${tag} class="dir glass reveal"${u ? ` href="${esc(u)}"${ext(u)}` : ''}><h3>${esc(d.title)}</h3>${d.text ? `<p>${rich(d.text)}</p>` : ''}${u && d.linkLabel ? `<span class="go">${esc(d.linkLabel)} →</span>` : ''}</${tag}>`;
     }).join('');
 
+    const gallery = (k) => {
+      const ims = (k.images || []).filter((m) => safeUrl(m.src));
+      if (!ims.length) return '';
+      return `<div class="case-gal">${ims.map((m) => `<figure><button type="button" data-cimg="${esc(safeUrl(m.src))}" data-cap="${esc(m.caption || '')}" data-alt="${esc(m.alt || m.caption || k.title)}" data-case="${esc(k.title)}" aria-label="Открыть крупно: ${esc(m.caption || k.title)}"><img src="${esc(safeUrl(m.src))}" alt="${esc(m.alt || m.caption || '')}" loading="lazy"></button>${m.caption ? `<figcaption>${rich(m.caption)}</figcaption>` : ''}</figure>`).join('')}</div>${k.consent ? `<p class="case-note">${esc(k.consent)}</p>` : ''}`;
+    };
     $('case-list').innerHTML = (c.cases || []).map((k) => {
       const max = +k.scaleMax || Math.max(...(k.bars || []).map((b) => +b.value || 0), 1);
       const ticks = [0, .25, .5, .75, 1].map((f) => `<span>${+(max * f).toFixed(1)}</span>`).join('');
@@ -830,14 +877,18 @@
         <div class="viz"><div class="big">${metric}<small>${esc(k.metricUnit)}</small></div><p class="cap">${rich(k.metricCaption)}</p>
           <div class="bars" role="img" aria-label="${esc((k.bars || []).map((b) => `${b.name} ${b.value} ${b.unit}`).join(', '))}">
             ${(k.bars || []).map((b) => `<div class="bar"><span class="n">${esc(b.name)}</span><span class="rail"><span class="fill${b.accent ? ' on' : ''}" style="--w:${Math.min(100, (+b.value / max) * 100).toFixed(2)}%"></span></span><span class="v">${esc(String(b.value).replace('.', ','))} ${esc(b.unit)}</span></div>`).join('')}
-            <div class="scale"><span></span><span class="t">${ticks}</span><span></span></div></div></div></article>`;
+            <div class="scale"><span></span><span class="t">${ticks}</span><span></span></div></div></div>${gallery(k)}</article>`;
     }).join('');
 
     const s = c.steps || {};
     $('steps-h').innerHTML = esc(s.heading).replace(/(дистракционного аппарата)/, '<em>$1</em>');
     $('steps-intro').innerHTML = rich(s.intro);
     $('step-list').innerHTML = '<span class="rail-y" aria-hidden="true"></span><span class="prog" aria-hidden="true"></span>' +
-      (s.items || []).map((it, i) => `<li class="step"><span class="n">${i + 1}</span><p>${esc(it.title)} <span>${esc(it.detail)}</span></p></li>`).join('');
+      (s.items || []).map((it, i) => {
+        const ph = safeUrl(it.image), cap = `Этап ${i + 1}: ${[it.title, it.detail].filter(Boolean).join(' ')}`;
+        return `<li class="step${ph ? ' has-ph' : ''}"><span class="n">${i + 1}</span><p>${esc(it.title)} <span>${esc(it.detail)}</span></p>${ph ? `<button class="step-ph" type="button" data-cimg="${esc(ph)}" data-cap="${esc(cap)}" data-case="${esc(s.heading || 'Этапы операции')}" data-alt="${esc('Фото с операции. ' + cap)}" aria-label="Открыть фото: ${esc(cap)}"><img src="${esc(ph)}" alt="" loading="lazy"></button>` : ''}</li>`;
+      }).join('');
+    $('op-toggle').hidden = !(s.items || []).some((it) => safeUrl(it.image));
 
     const sc = c.science || {}, d = sc.dissertation || {};
     $('sci-intro').innerHTML = rich(sc.intro);
@@ -1102,7 +1153,8 @@
   let lbItem = null, lbBack = null;
   function openLb(k, from) {
     const it = LB[k]; if (!it) return; lbItem = it; lbBack = from || null;
-    const im = new Image(); im.src = it.img; im.alt = 'Страница: ' + it.title; $('lb-fig').replaceChildren(im);
+    const im = new Image(); im.src = it.img; im.alt = it.alt || ('Страница: ' + it.title); $('lb-fig').replaceChildren(im);
+    $('lb-go').hidden = !it.panel; $('lb').classList.toggle('clean', !!it.clean);
     $('lb-t').textContent = it.title; $('lb-s').textContent = it.sub || '';
     $('lb-link').hidden = !it.url; if (it.url) $('lb-link').href = it.url;
     $('lb').classList.toggle('tall', !!it.tall); $('lb').hidden = false; $('lb-in').scrollTop = 0;
@@ -1120,13 +1172,19 @@
   }
   document.addEventListener('click', (e) => {
     const t = e.target.closest('[data-lb]'); if (t) { e.preventDefault(); openLb(+t.dataset.lb, t); return; }
+    const ci = e.target.closest('[data-cimg]');
+    if (ci) { e.preventDefault(); LB.push({ img: ci.dataset.cimg, title: ci.dataset.cap || ci.dataset.case, sub: ci.dataset.cap ? ci.dataset.case : '', alt: ci.dataset.alt, clean: true }); openLb(LB.length - 1, ci); return; }
     if (e.target.closest('#lb [data-close]')) closeLb();
   });
   document.addEventListener('keydown', (e) => {
     if ($('lb').hidden) return;
     if (e.key === 'Escape') { e.preventDefault(); closeLb(); }
-    if (e.key === 'Tab') { const f = [$('lb-x'), ...$('lb').querySelectorAll('.lb-acts a:not([hidden]), .lb-acts button')]; const i = f.indexOf(document.activeElement);
+    if (e.key === 'Tab') { const f = [$('lb-x'), ...$('lb').querySelectorAll('.lb-acts a:not([hidden]), .lb-acts button:not([hidden])')]; const i = f.indexOf(document.activeElement);
       if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); } }
+  });
+  $('op-toggle').addEventListener('click', (e) => {
+    const on = document.querySelector('.steps-wrap').classList.toggle('show-op');
+    e.currentTarget.setAttribute('aria-pressed', String(on)); e.currentTarget.textContent = on ? 'Скрыть фото операции' : 'Показать фото операции';
   });
   $('lb-go').addEventListener('click', () => {
     const it = lbItem; closeLb(true); if (!it) return;
@@ -1258,6 +1316,17 @@
         onEnter: () => gsap.to(o, { v: to, duration: 1.6, ease: 'power2.out', onUpdate: () => { el.textContent = o.v.toFixed(dec).replace('.', ','); } }) });
     });
     gsap.to('.hero-in', { yPercent: -12, autoAlpha: 0.2, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
+    const fig = $('h-figure');
+    if (fig && !fig.hidden) {
+      gsap.from(fig, { autoAlpha: 0, y: 60, duration: 1.4, ease: 'power3.out', delay: 0.15 });
+      gsap.to(fig, { yPercent: 6, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
+      // на компьютере фото чуть следует за курсором
+      if (matchMedia('(pointer:fine)').matches) {
+        const qx = gsap.quickTo(fig, 'x', { duration: 1.2, ease: 'power3.out' }), qr = gsap.quickTo(fig, 'rotation', { duration: 1.2, ease: 'power3.out' });
+        $('top').addEventListener('pointermove', (e) => { const k = e.clientX / innerWidth - 0.5; qx(k * 22); qr(k * 1.2); });
+        $('top').addEventListener('pointerleave', () => { qx(0); qr(0); });
+      }
+    }
   }
   function startDx() {
     if (hasGsap && !reduce) {
