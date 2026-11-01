@@ -143,15 +143,22 @@ def glow(canvas, t):
         canvas.alpha_composite(lay)
 
 MANROPE = '/home/user/max/branding/dr-shapovalov/collage/.fonts/Manrope-{}.ttf'
-GOLD, MIST = (214, 178, 102), (176, 190, 184)
+GOLD, MIST = (214, 178, 102), (237, 232, 222)        # цвета сайта: золото и «слоновая кость»
 def card(canvas, t, t0):
     """Плашка как на сайте: подпись «Dr. Shapovalov» пишется пером, ниже — к.м.н. и место работы."""
     a = clamp((t - t0) / 0.45)
     if a <= 0: return
     w, h = 820, 360; x, y = (W - w) // 2, 1110 + int((1 - a) * 40)
     S = 2; im = Image.new('RGBA', (w * S, h * S)); d = ImageDraw.Draw(im)
-    d.rounded_rectangle([0, 0, w * S - 1, h * S - 1], 40 * S, fill=(14, 24, 22, 215), outline=GOLD + (150,), width=2 * S)
-    d.rounded_rectangle([3 * S, 3 * S, w * S - 4 * S, h * S // 2], 38 * S, fill=(255, 255, 255, 10))
+    # «стекло» как .glass на сайте: изумрудная полупрозрачная заливка, блик сверху-слева, светлая тонкая рамка
+    d.rounded_rectangle([0, 0, w * S - 1, h * S - 1], 40 * S, fill=(22, 66, 54, 200))
+    gy, gx = np.mgrid[0:h * S, 0:w * S]
+    hl = Image.fromarray((np.clip(1 - (gx / (w * S) * 0.55 + gy / (h * S)) / 0.85, 0, 1) * 26).astype(np.uint8))   # блик 165°, как linear-gradient на сайте
+    mask = Image.new('L', (w * S, h * S)); ImageDraw.Draw(mask).rounded_rectangle([0, 0, w * S - 1, h * S - 1], 40 * S, fill=255)
+    from PIL import ImageChops
+    white = Image.new('RGBA', (w * S, h * S), (255, 255, 255, 0)); white.putalpha(ImageChops.multiply(hl, mask))
+    im.alpha_composite(white)
+    ImageDraw.Draw(im).rounded_rectangle([0, 0, w * S - 1, h * S - 1], 40 * S, outline=(237, 232, 222, 70), width=2 * S)
     im = im.resize((w, h), Image.LANCZOS)
     sw = 560; sig, pen = written(max(0.0, t - t0 - 0.35), sw); sx, sy = (w - sw) // 2, 26
     im.alpha_composite(sig, (sx, sy))
