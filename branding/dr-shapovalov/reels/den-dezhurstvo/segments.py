@@ -1,9 +1,9 @@
 """Список кусков рилса «Один день на дежурстве»: файл, начало, длительность, подпись, где подпись (top/low), фильтр."""
-FPS, W, H, T = 30, 1080, 1920, 0.45          # T — длительность перехода
+FPS, W, H, T = 30, 1080, 1920, 0.5           # T — длительность перехода
 # blur: прямоугольники [x, y, w, h] в кадре 1080×1920, которые размываются (мониторы с данными пациентов)
 SEGS = [
-  dict(f='01a-IMG_9119', ss=0.0, d=2.43, sec='title', speed=0.7),   # замедлено: под заголовок нужно ~3,5 с
-  dict(f='01b-IMG_9120', ss=0.4, d=3.0, sec='wake'),
+  dict(f='01a-IMG_9119', ss=0.0, d=2.43, sec='wake', speed=0.48),   # замедлено: сначала титр, потом «Подъём»
+  dict(f='01b-IMG_9120', ss=0.4, d=3.0, sec='leave'),
   dict(f='02-IMG_9121',  ss=1.0, d=2.7, sec='road', sub='иду по паркингу'),
   dict(f='03-IMG_9122',  ss=1.8, d=3.0, sec='road', sub='сажусь в машину'),
   dict(f='05-IMG_9125',  ss=0.8, d=3.4, sec='road', sub='еду на рассвете'),
@@ -17,13 +17,13 @@ SEGS = [
   dict(f='11b-IMG_9136', ss=0.0, d=1.36, sec='dress', sub='маска, шапочка — поехали', speed=0.7),
   dict(f='12a-IMG_9143', ss=0.4, d=2.6, sec='rest'),
   dict(f='12b-IMG_9156', ss=4.7, d=3.1, sec='rest', sub='кола — и снова в строй'),
-  dict(f='12c-IMG_9167', ss=0.2, d=3.0, sec='lunch', blur=[[0, 0, 1080, 800]]),
+  dict(f='12c-IMG_9167', ss=0.2, d=3.0, sec='lunch', blur_top=(800, 980)),   # мониторы: полностью размыто выше 800 px, мягкий переход до 980 px
   dict(f='13b-IMG_9189', ss=0.2, d=3.6, sec='evening'),
   dict(f='13a-IMG_9183', ss=0.0, d=2.46, sec='turn', speed=0.8),     # подкрутка в 20:03 — после вечернего отдыха
 ]
 SECTIONS = {   # время, заголовок, позиция подписи, подзаголовок секции
-  'title':   dict(),
-  'wake':    dict(time='06:30', title='Подъём!', pos='low'),
+  'wake':    dict(time='06:30', title='Подъём!', pos='low', delay=2.75),        # на первом кадре сначала титр
+  'leave':   dict(time='06:45', title='Вышел из дома', pos='low'),
   'road':    dict(time='06:47', title='Дорога на работу', pos='low'),
   'work':    dict(time='07:22', title='Я на работе', pos='low'),
   'coffee':  dict(time='07:40', title='Утренний кофе', note='с синнабоном из ВкусВилла', pos='top'),
@@ -34,9 +34,12 @@ SECTIONS = {   # время, заголовок, позиция подписи, 
   'turn':    dict(time='20:03', title='Подкрутка дистрактора', note='вечерняя, по расписанию', pos='top'),
   'evening': dict(time='17:18', title='Вечер', note='пилю свой сайт и смотрю кино', pos='low'),
 }
-TRANS = ['smoothup', 'circleopen', 'slideleft', 'zoomin', 'smoothleft', 'radial', 'circleopen', 'diagtl', 'smoothright',
-         'pixelize', 'slideup', 'zoomin', 'radial', 'smoothleft', 'circleopen', 'fadewhite', 'circlecrop']
-FINAL = 3.4   # финальная карточка «Отбой»
+TITLE_END = 2.6     # до этого момента на первом кадре — титр
+# переходы: между частями дня — «зум с размытием» (xfade_expr.py), внутри части — мягкое растворение
+def trans(i):
+    if i >= len(SEGS): return 'fade'
+    return 'zoom' if SEGS[i]['sec'] != SEGS[i - 1]['sec'] else 'fade'
+FINAL = 5.6   # финал: «Отбой», «Завтра операция» и плашка с подписью, которая пишется пером
 dur = lambda s: s['d'] / s.get('speed', 1)
 def timeline():
     """Начало каждого куска на итоговой ленте (с учётом наложения переходов) и общая длительность."""

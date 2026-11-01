@@ -3,7 +3,8 @@
 import math, os, subprocess, sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
-from segments import SEGS, SECTIONS, T, FINAL, FPS, W, H, timeline, dur
+from segments import SEGS, SECTIONS, T, FINAL, FPS, W, H, TITLE_END, timeline, dur, trans
+from sig import written, TOTAL as SIG_T
 FONT = '/home/user/max/.claude/skills/reels-desk/engine/fonts/Rubik.ttf'
 def font(px, w='Black'):
     f = ImageFont.truetype(FONT, px); f.set_variation_by_name(w); return f
@@ -125,6 +126,47 @@ def shade(canvas, y0, y1, a):
     al = Image.fromarray(np.repeat(g, W, 1).astype(np.uint8), 'L')
     layer = Image.new('RGBA', (W, H), (10, 6, 30, 0)); layer.putalpha(al); canvas.alpha_composite(layer)
 
+_glow = {}
+def glow(canvas, t):
+    """На смене части дня — мягкая цветная вспышка света (как засветка объектива), пик в середине перехода."""
+    for i in range(1, len(SEGS)):
+        if trans(i) != 'zoom': continue
+        a = math.exp(-((t - (ST[i] + T / 2)) / 0.2) ** 2) * 0.42
+        if a < 0.02: continue
+        col = PAL[i % len(PAL)]
+        if col not in _glow:
+            ys, xs = np.mgrid[0:H // 4, 0:W // 4]
+            r = np.hypot((xs - W / 8) / (W / 4), (ys - H / 8 * 0.9) / (H / 4)) * 2
+            al = Image.fromarray((np.clip(1 - r, 0, 1) ** 1.6 * 255).astype(np.uint8)).resize((W, H), Image.BILINEAR)
+            lay = Image.new('RGBA', (W, H), col + (0,)); lay.putalpha(al); _glow[col] = lay
+        lay = _glow[col].copy(); lay.putalpha(lay.getchannel('A').point(lambda v: int(v * a)))
+        canvas.alpha_composite(lay)
+
+MANROPE = '/home/user/max/branding/dr-shapovalov/collage/.fonts/Manrope-{}.ttf'
+GOLD, MIST = (214, 178, 102), (176, 190, 184)
+def card(canvas, t, t0):
+    """Плашка как на сайте: подпись «Dr. Shapovalov» пишется пером, ниже — к.м.н. и место работы."""
+    a = clamp((t - t0) / 0.45)
+    if a <= 0: return
+    w, h = 820, 360; x, y = (W - w) // 2, 1110 + int((1 - a) * 40)
+    S = 2; im = Image.new('RGBA', (w * S, h * S)); d = ImageDraw.Draw(im)
+    d.rounded_rectangle([0, 0, w * S - 1, h * S - 1], 40 * S, fill=(14, 24, 22, 215), outline=GOLD + (150,), width=2 * S)
+    d.rounded_rectangle([3 * S, 3 * S, w * S - 4 * S, h * S // 2], 38 * S, fill=(255, 255, 255, 10))
+    im = im.resize((w, h), Image.LANCZOS)
+    sw = 560; sig, pen = written(max(0.0, t - t0 - 0.35), sw); sx, sy = (w - sw) // 2, 26
+    im.alpha_composite(sig, (sx, sy))
+    if pen:                                                                    # кончик пера — золотая искра
+        g = Image.new('RGBA', (60, 60)); gd = ImageDraw.Draw(g); gd.ellipse([18, 18, 42, 42], fill=(255, 236, 170, 255))
+        g = g.filter(ImageFilter.GaussianBlur(7)); im.alpha_composite(g, (int(sx + pen[0] - 30), int(sy + pen[1] - 30)))
+    la = clamp((t - t0 - 0.35 - SIG_T + 0.2) / 0.5)
+    if la > 0:
+        d = ImageDraw.Draw(im)
+        for k, (txt, yy) in enumerate((('к.м.н. · челюстно-лицевая хирургия', 252), ('ЦНИИСиЧЛХ · детская клиника', 300))):
+            f = ImageFont.truetype(MANROPE.format(600), 32)
+            d.text((w / 2, yy), txt, font=f, fill=MIST + (int(255 * clamp(la * 1.4 - k * 0.3)),), anchor='mm')
+    if a < 1: im.putalpha(im.getchannel('A').point(lambda v: int(v * a)))
+    canvas.alpha_composite(im, (x, y))
+
 # --- расписание подписей ---
 sec_spans = {}
 for i, s in enumerate(SEGS):
@@ -134,8 +176,9 @@ FIN0 = TOTAL - FINAL - T
 
 def frame(t):
     c = Image.new('RGBA', (W, H))
-    if t < sec_spans['title'][1]:                                              # титр
-        t_out = sec_spans['title'][1] - T - 0.05
+    glow(c, t)
+    if t < TITLE_END + 0.4:                                                    # титр
+        t_out = TITLE_END
         shade(c, 440, 1340, clamp(t / 0.4) * clamp((t_out + 0.3 - t) / 0.3))
         sparkles(c, t, 0.4, W / 2, 920, 540, 3, 14)
         y = 470
@@ -145,8 +188,7 @@ def frame(t):
         y += 26
         chip(c, 'на дежурстве', 0, y, t, 1.35, t_out, px=58, icon='moon', center=True)
     for key, (a, b) in sec_spans.items():                                     # разделы дня
-        if key == 'title': continue
-        S = SECTIONS[key]; t_in, t_out = a + 0.28, b - T - 0.04
+        S = SECTIONS[key]; t_in, t_out = a + S.get('delay', 0.28), b - T - 0.04
         if not (t_in - 0.1 < t < t_out + 0.3): continue
         lines, px = fit_lines(S['title'], 104, MAXW)
         segs_in = [(i, s) for i, s in enumerate(SEGS) if s['sec'] == key]
@@ -163,13 +205,12 @@ def frame(t):
         if sub: chip(c, sub[2], X0, y, t, sub[0], min(sub[1], t_out), px=40)
         elif note: chip(c, note, X0, y, t, t_in + 0.45, t_out, px=40)
     if t >= FIN0 + 0.2:                                                        # финал
-        t0 = FIN0 + 0.35; y = 640
-        chip(c, '23:00', 0, y, t, t0, TOTAL + 1, px=52, icon='moon', center=True); y += 130
-        y += draw_colored(c, ['Отбой!'], 150, 0, y, t, t0 + 0.2, TOTAL + 1, align='center') + 30
-        chip(c, 'утром — операция', 0, y, t, t0 + 0.7, TOTAL + 1, px=50, center=True); y += 150
-        chip(c, '@dr__shapovalov', 0, y, t, t0 + 1.1, TOTAL + 1, px=40, center=True)
-        sparkles(c, t, t0 + 0.2, W / 2, 900, 520, 11, 16)
-        sparkles(c, t, t0 + 1.4, W / 2, 900, 520, 12, 12)
+        t0 = FIN0 + 0.35; y = 430
+        chip(c, '23:00', 0, y, t, t0, TOTAL + 1, px=52, icon='moon', center=True); y += 128
+        sparkles(c, t, t0 + 0.2, W / 2, y + 90, 520, 11, 16)
+        y += draw_colored(c, ['Отбой!'], 150, 0, y, t, t0 + 0.2, TOTAL + 1, align='center') + 34
+        chip(c, 'Завтра операция', 0, y, t, t0 + 0.7, TOTAL + 1, px=54, center=True)
+        card(c, t, t0 + 1.2)
     return c
 
 if __name__ == '__main__':
