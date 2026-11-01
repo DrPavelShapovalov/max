@@ -107,6 +107,7 @@ HEAD = ('<!doctype html>\n<html lang="ru">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n')
 
 # --- SEO: адрес сайта, превью ссылок в соцсетях, разметка «врач» для поисковиков, robots.txt и sitemap.xml ---
+YANDEX_VERIFY = '7bd5bbc6ed6ea4f4'          # Яндекс Вебмастер: подтверждение прав (мета-тег и HTML-файл)
 INDEXNOW_KEY = '4b3c078de10cb0485816cd596851f717'
 SITE = 'https://' + ((HERE / 'CNAME').read_text().strip() if (HERE / 'CNAME').exists() else 'drshapovalov.ru') + '/'
 def seo_head(c):
@@ -143,6 +144,7 @@ def seo_head(c):
             f'<meta property="og:image" content="{SITE}img/og-cover.jpg">\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">\n'
             '<meta name="twitter:card" content="summary_large_image">\n'
             '<meta name="theme-color" content="#05080a">\n'
+            f'<meta name="yandex-verification" content="{YANDEX_VERIFY}">\n'
             '<script type="application/ld+json">' + json.dumps(ld, ensure_ascii=False).replace('</', '<\\/') + '</script>\n')
 
 
@@ -183,6 +185,8 @@ def main():
     (DIST / 'sitemap.xml').write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         + ''.join(f'  <url><loc>{u}</loc><lastmod>{today}</lastmod></url>\n' for u in (SITE, SITE + '?lang=en')) + '</urlset>\n', encoding='utf-8')
     # IndexNow (Яндекс, Bing и др.): ключ лежит в корне сайта, по нему поисковик проверяет, что уведомление от владельца
+    (DIST / f'yandex_{YANDEX_VERIFY}.html').write_text('<html>\n    <head>\n        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">\n'
+        f'    </head>\n    <body>Verification: {YANDEX_VERIFY}</body>\n</html>\n', encoding='utf-8')
     (DIST / f'{INDEXNOW_KEY}.txt').write_text(INDEXNOW_KEY, encoding='utf-8')
     # пререндер: текст из content.json вписывается в HTML, чтобы робот без JavaScript видел весь сайт
     if shutil.which('node'):
