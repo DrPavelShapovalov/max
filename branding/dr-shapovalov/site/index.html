@@ -1394,8 +1394,9 @@
     if (YM || PREVIEW || parent !== window || !/^\d{5,12}$/.test(String(id || ''))) return;
     YM = +id;
     window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); }; window.ym.l = +new Date();
-    const sc = document.createElement('script'); sc.async = true; sc.src = 'https://mc.yandex.ru/metrika/tag.js'; document.head.append(sc);
-    window.ym(YM, 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true, webvisor: false });
+    // как в коде, который выдаёт Метрика для этого счётчика (tag.js?id=…, ssr, referrer, url); ecommerce и вебвизор не нужны
+    const sc = document.createElement('script'); sc.async = true; sc.src = 'https://mc.yandex.ru/metrika/tag.js?id=' + YM; document.head.append(sc);
+    window.ym(YM, 'init', { ssr: true, clickmap: true, trackLinks: true, accurateTrackBounce: true, referrer: document.referrer, url: location.href, webvisor: false });
     $('foot-ym').hidden = false;
   }
   // вкладки сайта считаются как отдельные страницы: видно, какие разделы смотрят
