@@ -14,6 +14,7 @@ GitHub Pages не даёт задавать заголовки, поэтому �
 
 Запуск: python3 build.py
 """
+import subprocess
 import base64, hashlib, pathlib, re, shutil
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -105,6 +106,49 @@ def metas(csp):
 HEAD = ('<!doctype html>\n<html lang="ru">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n')
 
+# --- SEO: адрес сайта, превью ссылок в соцсетях, разметка «врач» для поисковиков, robots.txt и sitemap.xml ---
+YANDEX_VERIFY = '7bd5bbc6ed6ea4f4'          # Яндекс Вебмастер: подтверждение прав (мета-тег и HTML-файл)
+GOOGLE_VERIFY = 'VwSnJcJLyzA6f2kcEjWkf8xvmopvSX1PFDmwRdQkYRI'   # Google Search Console: подтверждение прав (мета-тег)
+INDEXNOW_KEY = '4b3c078de10cb0485816cd596851f717'
+SITE = 'https://' + ((HERE / 'CNAME').read_text().strip() if (HERE / 'CNAME').exists() else 'drshapovalov.ru') + '/'
+def seo_head(c):
+    import html, json
+    h = c.get('hero', {}); m = c.get('meta', {})
+    name = ' '.join(x for x in (h.get('firstName'), h.get('middleName'), h.get('lastName')) if x)
+    full = ' '.join(x for x in (h.get('lastName'), h.get('firstName'), h.get('middleName')) if x)   # «Шаповалов Павел Игоревич» — так ищут врача
+    title = f'{full} — детский челюстно-лицевой хирург, к.м.н.'
+    desc = ('Детский челюстно-лицевой хирург, к.м.н., ЦНИИСиЧЛХ, Москва. Дистракционный остеогенез нижней челюсти, '
+            'сужение челюстей, кисты, костная пластика. Клинические случаи и статьи.')
+    e = lambda v: html.escape(v, quote=True)
+    work = c.get('work', {})
+    same = [u for u in (m.get('instagram'), m.get('telegram')) if u] + \
+           [k.get('url') for k in c.get('contacts', []) if str(k.get('url', '')).startswith('https://') and k.get('url') not in (m.get('instagram'), m.get('telegram'))] + \
+           [x.get('url') for x in c.get('science', {}).get('profiles', []) if x.get('url')]
+    same = list(dict.fromkeys(same))
+    org = {'@type': 'MedicalOrganization', 'name': work.get('name') or 'ФГБУ НМИЦ «ЦНИИСиЧЛХ» Минздрава России'}
+    addr = {'@type': 'PostalAddress', 'streetAddress': 'ул. Тимура Фрунзе, д. 16, стр. 5', 'addressLocality': 'Москва', 'addressCountry': 'RU'}
+    alt = [full, 'Шаповалов Павел', f"Шаповалов {h.get('firstName', '')[:1]}. {h.get('middleName', '')[:1]}.", 'Pavel Shapovalov', 'Dr. Shapovalov', 'Доктор Шаповалов']
+    ld = {'@context': 'https://schema.org', '@graph': [
+        {'@type': 'WebSite', '@id': SITE + '#site', 'url': SITE, 'name': f'{full} — официальный сайт', 'inLanguage': ['ru', 'en'],
+         'about': {'@id': SITE + '#person'}},
+        {'@type': 'Person', '@id': SITE + '#person', 'name': name, 'alternateName': alt, 'givenName': h.get('firstName'),
+         'additionalName': h.get('middleName'), 'familyName': h.get('lastName'), 'url': SITE, 'image': SITE + 'img/og-cover.jpg',
+         'jobTitle': 'Детский челюстно-лицевой хирург', 'honorificSuffix': 'к.м.н.', 'description': desc, 'worksFor': org, 'sameAs': same},
+        {'@type': 'Physician', '@id': SITE + '#physician', 'name': name, 'url': SITE, 'image': SITE + 'img/og-cover.jpg',
+         'description': desc, 'address': addr, 'parentOrganization': org, 'sameAs': same}]}
+    return (f'<link rel="canonical" href="{SITE}">\n'
+            f'<link rel="alternate" hreflang="ru" href="{SITE}">\n<link rel="alternate" hreflang="en" href="{SITE}?lang=en">\n'
+            f'<link rel="alternate" hreflang="x-default" href="{SITE}">\n'
+            '<meta property="og:type" content="website">\n<meta property="og:locale" content="ru_RU">\n'
+            f'<meta property="og:site_name" content="Dr. Shapovalov">\n<meta property="og:title" content="{e(title)}">\n'
+            f'<meta property="og:description" content="{e(desc)}">\n<meta property="og:url" content="{SITE}">\n'
+            f'<meta property="og:image" content="{SITE}img/og-cover.jpg">\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">\n'
+            '<meta name="twitter:card" content="summary_large_image">\n'
+            '<meta name="theme-color" content="#05080a">\n'
+            f'<meta name="yandex-verification" content="{YANDEX_VERIFY}">\n'
+            f'<meta name="google-site-verification" content="{GOOGLE_VERIFY}">\n'
+            '<script type="application/ld+json">' + json.dumps(ld, ensure_ascii=False).replace('</', '<\\/') + '</script>\n')
+
 
 def main():
     if DIST.exists():
@@ -118,7 +162,9 @@ def main():
     assert 'https://' not in ''.join(re.findall(r'<script[^>]*src="[^"]*"', page)), 'остался внешний скрипт'
     head, body = page.split('</style>', 1)          # всё до конца <style> — в <head>
     csp = CSP_SITE.format(hashes=inline_hashes(page))
-    (DIST / 'index.html').write_text(HEAD + metas(csp) + head + '</style>\n</head>\n<body>\n' + body + '\n</body>\n</html>\n',
+    import json as _j
+    content = _j.loads((HERE / 'content.json').read_text(encoding='utf-8'))
+    (DIST / 'index.html').write_text(HEAD + metas(csp) + seo_head(content) + head + '</style>\n</head>\n<body>\n' + body + '\n</body>\n</html>\n',
                                      encoding='utf-8')
 
     admin = (HERE / 'admin.html').read_text(encoding='utf-8')
@@ -133,6 +179,24 @@ def main():
         shutil.copy2(HERE / 'content.en.json', DIST / 'content.en.json')
     copy_images(HERE / 'img', DIST / 'img')
     shutil.copytree(HERE / 'vendor', DIST / 'vendor')
+    if (HERE / 'CNAME').exists():                          # свой домен для GitHub Pages (drshapovalov.ru)
+        shutil.copy2(HERE / 'CNAME', DIST / 'CNAME')
+    (DIST / 'robots.txt').write_text(f'User-agent: *\nAllow: /\nDisallow: /admin.html\nSitemap: {SITE}sitemap.xml\n', encoding='utf-8')
+    import datetime
+    today = datetime.date.today().isoformat()
+    (DIST / 'sitemap.xml').write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + ''.join(f'  <url><loc>{u}</loc><lastmod>{today}</lastmod></url>\n' for u in (SITE, SITE + '?lang=en')) + '</urlset>\n', encoding='utf-8')
+    # IndexNow (Яндекс, Bing и др.): ключ лежит в корне сайта, по нему поисковик проверяет, что уведомление от владельца
+    (DIST / f'yandex_{YANDEX_VERIFY}.html').write_text('<html>\n    <head>\n        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">\n'
+        f'    </head>\n    <body>Verification: {YANDEX_VERIFY}</body>\n</html>\n', encoding='utf-8')
+    (DIST / f'{INDEXNOW_KEY}.txt').write_text(INDEXNOW_KEY, encoding='utf-8')
+    # пререндер: текст из content.json вписывается в HTML, чтобы робот без JavaScript видел весь сайт
+    if shutil.which('node'):
+        subprocess.run(['node', str(HERE / 'prerender.cjs'), str(DIST)], check=True)
+    else:
+        print('внимание: нет Node — пререндер пропущен, текст сайта виден роботам только после JavaScript')
+    (DIST / '.github' / 'workflows').mkdir(parents=True)          # уведомление поисковиков после выкладки
+    shutil.copy2(HERE / 'github-workflows' / 'indexnow.yml', DIST / '.github' / 'workflows' / 'indexnow.yml')
     (DIST / '.nojekyll').touch()                    # GitHub Pages: отдавать файлы как есть, без Jekyll
     print('ok', DIST)
 

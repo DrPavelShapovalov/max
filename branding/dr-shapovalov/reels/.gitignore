@@ -2,3 +2,6 @@ out/
 */voice.wav
 */voice.m4a
 */music.wav
+*/src/
+*/work/
+__pycache__/

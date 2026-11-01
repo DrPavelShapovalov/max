@@ -1,5 +1,5 @@
-<title>Dr. Shapovalov</title>
-<meta name="description" content="Павел Шаповалов — кандидат медицинских наук, челюстно-лицевой хирург детского отделения ФГБУ НМИЦ «ЦНИИСиЧЛХ», Москва.">
+<title>Шаповалов Павел Игоревич — детский челюстно-лицевой хирург, к.м.н. | Москва</title>
+<meta name="description" content="Шаповалов Павел Игоревич — детский челюстно-лицевой хирург, к.м.н., ЦНИИСиЧЛХ, Москва. Дистракционный остеогенез нижней челюсти, сужение челюстей, кисты, костная пластика. Клинические случаи, статьи, запись на приём.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Manrope:wght@400;500;600;700;800&display=swap">
@@ -138,8 +138,9 @@
   @media (hover:hover) and (pointer:fine){ .aud button[aria-checked="false"]:hover{color:var(--ivory)} }
 
   /* дистракция при прокрутке */
-  .dx{position:relative; z-index:2; height:100svh; margin-top:110px}
-  .dx-pin{height:100%; display:grid; grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr); grid-template-areas:"head fig" "read fig";
+  /* min-height, а не height: если схема не влезает в низкий экран (встроенные браузеры Threads, Instagram), секция растёт, а не наезжает на следующую */
+  .dx{position:relative; z-index:2; min-height:100svh; margin-top:110px}
+  .dx-pin{min-height:100svh; display:grid; grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr); grid-template-areas:"head fig" "read fig";
     grid-template-rows:auto 1fr; column-gap:40px; row-gap:8px; align-content:center; padding-block:110px 40px}
   .dx-head{grid-area:head; align-self:end}
   .dx-head p{margin-top:16px; color:var(--soft); font-size:17px; max-width:44ch}
@@ -147,7 +148,7 @@
   .dx-svg{display:block; width:100%; height:auto; overflow:visible}
   .dx-read{grid-area:read; align-self:start; min-width:0}
   .dx-mm{margin-top:26px; font-family:var(--display); font-weight:700; font-size:clamp(64px,7.4vw,104px); line-height:.85; letter-spacing:-.04em; font-variant-numeric:tabular-nums; white-space:nowrap}
-  .dx-mm small{margin-left:12px; font-size:.28em; font-weight:500; letter-spacing:0; color:var(--gold)}
+  .dx-mm small{margin-left:12px; font-size:max(.28em, 13px); font-weight:500; letter-spacing:0; color:var(--gold)}
   .dx-steps{list-style:none; margin:24px 0 0; padding:0; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px}
   .dx-steps li{display:flex; flex-direction:column; gap:8px; font-size:13px; line-height:1.3; color:var(--mist); transition:color .25s}
   .dx-steps li.on{color:var(--ivory)}
@@ -251,6 +252,10 @@
     background:rgba(10,21,19,.9); border:1px solid rgba(214,178,102,.35); color:var(--ivory); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
     opacity:0; transform:translateY(6px); transition:opacity .2s, transform .2s; pointer-events:none}
   .tip.on{opacity:1; transform:none}
+  /* Instagram: пометка «*» и пояснение о Meta при наведении (ст. 4 закона «О СМИ») */
+  .meta-star{color:var(--gold); font-size:.8em; line-height:0; vertical-align:.35em; margin-left:1px}
+  .meta-term{font:inherit; color:inherit; background:none; border:0; padding:0; cursor:help; border-bottom:1px dashed var(--gold)}
+  .meta-term:hover,.meta-term[aria-expanded="true"]{color:var(--gold-hi)}
   .tip b{display:block; font-family:var(--display); font-weight:500; font-size:16px; color:var(--gold-hi); margin-bottom:6px}
   .todo{display:inline-block; padding:3px 10px; border-radius:8px; border:1px dashed var(--todo); color:var(--todo); background:rgba(214,178,102,.08); font-size:13px; font-weight:600}
 
@@ -431,7 +436,7 @@
   .rev b{display:block; margin-top:6px; font-family:var(--display); font-weight:500; font-size:clamp(24px,2.6vw,32px); line-height:1.1}
   .rev .go{flex:none; padding:12px 18px; border-radius:999px; background:var(--gold); color:#140f06; font-weight:700; font-size:15px; white-space:nowrap}
   @media (hover:hover) and (pointer:fine){ a.rev:hover{transform:translateY(-4px)} a.rev:hover .go{background:var(--gold-hi)} }
-  .contact span{font-family:var(--display); font-weight:500; font-size:18px; overflow-wrap:anywhere}
+  .contact > span{font-family:var(--display); font-weight:500; font-size:18px; overflow-wrap:anywhere}
 
   footer{padding-block:120px 0; position:relative; z-index:1}
   .foot-ym{margin-top:14px; font-size:12px; color:var(--mist); max-width:70ch}
@@ -511,6 +516,31 @@
     .t-long{display:none} .t-short{display:inline}
     .stage{padding-top:44px; scroll-margin-top:90px}
     .tabpanel{scroll-margin-top:90px}
+  }
+  /* низкие экраны телефона: схема и текст должны помещаться в один экран, пока секция закреплена */
+  @media (max-width:960px) and (max-height:800px){
+    .dx-pin{padding-block:90px 86px; row-gap:6px}
+    .dx-head h2{font-size:24px}
+    .dx-head p{margin-top:6px; font-size:14px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden}
+    .dx-svg{max-height:29svh}
+    .dx-mm{font-size:44px}
+    .dx-steps{margin-top:10px}
+    .dx-now{margin-top:8px; min-height:5.6em} .dx-now b{font-size:16px} .dx-now p{font-size:14px; line-height:1.4; margin-top:4px}
+    .dx-note{font-size:12px; line-height:1.35}
+  }
+  @media (max-width:960px) and (max-height:680px){
+    .dx-head p{-webkit-line-clamp:2}
+    .dx-svg{max-height:26svh}
+    .dx-mm{font-size:38px}
+    .dx-now{min-height:4.4em}
+  }
+  @media (max-width:960px) and (max-height:600px){
+    .dx-pin{padding-block:88px 80px}
+    .dx-svg{max-height:22svh}
+    .dx-mm{font-size:32px}
+    .dx-steps li{font-size:11px}
+    .dx-now p{font-size:13px}
+    .dx-note{font-size:11px}
   }
   @media (max-width:360px){
     .tabbar button{font-size:12px; padding-inline:0; letter-spacing:-.01em}
@@ -791,6 +821,7 @@
 </main>
 
 <div class="tip" id="tip" role="tooltip"></div>
+<span id="meta-desc" hidden></span>
 
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-labelledby="lb-t" hidden>
   <div class="lb-scrim" data-close></div>
@@ -1404,13 +1435,14 @@
   }
 
   /* ---------- пояснения к терминам ---------- */
-  const tip = $('tip'); let cur = null;
+  const tip = $('tip'); let cur = null, shownAt = 0;
   const show = (btn) => {
-    const t = TERMS[btn.dataset.term]; if (!t) return;
+    const t = btn.dataset.meta ? { text: (CONTENT.meta || {}).metaNotice } : TERMS[btn.dataset.term]; if (!t || !t.text) return;
     if (cur && cur !== btn) cur.setAttribute('aria-expanded', 'false');
-    cur = btn; tip.innerHTML = '';
-    const b = document.createElement('b'); b.textContent = t.title; tip.append(b, document.createTextNode(t.text));
-    btn.setAttribute('aria-expanded', 'true');
+    cur = btn; shownAt = performance.now(); tip.innerHTML = '';
+    if (t.title) { const b = document.createElement('b'); b.textContent = t.title; tip.append(b); }
+    tip.append(document.createTextNode(t.text));
+    if (btn.tagName !== 'A') btn.setAttribute('aria-expanded', 'true');
     const r = btn.getBoundingClientRect(), w = tip.offsetWidth, hh = tip.offsetHeight;
     let top = r.bottom + 10; if (top + hh > innerHeight - 12) top = Math.max(12, r.top - hh - 10);
     tip.style.left = Math.min(Math.max(16, r.left + r.width / 2 - w / 2), innerWidth - w - 16) + 'px'; tip.style.top = top + 'px'; tip.classList.add('on');
@@ -1420,11 +1452,50 @@
     document.querySelectorAll('.term').forEach((btn) => {
       if (btn.dataset.bound) return; btn.dataset.bound = 1;
       btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-describedby', 'tip');
-      btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); cur === btn ? hide() : show(btn); });
+      btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); cur === btn && performance.now() - shownAt > 400 ? hide() : show(btn); });
       btn.addEventListener('mouseenter', () => { if (matchMedia('(hover:hover)').matches) show(btn); });
       btn.addEventListener('mouseleave', () => { if (matchMedia('(hover:hover)').matches) hide(); });
       btn.addEventListener('focus', () => show(btn)); btn.addEventListener('blur', hide);
     });
+  }
+  /* Instagram везде на странице: слово получает «*», при наведении (на телефоне — при касании) всплывает
+     пояснение о Meta из content.json → meta.metaNotice. Ссылки на Instagram остаются ссылками. */
+  let metaTimer = 0;
+  function markMeta() {
+    const note = (CONTENT.meta || {}).metaNotice, desc = $('meta-desc');
+    desc.textContent = note || '';
+    if (!note) return;
+    const skip = ['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'TITLE'];
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: (n) =>
+      /Instagram/.test(n.nodeValue) && !n.parentElement.closest('.meta-w,#tip,#meta-desc') && !skip.includes(n.parentElement.tagName)
+        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
+    const nodes = []; for (let n; (n = w.nextNode());) nodes.push(n);
+    nodes.forEach((n) => {
+      const a = n.parentElement.closest('a');
+      const frag = document.createDocumentFragment();
+      n.nodeValue.split(/(Instagram)/).forEach((part) => {
+        if (part !== 'Instagram') { if (part) frag.append(part); return; }
+        const el = document.createElement(a ? 'span' : 'button');
+        el.className = 'meta-w' + (a ? '' : ' meta-term');
+        if (!a) { el.type = 'button'; bindMeta(el); }
+        el.innerHTML = 'Instagram<span class="meta-star" aria-hidden="true">*</span>';
+        frag.append(el);
+      });
+      n.replaceWith(frag);
+      if (a) bindMeta(a);
+    });
+  }
+  function bindMeta(el) {
+    if (el.dataset.meta) return; el.dataset.meta = 1;
+    el.setAttribute('aria-describedby', 'meta-desc');
+    const link = el.tagName === 'A';
+    if (!link) el.setAttribute('aria-expanded', 'false');
+    // ссылка открывается как обычно; клик не всплывает до document, чтобы пояснение не закрылось сразу
+    el.addEventListener('click', (e) => { e.stopPropagation(); if (link) return; e.preventDefault(); cur === el && performance.now() - shownAt > 400 ? hide() : show(el); });
+    el.addEventListener('pointerdown', (e) => { if (link && e.pointerType !== 'mouse') { show(el); clearTimeout(metaTimer); metaTimer = setTimeout(hide, 6000); } });
+    el.addEventListener('mouseenter', () => { if (matchMedia('(hover:hover)').matches) show(el); });
+    el.addEventListener('mouseleave', () => { if (matchMedia('(hover:hover)').matches) hide(); });
+    el.addEventListener('focus', () => show(el)); el.addEventListener('blur', hide);
   }
   document.addEventListener('click', hide);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
@@ -1453,7 +1524,7 @@
   }
   // вкладки сайта считаются как отдельные страницы: видно, какие разделы смотрят
   const ymHit = (id) => { if (YM && window.ym) window.ym(YM, 'hit', location.pathname + '#' + id, { title: document.title + ' — ' + id }); };
-  function boot(c) { render(c); i18nDom(document.body); metrika((c.meta || {}).metrika); if (booted) return; booted = true; animate(); startDx(); startTabs(); writeSignature(); }
+  function boot(c) { render(c); i18nDom(document.body); markMeta(); metrika((c.meta || {}).metrika); if (booted) return; booted = true; animate(); startDx(); startTabs(); writeSignature(); }
   const ready = () => { if (parent !== window) parent.postMessage({ type: 'shapovalov:ready' }, '*'); };   // в сообщении нет ничего секретного
   const loadContent = (f) => fetch(f, { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
   (LANG === 'en' ? loadContent('content.en.json').catch(() => loadContent('content.json')) : loadContent('content.json')).then((c) => { boot(c); ready(); })
