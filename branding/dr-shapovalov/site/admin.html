@@ -544,7 +544,7 @@
     }
     out.innerHTML = ''; ymErr.set('');
     const t = (total.totals || []);
-    const dur = t[4] || 0;
+    const dur = Math.round(t[4] || 0);                    // сначала округляем секунды, иначе бывает «6:60»
     out.append(el('div', { className: 'kpis' }, ...[
       [fmt(t[0] || 0), 'визиты'], [fmt(t[1] || 0), 'посетители'], [fmt(t[2] || 0), 'просмотры страниц'],
       [(t[3] || 0).toFixed(1).replace('.', ',') + '%', 'отказы'], [`${Math.floor(dur / 60)}:${String(Math.round(dur % 60)).padStart(2, '0')}`, 'время на сайте, мин:с'],
