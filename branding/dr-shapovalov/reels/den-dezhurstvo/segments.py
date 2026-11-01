@@ -18,8 +18,8 @@ SEGS = [
   dict(f='12a-IMG_9143', ss=0.4, d=2.6, sec='rest'),
   dict(f='12b-IMG_9156', ss=4.7, d=3.1, sec='rest', sub='кола — и снова в строй'),
   dict(f='12c-IMG_9167', ss=0.2, d=3.0, sec='lunch', blur=[[0, 0, 1080, 800]]),
-  dict(f='13a-IMG_9183', ss=0.0, d=2.46, sec='turn'),
   dict(f='13b-IMG_9189', ss=0.2, d=3.6, sec='evening'),
+  dict(f='13a-IMG_9183', ss=0.0, d=2.46, sec='turn', speed=0.8),     # подкрутка в 20:03 — после вечернего отдыха
 ]
 SECTIONS = {   # время, заголовок, позиция подписи, подзаголовок секции
   'title':   dict(),
@@ -31,7 +31,7 @@ SECTIONS = {   # время, заголовок, позиция подписи, 
   'dress':   dict(time='10:03', title='Перевязки', pos='top'),
   'rest':    dict(time='10:54', title='Отдых', note='выдохнуть и расслабиться', pos='top'),
   'lunch':   dict(time='13:13', title='Обедик', pos='top'),
-  'turn':    dict(time='16:13', title='Подкрутка дистрактора', note='вечерняя, по расписанию', pos='top'),
+  'turn':    dict(time='20:03', title='Подкрутка дистрактора', note='вечерняя, по расписанию', pos='top'),
   'evening': dict(time='17:18', title='Вечер', note='пилю свой сайт и смотрю кино', pos='low'),
 }
 TRANS = ['smoothup', 'circleopen', 'slideleft', 'zoomin', 'smoothleft', 'radial', 'circleopen', 'diagtl', 'smoothright',
