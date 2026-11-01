@@ -1388,10 +1388,11 @@
   });
   let booted = false;
   /* ---------- Яндекс Метрика: включается номером счётчика в content.json (meta.metrika) ----------
-     Не грузится в предпросмотре админки и во встроенном окне. Вебвизор выключен: записи действий посетителей не ведутся. */
+     Не грузится только в предпросмотре админки (#preview). Внутри фрейма грузится: так Метрика показывает
+     на сайте карту ссылок, кликов и скроллинга. Вебвизор выключен: записи действий посетителей не ведутся. */
   let YM = 0;
   function metrika(id) {
-    if (YM || PREVIEW || parent !== window || !/^\d{5,12}$/.test(String(id || ''))) return;
+    if (YM || PREVIEW || !/^\d{5,12}$/.test(String(id || ''))) return;
     YM = +id;
     window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); }; window.ym.l = +new Date();
     // как в коде, который выдаёт Метрика для этого счётчика (tag.js?id=…, ssr, referrer, url); ecommerce и вебвизор не нужны
