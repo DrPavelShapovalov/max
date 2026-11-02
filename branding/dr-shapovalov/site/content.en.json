@@ -190,8 +190,8 @@
       "code": "TUM",
       "title": "Benign jaw tumours",
       "text": "Removal of benign jaw lesions.",
-      "link": "",
-      "linkLabel": ""
+      "link": "kejsy/odontoma-nizhnej-chelyusti/",
+      "linkLabel": "Case (in Russian)"
     },
     {
       "code": "GRAFT",
@@ -360,6 +360,41 @@
         }
       ],
       "consent": "Published with written consent."
+    },
+    {
+      "id": "case-4",
+      "slug": "odontoma-nizhnej-chelyusti",
+      "tags": [
+        "Odontoma",
+        "8 years old",
+        "confirmed by histology"
+      ],
+      "title": "Mandibular odontoma in an 8-year-old",
+      "points": [
+        "Referred from Tambov with the diagnosis “Benign neoplasm of the left mandibular body. Odontoma? Cementoma?”",
+        "[[klkt|CBCT]]: multiple irregular masses within the left mandibular body. The buccal, lingual and inferior cortical plates were intact; the bone bulged on the vestibular side",
+        "Surgery under combined endotracheal anaesthesia: the buccal cortical plate was raised as a lid with a piezosurgical approach, **all masses — about 50 — were removed**, the cavity was irrigated with dimethyl sulfoxide solution and closed primarily",
+        "Primary teeth over the lesion were extracted for access. The follow-up [[otpg|OPG]] showed **the permanent tooth germs undamaged** and the cortical plate preserved along its whole length",
+        "Histology: **odontoma confirmed**"
+      ],
+      "metric": "≈ 50",
+      "metricUnit": "masses",
+      "metricCaption": "removed in one operation, permanent tooth germs preserved",
+      "scaleMax": 0,
+      "bars": [],
+      "images": [
+        {
+          "src": "img/cases/odontoma-opg-en.webp",
+          "caption": "OPG before and after surgery",
+          "alt": "Panoramic radiographs before and after surgery: before, multiple dense masses in the left mandibular body; after, an empty cavity with the permanent tooth germs in place."
+        },
+        {
+          "src": "img/cases/odontoma-ct-en.webp",
+          "caption": "CBCT before surgery: 3D reconstruction and axial slice",
+          "alt": "Pre-operative CBCT: 3D reconstruction with bone bulging on the left, and an axial slice of the mandible with multiple masses inside it."
+        }
+      ],
+      "consent": ""
     }
   ],
   "steps": {
@@ -687,6 +722,16 @@
       "key": "plan",
       "title": "3D planning",
       "text": "The surgery is modelled on a computer from CT data: the device type is chosen and the amount of distraction is calculated."
+    },
+    {
+      "key": "klkt",
+      "title": "CBCT",
+      "text": "Cone-beam computed tomography: a 3D X-ray scan of the jaws."
+    },
+    {
+      "key": "otpg",
+      "title": "OPG",
+      "text": "Orthopantomogram: a panoramic X-ray of both jaws."
     }
   ],
   "footer": {

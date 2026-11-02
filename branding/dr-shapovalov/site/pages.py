@@ -133,6 +133,12 @@ def page(c, path, title, desc, body, crumbs, schema):
 '''
 
 
+def is_dist(k):
+    """Кейс про дистракционный остеогенез: по словам в заголовке, ярлыках и пунктах."""
+    t = plain(' '.join([str(k.get('title', ''))] + [str(x) for x in (k.get('tags') or []) + (k.get('points') or [])])).lower()
+    return any(w in t for w in ('дистракц', 'кда', 'регенерат'))
+
+
 def person(c):
     return {'@id': SITE + '#person'}
 
@@ -157,7 +163,8 @@ def method_page(c):
     st = c.get('steps', {})
     steps = ''.join(f'<li>{e(i.get("title"))} {e(i.get("detail"))}</li>' for i in st.get('items', []))
     st_intro = sentences(plain(st.get('intro')), ('фото', 'нажм'))
-    cases = ''.join(case_card(k) for k in c.get('cases', []) if slug(k))
+    # на странице метода — только кейсы с дистракцией
+    cases = ''.join(case_card(k) for k in c.get('cases', []) if slug(k) and is_dist(k))
     sc = c.get('science', {}); ds = sc.get('dissertation', {})
     pubs = [p for p in sc.get('publications', []) if 'дистракц' in str(p.get('title', '')).lower()]
     publist = ''.join(f'<li>{e(p.get("authors"))} {e(p.get("title"))} // {e(p.get("journal"))}.'
@@ -204,7 +211,7 @@ def case_page(c, k):
 <section class="block"><h2>Ход лечения</h2><ul class="points">{pts}</ul>
 {f'<table class="bars"><caption>Цифры случая</caption>{bars}</table>' if bars else ''}</section>
 {f'<section class="block"><h2>Фото и снимки</h2><div class="gal">{imgs}</div>{consent}</section>' if imgs else ''}
-<section class="block"><h2>О методе</h2><p><a href="/{METHOD}">Дистракционный остеогенез нижней челюсти у детей: как проходит лечение →</a></p></section>
+{f'<section class="block"><h2>О методе</h2><p><a href="/{METHOD}">Дистракционный остеогенез нижней челюсти у детей: как проходит лечение →</a></p></section>' if is_dist(k) else ''}
 {glossary(used)}
 {f'<section class="block"><h2>Другие случаи</h2><ul class="cards">{others}</ul></section>' if others else ''}
 </article>'''
@@ -218,7 +225,8 @@ def case_page(c, k):
 def cases_index(c):
     cards = ''.join(case_card(k) for k in c.get('cases', []) if slug(k))
     title = 'Клинические случаи детского челюстно-лицевого хирурга Шаповалова П. И.'
-    desc = 'Реальные случаи лечения детей и подростков: дистракционный остеогенез нижней челюсти, микросомия, анкилоз ВНЧС. Цифры до и после, фото с письменного согласия.'
+    topics = list(dict.fromkeys(str((k.get('tags') or [''])[0]).strip() for k in c.get('cases', []) if slug(k)))
+    desc = 'Реальные случаи лечения детей и подростков' + (': ' + ', '.join(t[:1].lower() + t[1:] if not t[:2].isupper() else t for t in topics if t) if topics else '') + '. Цифры до и после лечения, снимки и фото.'
     body = f'<article><h1>Клинические случаи</h1><p class="lede">{e(desc)}</p><ul class="cards">{cards}</ul></article>'
     schema = {'@type': 'CollectionPage', '@id': SITE + CASES, 'url': SITE + CASES, 'name': title, 'description': desc, 'inLanguage': 'ru',
               'author': person(c), 'isPartOf': {'@id': SITE + '#site'}}

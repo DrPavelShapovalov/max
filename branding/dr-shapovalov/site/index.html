@@ -310,6 +310,7 @@
   .case-gal button:hover img{transform:scale(1.02)}
   .case-gal button:focus-visible{outline:2px solid var(--gold); outline-offset:4px}
   .case-gal figcaption{font-size:14px; color:var(--mist)}
+  .viz.solo{align-self:start}   /* кейс без графика: блок с цифрой не растягивается на всю высоту */
   .case-more{align-self:flex-start; color:var(--gold-hi); font-weight:700; border-bottom:1px solid rgba(214,178,102,.4)}
   .case-more:hover{color:var(--gold)}
   .case-note{grid-column:1 / -1; font-size:13px; color:var(--mist); margin-top:-12px}
@@ -963,10 +964,10 @@
       return `<article class="case glass reveal" id="${esc(k.id)}">
         <div class="case-text"><div class="tags">${(k.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>
           <h3>${esc(k.title)}</h3><ul>${(k.points || []).map((p) => `<li>${rich(p)}</li>`).join('')}</ul>${caseHref(k) ? `<a class="case-more" href="${caseHref(k)}">${esc(tr('Подробнее о случае'))} →</a>` : ''}</div>
-        <div class="viz"><div class="big">${metric}<small>${esc(k.metricUnit)}</small></div><p class="cap">${rich(k.metricCaption)}</p>
-          <div class="bars" role="img" aria-label="${esc((k.bars || []).map((b) => `${b.name} ${b.value} ${b.unit}`).join(', '))}">
+        <div class="viz${(k.bars || []).length ? '' : ' solo'}"><div class="big">${metric}<small>${esc(k.metricUnit)}</small></div><p class="cap">${rich(k.metricCaption)}</p>
+          ${(k.bars || []).length ? `<div class="bars" role="img" aria-label="${esc((k.bars || []).map((b) => `${b.name} ${b.value} ${b.unit}`).join(', '))}">
             ${(k.bars || []).map((b) => `<div class="bar"><span class="n">${esc(b.name)}</span><span class="rail"><span class="fill${b.accent ? ' on' : ''}" style="--w:${Math.min(100, (+b.value / max) * 100).toFixed(2)}%"></span></span><span class="v">${esc(LANG === 'en' ? String(b.value) : String(b.value).replace('.', ','))} ${esc(b.unit)}</span></div>`).join('')}
-            <div class="scale"><span></span><span class="t">${ticks}</span><span></span></div></div></div>${gallery(k)}</article>`;
+            <div class="scale"><span></span><span class="t">${ticks}</span><span></span></div></div>` : ''}</div>${gallery(k)}</article>`;
     }).join('');
 
     const s = c.steps || {};
