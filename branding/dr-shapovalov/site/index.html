@@ -310,6 +310,9 @@
   .case-gal button:hover img{transform:scale(1.02)}
   .case-gal button:focus-visible{outline:2px solid var(--gold); outline-offset:4px}
   .case-gal figcaption{font-size:14px; color:var(--mist)}
+  .viz.solo{align-self:start}   /* кейс без графика: блок с цифрой не растягивается на всю высоту */
+  .case-more{align-self:flex-start; color:var(--gold-hi); font-weight:700; border-bottom:1px solid rgba(214,178,102,.4)}
+  .case-more:hover{color:var(--gold)}
   .case-note{grid-column:1 / -1; font-size:13px; color:var(--mist); margin-top:-12px}
   .lb.clean .lb-fig img{background:none; box-shadow:none}
   .viz{padding:26px; border-radius:20px; background:rgba(5,8,10,.5); border:1px solid var(--line); display:flex; flex-direction:column; gap:20px; min-width:0}
@@ -872,7 +875,7 @@
     'Работа с ортодонтом': 'Work with orthodontists', 'Статьи': 'Papers', 'Доклады': 'Talks', 'Программы для ЭВМ': 'Software',
     'Кандидатская диссертация': 'PhD dissertation', 'Специальность': 'Specialty', 'Руководитель': 'Supervisor', 'Защита': 'Defence',
     'Открыть диссертацию →': 'Open the dissertation →', 'ЭВМ': 'SW', 'Читать ↗': 'Read ↗', 'Этап': 'Step', 'Страница: ': 'Page: ', 'Карта: ': 'Map: ',
-    'тело нижней челюсти': 'mandibular body', 'English version': 'Русская версия', 'Читать отзывы ↗': 'Read reviews ↗'
+    'тело нижней челюсти': 'mandibular body', 'English version': 'Русская версия', 'Подробнее о случае': 'Case details (in Russian)', 'Читать отзывы ↗': 'Read reviews ↗'
   };
   const tr = (ru) => (LANG === 'en' && EN[ru] != null ? EN[ru] : ru);
   // подписи интерфейса в HTML и в разметке, которую собирает render(): точное совпадение текста узла или атрибута
@@ -900,7 +903,7 @@
     .replace(/\[\[([a-z0-9_-]+)\|(.+?)\]\]/gi, (m, k, t) => TERMS[k] ? `<button class="term" type="button" data-term="${k}">${t}</button>` : t);
   const todo = (what) => PREVIEW ? `<span class="todo">Добавить: ${esc(what)}</span>` : '';
   const val = (v, what) => (v && String(v).trim()) ? rich(v) : todo(what);
-  const safeUrl = (u) => /^(https?:|#|mailto:|tel:|img\/)/i.test(String(u || '').trim()) ? String(u).trim() : '';
+  const safeUrl = (u) => /^(https?:|#|mailto:|tel:|img\/|lechenie\/|kejsy\/)/i.test(String(u || '').trim()) ? String(u).trim() : '';
   const ext = (u) => /^https?:/i.test(u) ? ' target="_blank" rel="noopener"' : '';
   const num = (s) => parseFloat(String(s).replace(',', '.'));
 
@@ -952,17 +955,19 @@
       if (!ims.length) return '';
       return `<div class="case-gal">${ims.map((m) => `<figure><button type="button" data-cimg="${esc(safeUrl(m.src))}" data-cap="${esc(m.caption || '')}" data-alt="${esc(m.alt || m.caption || k.title)}" data-case="${esc(k.title)}" aria-label="Открыть крупно: ${esc(m.caption || k.title)}"><img src="${esc(safeUrl(m.src))}" alt="${esc(m.alt || m.caption || '')}" loading="lazy"></button>${m.caption ? `<figcaption>${rich(m.caption)}</figcaption>` : ''}</figure>`).join('')}</div>${k.consent ? `<p class="case-note">${esc(k.consent)}</p>` : ''}`;
     };
+    // у каждого кейса своя страница kejsy/<адрес>/ (её собирает pages.py): адрес из поля slug, иначе метка id
+    const caseHref = (k) => { const s = String(k.slug || k.id || '').trim(); return /^[a-z0-9][a-z0-9-]{0,80}$/.test(s) ? `kejsy/${s}/` : ''; };
     $('case-list').innerHTML = (c.cases || []).map((k) => {
       const max = +k.scaleMax || Math.max(...(k.bars || []).map((b) => +b.value || 0), 1);
       const ticks = [0, .25, .5, .75, 1].map((f) => `<span>${+(max * f).toFixed(1)}</span>`).join('');
       const metric = esc(k.metric).replace(/→/g, '<span class="arr">→</span>');
       return `<article class="case glass reveal" id="${esc(k.id)}">
         <div class="case-text"><div class="tags">${(k.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>
-          <h3>${esc(k.title)}</h3><ul>${(k.points || []).map((p) => `<li>${rich(p)}</li>`).join('')}</ul></div>
-        <div class="viz"><div class="big">${metric}<small>${esc(k.metricUnit)}</small></div><p class="cap">${rich(k.metricCaption)}</p>
-          <div class="bars" role="img" aria-label="${esc((k.bars || []).map((b) => `${b.name} ${b.value} ${b.unit}`).join(', '))}">
+          <h3>${esc(k.title)}</h3><ul>${(k.points || []).map((p) => `<li>${rich(p)}</li>`).join('')}</ul>${caseHref(k) ? `<a class="case-more" href="${caseHref(k)}">${esc(tr('Подробнее о случае'))} →</a>` : ''}</div>
+        <div class="viz${(k.bars || []).length ? '' : ' solo'}"><div class="big">${metric}<small>${esc(k.metricUnit)}</small></div><p class="cap">${rich(k.metricCaption)}</p>
+          ${(k.bars || []).length ? `<div class="bars" role="img" aria-label="${esc((k.bars || []).map((b) => `${b.name} ${b.value} ${b.unit}`).join(', '))}">
             ${(k.bars || []).map((b) => `<div class="bar"><span class="n">${esc(b.name)}</span><span class="rail"><span class="fill${b.accent ? ' on' : ''}" style="--w:${Math.min(100, (+b.value / max) * 100).toFixed(2)}%"></span></span><span class="v">${esc(LANG === 'en' ? String(b.value) : String(b.value).replace('.', ','))} ${esc(b.unit)}</span></div>`).join('')}
-            <div class="scale"><span></span><span class="t">${ticks}</span><span></span></div></div></div>${gallery(k)}</article>`;
+            <div class="scale"><span></span><span class="t">${ticks}</span><span></span></div></div>` : ''}</div>${gallery(k)}</article>`;
     }).join('');
 
     const s = c.steps || {};
@@ -1522,6 +1527,14 @@
     window.ym(YM, 'init', { ssr: true, clickmap: true, trackLinks: true, accurateTrackBounce: true, referrer: document.referrer, url: location.href, webvisor: false });
     $('foot-ym').hidden = false;
   }
+  // цели Метрики: кто с сайта пытался связаться. В Метрике их создают как «JavaScript-событие» с этими идентификаторами
+  document.addEventListener('click', (ev) => {
+    const a = ev.target.closest && ev.target.closest('a[href]'); if (!a || !YM || !window.ym) return;
+    const u = a.getAttribute('href') || '';
+    const g = /^tel:/.test(u) ? 'phone' : /^mailto:/.test(u) ? 'email' : /t\.me\//.test(u) ? 'telegram' : /instagram\.com/.test(u) ? 'instagram'
+      : /(^|\/\/)(www\.)?(x|twitter)\.com/.test(u) ? 'x' : /prodoctorov/.test(u) ? 'prodoctorov' : '';
+    if (g) window.ym(YM, 'reachGoal', g);
+  }, true);
   // вкладки сайта считаются как отдельные страницы: видно, какие разделы смотрят
   const ymHit = (id) => { if (YM && window.ym) window.ym(YM, 'hit', location.pathname + '#' + id, { title: document.title + ' — ' + id }); };
   function boot(c) { render(c); i18nDom(document.body); markMeta(); metrika((c.meta || {}).metrika); if (booted) return; booted = true; animate(); startDx(); startTabs(); writeSignature(); }

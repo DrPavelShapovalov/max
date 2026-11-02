@@ -1,24 +1,51 @@
-# Сообщает Яндексу и Bing (протокол IndexNow), что страницы сайта обновились.
-# Запускается после каждого изменения сайта (в том числе из админки); ждёт, пока GitHub Pages выложит новую версию.
-name: IndexNow
+# После каждого изменения сайта (в том числе публикации из админки):
+# 1) пересобирает отдельные страницы метода и кейсов и sitemap.xml из content.json (pages.py);
+# 2) если они изменились — сохраняет их в репозиторий и просит GitHub Pages выложить сайт заново;
+# 3) сообщает Яндексу и Bing (протокол IndexNow) все адреса из sitemap.xml.
+name: Страницы и IndexNow
 on:
   push:
     branches: [main]
-    paths: ['index.html', 'content.json', 'content.en.json', 'sitemap.xml']
+    paths: ['index.html', 'content.json', 'content.en.json', 'pages.py']
   workflow_dispatch:
-permissions: {}
+permissions:
+  contents: write
+  pages: write
+concurrency: { group: pages-indexnow, cancel-in-progress: false }
 jobs:
-  ping:
+  update:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v5
+      - name: Собрать отдельные страницы
+        run: python3 pages.py .
+      - name: Сохранить изменения
+        id: save
+        run: |
+          git add -A lechenie kejsy pages.css sitemap.xml
+          if git diff --cached --quiet; then echo "changed=0" >> "$GITHUB_OUTPUT"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Страницы метода и кейсов обновлены из content.json"
+          git push
+          echo "changed=1" >> "$GITHUB_OUTPUT"
+      - name: Выложить сайт заново
+        if: steps.save.outputs.changed == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -s -o /dev/null -w 'pages build: HTTP %{http_code}\n' -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages/builds"
       - name: Подождать выкладку GitHub Pages
-        run: sleep 120
+        run: sleep 150
       - name: Отправить адреса в IndexNow
         env:
           HOST: drshapovalov.ru
           KEY: 4b3c078de10cb0485816cd596851f717
         run: |
-          body=$(printf '{"host":"%s","key":"%s","keyLocation":"https://%s/%s.txt","urlList":["https://%s/","https://%s/?lang=en"]}' "$HOST" "$KEY" "$HOST" "$KEY" "$HOST" "$HOST")
+          urls=$(grep -o '<loc>[^<]*' sitemap.xml | sed 's/<loc>//' | python3 -c 'import sys,json;print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')
+          body=$(printf '{"host":"%s","key":"%s","keyLocation":"https://%s/%s.txt","urlList":%s}' "$HOST" "$KEY" "$HOST" "$KEY" "$urls")
+          echo "$body"
           for ep in https://yandex.com/indexnow https://api.indexnow.org/indexnow; do
             code=$(curl -s -o /tmp/r.txt -w '%{http_code}' -X POST "$ep" -H 'Content-Type: application/json; charset=utf-8' -d "$body")
             echo "$ep → HTTP $code"; cat /tmp/r.txt; echo

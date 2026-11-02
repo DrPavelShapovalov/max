@@ -14,7 +14,7 @@ GitHub Pages не даёт задавать заголовки, поэтому �
 
 Запуск: python3 build.py
 """
-import subprocess
+import subprocess, sys
 import base64, hashlib, pathlib, re, shutil
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -183,9 +183,9 @@ def main():
         shutil.copy2(HERE / 'CNAME', DIST / 'CNAME')
     (DIST / 'robots.txt').write_text(f'User-agent: *\nAllow: /\nDisallow: /admin.html\nSitemap: {SITE}sitemap.xml\n', encoding='utf-8')
     import datetime
-    today = datetime.date.today().isoformat()
-    (DIST / 'sitemap.xml').write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        + ''.join(f'  <url><loc>{u}</loc><lastmod>{today}</lastmod></url>\n' for u in (SITE, SITE + '?lang=en')) + '</urlset>\n', encoding='utf-8')
+    # отдельные страницы (метод и кейсы) и sitemap.xml со всеми адресами; тот же скрипт GitHub запускает после публикации из админки
+    shutil.copy2(HERE / 'pages.py', DIST / 'pages.py')
+    subprocess.run([sys.executable, str(DIST / 'pages.py'), str(DIST)], check=True)
     # IndexNow (Яндекс, Bing и др.): ключ лежит в корне сайта, по нему поисковик проверяет, что уведомление от владельца
     (DIST / f'yandex_{YANDEX_VERIFY}.html').write_text('<html>\n    <head>\n        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">\n'
         f'    </head>\n    <body>Verification: {YANDEX_VERIFY}</body>\n</html>\n', encoding='utf-8')

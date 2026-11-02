@@ -250,6 +250,7 @@
       F('linkLabel', 'Текст ссылки'), F('link', 'Куда ведёт', 'text', { sub: 'Например #case-1 или https://…' })] },
     { id: 'cases', title: 'Клинические случаи', path: 'cases', list: true, item: 'Случай', titleKey: 'title', fields: [
       F('title', 'Заголовок'), F('id', 'Метка для ссылок', 'text', { sub: 'Латиницей, например case-3' }),
+      F('slug', 'Адрес отдельной страницы', 'text', { sub: 'Латиницей через дефис, например ankiloz-vnchs-u-podrostka → drshapovalov.ru/kejsy/ankiloz-vnchs-u-podrostka/. Страница появится через пару минут после публикации. Пусто — берётся метка для ссылок. Уже опубликованный адрес лучше не менять: старые ссылки перестанут работать' }),
       F('tags', 'Ярлыки', 'strings', { sub: 'Первый ярлык подсвечивается золотом' }),
       F('points', 'Пункты', 'strings', { area: true }),
       F('metric', 'Главная цифра', 'text', { sub: 'Например 21 или 7,93 → 2' }), F('metricUnit', 'Единица'), F('metricCaption', 'Подпись под цифрой'),
