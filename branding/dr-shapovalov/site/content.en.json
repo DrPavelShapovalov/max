@@ -367,7 +367,7 @@
       "tags": [
         "Odontoma",
         "8 years old",
-        "confirmed by histology"
+        "before and 1 year later"
       ],
       "title": "Mandibular odontoma in an 8-year-old",
       "points": [
@@ -385,13 +385,24 @@
       "images": [
         {
           "src": "img/cases/odontoma-opg-en.webp",
-          "caption": "OPG before and after surgery",
-          "alt": "Panoramic radiographs before and after surgery: before, multiple dense masses in the left mandibular body; after, an empty cavity with the permanent tooth germs in place."
+          "caption": "OPG before surgery, right after and one year later",
+          "alt": "Panoramic radiographs: before surgery, multiple dense masses in the left mandibular body; right after, an empty cavity; one year later."
         },
         {
           "src": "img/cases/odontoma-ct-en.webp",
           "caption": "CBCT before surgery: 3D reconstruction and axial slice",
           "alt": "Pre-operative CBCT: 3D reconstruction with bone bulging on the left, and an axial slice of the mandible with multiple masses inside it."
+        },
+        {
+          "src": "img/cases/odontoma-removed-en.webp",
+          "caption": "The removed masses on two gauze swabs, a 10 ml syringe for scale",
+          "alt": "Operating-room photo: many small removed masses on two gauze swabs next to a 10 ml syringe.",
+          "sensitive": true
+        },
+        {
+          "src": "img/cases/odontoma-3d-year-en.webp",
+          "caption": "3D CT one year after surgery",
+          "alt": "3D CT reconstruction of the mandible one year after surgery, left anterior view."
         }
       ],
       "consent": "Published with written consent."

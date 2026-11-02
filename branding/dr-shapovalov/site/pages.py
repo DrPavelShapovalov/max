@@ -74,6 +74,11 @@ def page(c, path, title, desc, body, crumbs, schema):
           'document.addEventListener("click",function(ev){var a=ev.target.closest&&ev.target.closest("a[href]");if(!a)return;var u=a.getAttribute("href"),g='
           '/^tel:/.test(u)?"phone":/^mailto:/.test(u)?"email":/t\\.me\\//.test(u)?"telegram":/prodoctorov/.test(u)?"prodoctorov":"";'
           'if(g)ym(id,"reachGoal",g)},true)})();') % (ym if re.fullmatch(r'\d{5,12}', ym) else '0')
+    # снимки открываются крупно по нажатию, как на главной; без скрипта ссылка просто откроет картинку
+    js += ('(function(){var d=document.getElementById("lb");if(!d||!d.showModal)return;var im=d.querySelector("img"),cp=d.querySelector("p");'
+           'document.addEventListener("click",function(ev){var a=ev.target.closest&&ev.target.closest("a.zoom");if(!a)return;ev.preventDefault();'
+           'im.src=a.getAttribute("href");im.alt=(a.querySelector("img")||{}).alt||"";cp.textContent=a.dataset.cap||"";d.showModal()});'
+           'd.addEventListener("click",function(ev){if(ev.target===d||ev.target.closest("[data-close]"))d.close()})})();')
     sha = base64.b64encode(hashlib.sha256(js.encode()).digest()).decode()
     csp = ("default-src 'self'; script-src 'self' 'sha256-" + sha + "' https://mc.yandex.ru https://mc.yandex.com https://yastatic.net; "
            "style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; "
@@ -127,6 +132,7 @@ def page(c, path, title, desc, body, crumbs, schema):
 </section>
 </main>
 <footer><p>© {datetime.date.today().year} {e(full)}. {e((c.get('footer') or {}).get('note'))}</p><p><a href="/">drshapovalov.ru</a></p></footer>
+<dialog id="lb" class="lb" aria-label="Снимок крупно"><button type="button" class="lb-x" data-close aria-label="Закрыть">×</button><img alt=""><p></p></dialog>
 <script>{js}</script>
 </body>
 </html>
@@ -198,7 +204,10 @@ def case_page(c, k):
     bars = ''.join(f'<tr><th scope="row">{e(b.get("name"))}</th><td>{e(num(b.get("value")))} {e(b.get("unit"))}</td></tr>' for b in k.get('bars') or [])
     def fig(i):
         cap = f'<figcaption>{e(i.get("caption"))}</figcaption>' if i.get('caption') else ''
-        return f'<figure><img src="/{e(i.get("src"))}" alt="{e(i.get("alt") or i.get("caption"))}" loading="lazy">{cap}</figure>'
+        sens = i.get('sensitive')
+        note = '<span class="sens-note">Фото из операционной. Нажмите, чтобы открыть</span>' if sens else ''
+        return (f'<figure><a class="zoom{" sens" if sens else ""}" href="/{e(i.get("src"))}" data-cap="{e(i.get("caption"))}">'
+                f'<img src="/{e(i.get("src"))}" alt="{e(i.get("alt") or i.get("caption"))}" loading="lazy">{note}</a>{cap}</figure>')
     imgs = ''.join(fig(i) for i in k.get('images') or [] if re.match(r'^img/', str(i.get('src', ''))))
     consent = f'<p class="note">{e(k.get("consent"))}</p>' if k.get('consent') else ''
     others = ''.join(case_card(o) for o in c.get('cases', []) if o is not k and slug(o))
@@ -278,6 +287,16 @@ h3{font-size:18px;margin:0 0 4px}
 .gal figure{margin:0}
 .gal img{display:block;width:100%;height:auto;border-radius:16px;background:#0d1a17}
 .gal figcaption{margin-top:6px;font-size:14px;color:var(--mist)}
+.zoom{display:block;position:relative;border-radius:16px;overflow:hidden;cursor:zoom-in}
+.zoom img{transition:transform .4s ease}
+.zoom:hover img{transform:scale(1.02)}
+.zoom.sens img{filter:blur(16px) saturate(.35) brightness(.7)}
+.sens-note{position:absolute;left:12px;right:12px;bottom:12px;padding:10px 12px;border-radius:12px;background:rgba(10,21,19,.8);color:var(--ivory);font-size:14px;text-align:center}
+.lb{max-width:min(96vw,1200px);max-height:94vh;padding:12px;border:1px solid var(--line);border-radius:18px;background:#0a1513;color:var(--ivory)}
+.lb::backdrop{background:rgba(3,6,7,.86)}
+.lb img{display:block;max-width:100%;max-height:82vh;margin:0 auto;border-radius:12px}
+.lb p{margin:10px 4px 2px;font-size:15px;color:var(--soft)}
+.lb-x{position:absolute;top:8px;right:8px;width:44px;height:44px;border:0;border-radius:999px;background:rgba(10,21,19,.85);color:var(--ivory);font-size:26px;line-height:1;cursor:pointer;z-index:1}
 .cards{list-style:none;margin:0;padding:0;display:grid;gap:12px}
 .card{display:flex;flex-direction:column;gap:8px;padding:18px;border-radius:18px;border:1px solid var(--line);background:rgba(22,66,54,.25);text-decoration:none;color:var(--ivory)}
 .card:hover{border-color:var(--gold)}
