@@ -310,6 +310,13 @@
   .case-gal button:hover img{transform:scale(1.02)}
   .case-gal button:focus-visible{outline:2px solid var(--gold); outline-offset:4px}
   .case-gal figcaption{font-size:14px; color:var(--mist)}
+  /* много снимков разной высоты: колонки без пустот вместо сетки */
+  .case-gal.many{display:block; columns:2 300px; column-gap:16px}
+  .case-gal.many figure{break-inside:avoid; margin-bottom:16px}
+  /* фото из операционной размыто, как этапы операции; открывается крупно по нажатию */
+  .case-gal button.sens{position:relative}
+  .case-gal button.sens img{filter:blur(16px) saturate(.35) brightness(.7)}
+  .sens-note{position:absolute; inset:auto 14px 14px 14px; padding:10px 14px; border-radius:12px; background:rgba(10,21,19,.78); color:var(--ivory); font-size:14px; text-align:center}
   .viz.solo{align-self:start}   /* кейс без графика: блок с цифрой не растягивается на всю высоту */
   .case-more{align-self:flex-start; color:var(--gold-hi); font-weight:700; border-bottom:1px solid rgba(214,178,102,.4)}
   .case-more:hover{color:var(--gold)}
@@ -875,7 +882,7 @@
     'Работа с ортодонтом': 'Work with orthodontists', 'Статьи': 'Papers', 'Доклады': 'Talks', 'Программы для ЭВМ': 'Software',
     'Кандидатская диссертация': 'PhD dissertation', 'Специальность': 'Specialty', 'Руководитель': 'Supervisor', 'Защита': 'Defence',
     'Открыть диссертацию →': 'Open the dissertation →', 'ЭВМ': 'SW', 'Читать ↗': 'Read ↗', 'Этап': 'Step', 'Страница: ': 'Page: ', 'Карта: ': 'Map: ',
-    'тело нижней челюсти': 'mandibular body', 'English version': 'Русская версия', 'Подробнее о случае': 'Case details (in Russian)', 'Читать отзывы ↗': 'Read reviews ↗'
+    'тело нижней челюсти': 'mandibular body', 'English version': 'Русская версия', 'Подробнее о случае': 'Case details (in Russian)', 'Фото из операционной. Нажмите, чтобы открыть': 'Operating-room photo. Tap to open', 'Читать отзывы ↗': 'Read reviews ↗'
   };
   const tr = (ru) => (LANG === 'en' && EN[ru] != null ? EN[ru] : ru);
   // подписи интерфейса в HTML и в разметке, которую собирает render(): точное совпадение текста узла или атрибута
@@ -953,7 +960,7 @@
     const gallery = (k) => {
       const ims = (k.images || []).filter((m) => safeUrl(m.src));
       if (!ims.length) return '';
-      return `<div class="case-gal">${ims.map((m) => `<figure><button type="button" data-cimg="${esc(safeUrl(m.src))}" data-cap="${esc(m.caption || '')}" data-alt="${esc(m.alt || m.caption || k.title)}" data-case="${esc(k.title)}" aria-label="Открыть крупно: ${esc(m.caption || k.title)}"><img src="${esc(safeUrl(m.src))}" alt="${esc(m.alt || m.caption || '')}" loading="lazy"></button>${m.caption ? `<figcaption>${rich(m.caption)}</figcaption>` : ''}</figure>`).join('')}</div>${k.consent ? `<p class="case-note">${esc(k.consent)}</p>` : ''}`;
+      return `<div class="case-gal${ims.length > 3 ? ' many' : ''}">${ims.map((m) => `<figure><button type="button"${m.sensitive ? ' class="sens"' : ''} data-cimg="${esc(safeUrl(m.src))}" data-cap="${esc(m.caption || '')}" data-alt="${esc(m.alt || m.caption || k.title)}" data-case="${esc(k.title)}" aria-label="Открыть крупно: ${esc(m.caption || k.title)}"><img src="${esc(safeUrl(m.src))}" alt="${esc(m.alt || m.caption || '')}" loading="lazy">${m.sensitive ? `<span class="sens-note">${esc(tr('Фото из операционной. Нажмите, чтобы открыть'))}</span>` : ''}</button>${m.caption ? `<figcaption>${rich(m.caption)}</figcaption>` : ''}</figure>`).join('')}</div>${k.consent ? `<p class="case-note">${esc(k.consent)}</p>` : ''}`;
     };
     // у каждого кейса своя страница kejsy/<адрес>/ (её собирает pages.py): адрес из поля slug, иначе метка id
     const caseHref = (k) => { const s = String(k.slug || k.id || '').trim(); return /^[a-z0-9][a-z0-9-]{0,80}$/.test(s) ? `kejsy/${s}/` : ''; };

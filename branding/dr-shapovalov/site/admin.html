@@ -256,7 +256,7 @@
       F('metric', 'Главная цифра', 'text', { sub: 'Например 21 или 7,93 → 2' }), F('metricUnit', 'Единица'), F('metricCaption', 'Подпись под цифрой'),
       F('scaleMax', 'Конец шкалы', 'number', { sub: 'Самое большое значение на оси' }),
       F('bars', 'Полосы графика', 'sublist', { item: 'Полоса', fields: [F('name', 'Название'), F('value', 'Значение', 'number'), F('unit', 'Единица'), F('accent', 'Выделить золотом', 'bool')] }),
-      F('images', 'Фото пациента', 'sublist', { item: 'Фото', fields: [F('src', 'Картинка', 'image'), F('caption', 'Подпись'), F('alt', 'Описание для незрячих')] }),
+      F('images', 'Фото пациента', 'sublist', { item: 'Фото', fields: [F('src', 'Картинка', 'image'), F('caption', 'Подпись'), F('alt', 'Описание для незрячих'), F('sensitive', 'Размыть (фото из операционной)', 'bool')] }),
       F('consent', 'Строка о согласии', 'text', { sub: 'Например: Публикуется с письменного согласия' })] },
     { id: 'steps', title: 'Этапы операции: текст', path: 'steps', fields: [F('heading', 'Заголовок'), F('intro', 'Описание', 'area')] },
     { id: 'stepItems', title: 'Этапы операции: список', path: 'steps.items', list: true, item: 'Этап', titleKey: 'title', fields: [F('title', 'Этап'), F('detail', 'Уточнение (серым)'), F('image', 'Фото этапа', 'image', { sub: 'На сайте размыто, пока посетитель не нажмёт «Показать фото операции»' })] },
