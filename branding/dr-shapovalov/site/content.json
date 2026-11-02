@@ -162,8 +162,8 @@
       "code": "DIST",
       "title": "Дистракционный остеогенез нижней челюсти",
       "text": "Установка дистракционных аппаратов на нижнюю челюсть при её недоразвитии: кость удлиняется постепенно, за счёт собственной ткани пациента.",
-      "link": "#cases",
-      "linkLabel": "Клинические случаи"
+      "link": "lechenie/distraktsionnyj-osteogenez/",
+      "linkLabel": "Подробнее о методе"
     },
     {
       "code": "MAND",
@@ -204,6 +204,7 @@
   "cases": [
     {
       "id": "case-1",
+      "slug": "mikrosomiya-udlinenie-nizhnej-chelyusti",
       "tags": [
         "Микросомия",
         "12 лет",
@@ -256,6 +257,7 @@
     },
     {
       "id": "case-2",
+      "slug": "distrakciya-vmesto-ortognaticheskoj-operacii",
       "tags": [
         "Дистракция",
         "17 лет",
@@ -307,6 +309,7 @@
     },
     {
       "id": "case-3",
+      "slug": "ankiloz-vnchs-u-podrostka",
       "tags": [
         "Анкилоз ВНЧС",
         "16 лет",

@@ -162,8 +162,8 @@
       "code": "DIST",
       "title": "Mandibular distraction osteogenesis",
       "text": "Placement of distraction devices on an underdeveloped lower jaw: the bone is lengthened gradually, from the patient’s own tissue.",
-      "link": "#cases",
-      "linkLabel": "Clinical cases"
+      "link": "lechenie/distraktsionnyj-osteogenez/",
+      "linkLabel": "About the method (in Russian)"
     },
     {
       "code": "MAND",
@@ -204,6 +204,7 @@
   "cases": [
     {
       "id": "case-1",
+      "slug": "mikrosomiya-udlinenie-nizhnej-chelyusti",
       "tags": [
         "Microsomia",
         "12 years old",
@@ -256,6 +257,7 @@
     },
     {
       "id": "case-2",
+      "slug": "distrakciya-vmesto-ortognaticheskoj-operacii",
       "tags": [
         "Distraction",
         "17 years old",
@@ -307,6 +309,7 @@
     },
     {
       "id": "case-3",
+      "slug": "ankiloz-vnchs-u-podrostka",
       "tags": [
         "TMJ ankylosis",
         "16 years old",
