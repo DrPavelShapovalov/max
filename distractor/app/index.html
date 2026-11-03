@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>КДА-Актив</title>
+<meta name="theme-color" content="#0f766e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="КДА-Актив">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0b161c; --bg2:#0e1e26; --card:#102630; --card2:#143039; --line:#1f3b45; --line2:#2b505c;
+    --ink:#eafcfd; --soft:#9fc2cb; --faint:#5f818b;
+    --teal:#2fe4d6; --blue:#4aa8ff; --amber:#ffc24d; --good:#3ee08f; --bad:#ff6b7a; --orange:#ff9e5b;
+    --grad:linear-gradient(135deg,#2fe4d6,#17b6c7 55%,#2f8fe0);
+    --mono:ui-monospace,'Cascadia Code',Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:var(--bg);color:var(--ink);font-family:system-ui,'Segoe UI',Inter,sans-serif}
+  body{max-width:680px;margin:0 auto;padding:0 14px calc(40px + env(safe-area-inset-bottom));
+    background:radial-gradient(900px 500px at 90% -10%,rgba(74,168,255,.1),transparent 60%),
+      radial-gradient(800px 500px at -10% 108%,rgba(47,228,214,.08),transparent 55%),var(--bg)}
+  header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:11px;padding:12px 2px;
+    padding-top:calc(12px + env(safe-area-inset-top));background:linear-gradient(180deg,var(--bg) 70%,transparent)}
+  .logo{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--grad);box-shadow:0 6px 18px -8px var(--teal)}
+  .logo svg{width:22px;height:22px}
+  h1{font-size:19px;font-weight:800;letter-spacing:.01em}
+  h1 small{display:block;font-family:var(--mono);font-size:9px;font-weight:400;color:var(--faint);letter-spacing:.14em}
+  .vtag{font-family:var(--mono);font-size:9px;color:#042;background:var(--teal);padding:2px 6px;border-radius:9px;font-weight:700;margin-left:6px;vertical-align:middle}
+  .top-actions{margin-left:auto;display:flex;gap:6px}
+  .card{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:14px;margin:11px 0;
+    box-shadow:0 16px 40px -28px #000}
+  .card h2{font-size:12px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--teal);display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .card h2::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--teal);box-shadow:0 0 8px var(--teal)}
+  .card h2 .n{margin-left:auto;font-size:10px;color:var(--faint);text-transform:none;letter-spacing:0}
+  label{display:block;font-size:11px;color:var(--soft);margin:0 0 5px 2px;font-family:var(--mono)}
+  input,select{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--ink);border-radius:10px;
+    padding:11px 12px;font-size:15px;font-family:inherit;outline:none}
+  input:focus,select:focus{border-color:var(--teal)}
+  input::placeholder{color:var(--faint)}
+  .row{display:flex;gap:10px}
+  .row>div{flex:1;min-width:0}
+  .field{margin-bottom:11px}
+  .readout{font-family:var(--mono);font-size:12.5px;color:var(--good);background:rgba(62,224,143,.08);border:1px solid rgba(62,224,143,.25);
+    border-radius:10px;padding:9px 11px;margin-top:2px}
+  .readout b{color:#bff7da}
+  .seg{display:flex;gap:4px;background:var(--card2);border:1px solid var(--line);border-radius:11px;padding:3px}
+  .seg button{flex:1;background:transparent;border:none;color:var(--soft);padding:9px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+  .seg button.on{background:var(--grad);color:#042;box-shadow:0 4px 12px -6px var(--teal)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--grad);color:#042;border:none;border-radius:11px;
+    padding:12px 14px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 6px 18px -9px var(--teal)}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:linear-gradient(180deg,var(--card2),var(--card));color:var(--soft);border:1px solid var(--line);box-shadow:none}
+  .btn.ghost:hover{color:var(--teal);border-color:var(--teal)}
+  .btn.sm{padding:8px 11px;font-size:12px;border-radius:9px}
+  .btn.block{width:100%}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .proto{font-size:12.5px;line-height:1.6;color:var(--soft)}
+  .proto .d{color:var(--ink);font-weight:600}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:8px;border:1px solid var(--line2);color:var(--soft)}
+  .pill.cw{color:var(--amber);border-color:rgba(255,194,77,.4)}
+  .pill.ccw{color:var(--blue);border-color:rgba(74,168,255,.4)}
+  .uzi-item{display:flex;gap:9px;align-items:flex-start;background:var(--card2);border:1px solid var(--line);border-radius:11px;padding:9px 11px;margin-bottom:8px;font-size:12.5px}
+  .uzi-item .x{margin-left:auto;color:var(--faint);cursor:pointer;font-size:15px}
+  .uzi-item .x:hover{color:var(--bad)}
+  .uzi-item b{color:var(--ink)}
+  .next{background:linear-gradient(135deg,rgba(47,228,214,.14),rgba(74,168,255,.08));border:1px solid var(--line2);border-radius:13px;padding:13px;margin-bottom:12px}
+  .next .t{font-size:11px;color:var(--soft);font-family:var(--mono);letter-spacing:.06em}
+  .next .big{font-size:20px;font-weight:800;margin:3px 0}
+  .next .cd{font-family:var(--mono);font-size:13px;color:var(--amber)}
+  .daygroup{margin-bottom:12px}
+  .dayhead{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--teal);margin:0 2px 6px}
+  .dayhead .dd{color:var(--faint)}
+  .dayhead.today{color:var(--amber)}
+  .slot{display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--line);border-radius:11px;padding:9px 11px;margin-bottom:6px}
+  .slot.done{opacity:.55}
+  .slot .tm{font-family:var(--mono);font-size:14px;font-weight:700;width:48px;flex:0 0 auto}
+  .slot .act{flex:1;min-width:0;font-size:12.5px;line-height:1.45}
+  .slot .act .s{font-weight:700}
+  .slot .chk{width:30px;height:30px;flex:0 0 auto;border-radius:8px;border:1.5px solid var(--line2);background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--good);font-size:16px}
+  .slot.done .chk{background:rgba(62,224,143,.15);border-color:var(--good)}
+  .muted{color:var(--faint);font-size:12px;font-family:var(--mono);line-height:1.5}
+  .hint{color:var(--faint);font-size:11px;font-family:var(--mono);margin-top:7px;line-height:1.5}
+  .modal{position:fixed;inset:0;z-index:60;background:rgba(4,10,14,.7);display:none;align-items:flex-end;justify-content:center;padding:0}
+  .modal.on{display:flex}
+  .sheet{width:100%;max-width:680px;background:var(--bg2);border:1px solid var(--line2);border-radius:18px 18px 0 0;padding:16px 14px calc(22px + env(safe-area-inset-bottom));max-height:80vh;overflow:auto}
+  .sheet h3{font-size:15px;margin-bottom:12px;display:flex;align-items:center}
+  .sheet h3 .x{margin-left:auto;color:var(--faint);cursor:pointer}
+  .caselist .ci{display:flex;align-items:center;gap:9px;padding:11px;border:1px solid var(--line);border-radius:11px;margin-bottom:8px;background:var(--card2);cursor:pointer}
+  .caselist .ci.cur{border-color:var(--teal)}
+  .caselist .ci .nm{flex:1}
+  .caselist .ci .nm b{display:block}
+  .caselist .ci .nm small{color:var(--faint);font-family:var(--mono);font-size:11px}
+  .caselist .ci .del{color:var(--faint);font-size:16px}
+  .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#0e2730;border:1px solid var(--line2);
+    color:var(--teal);font-family:var(--mono);font-size:12.5px;padding:10px 16px;border-radius:12px;z-index:80;opacity:0;transition:opacity .25s;pointer-events:none;box-shadow:0 10px 30px -12px #000}
+  .toast.on{opacity:1}
+  .foot{text-align:center;color:var(--faint);font-size:10.5px;font-family:var(--mono);line-height:1.6;margin-top:16px}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo"><svg viewBox="0 0 32 32" fill="none" stroke="#042" stroke-width="2.4" stroke-linecap="round"><path d="M24 9a10 10 0 1 0 3 9" opacity=".9"/><path d="M27 7v6h-6"/><circle cx="16" cy="18" r="2.2" fill="#ff9e5b" stroke="none"/></svg></span>
+  <h1>КДА-Актив<span class="vtag">v1.0</span><small>АКТИВАЦИЯ ДИСТРАКТОРА</small></h1>
+  <div class="top-actions">
+    <button class="btn ghost sm" id="btnCases">📂 База</button>
+    <button class="btn ghost sm" id="btnNew">+ Новый</button>
+  </div>
+</header>
+
+<!-- 1. Пациент -->
+<div class="card">
+  <h2>Пациент</h2>
+  <div class="field"><label>Фамилия Имя Отчество</label><input id="fio" placeholder="Иванов Иван Иванович"></div>
+  <div class="row">
+    <div class="field"><label>Дата рождения</label><input id="birth" type="date"></div>
+    <div class="field"><label>Код пациента</label><input id="code" placeholder="напр. КФМ-004"></div>
+  </div>
+  <div class="readout" id="ageOut">Возраст: —</div>
+</div>
+
+<!-- 2. Операция и дистракция -->
+<div class="card">
+  <h2>Операция и дистракция</h2>
+  <div class="row">
+    <div class="field"><label>Дата операции</label><input id="opDate" type="date"></div>
+    <div class="field"><label>Начало активации</label><input id="startDate" type="date"></div>
+  </div>
+  <div class="field"><label>Тип дистракции</label>
+    <div class="seg" id="modeSeg"><button data-mode="uni" class="on">Односторонняя</button><button data-mode="bi">Двусторонняя</button></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>Целевая длина, мм</label><input id="targetMm" type="number" min="1" max="60" step="0.5" value="10"></div>
+    <div class="field"><label>Базовый темп</label>
+      <select id="baseTempo"><option value="2">2×/день (08:00, 20:00)</option><option value="3">3×/день (08:00, 16:00, 00:00)</option></select>
+    </div>
+  </div>
+  <div class="readout" id="opOut">Укажите дату операции.</div>
+</div>
+
+<!-- 3. КДА -->
+<div class="card">
+  <h2>Компрессионно-дистракционный аппарат<span class="n" id="kdaN"></span></h2>
+  <div id="kdaFields"></div>
+  <div class="proto" id="kdaProto"></div>
+</div>
+
+<!-- 4. Протокол -->
+<div class="card">
+  <h2>Протокол активации</h2>
+  <div class="proto">
+    <p><span class="pill cw">820 · по часовой</span> прямой дистрактор — <span class="d">1 полный оборот</span> за активацию (= 0,5 мм), 2×/день → <b>1 мм/сут</b>.</p>
+    <p style="margin-top:8px"><span class="pill ccw">R30–R180 · против часовой</span> криволинейные — <span class="d">½ оборота</span> за активацию (= 0,5 мм), 2×/день → <b>1 мм/сут</b>.</p>
+    <p class="hint">По УЗИ-картине регенерата темп можно дробить (3×/день) и менять — с обоснованием ниже.</p>
+  </div>
+</div>
+
+<!-- 5. УЗИ-коррекции -->
+<div class="card">
+  <h2>УЗИ-коррекции графика</h2>
+  <div id="uziList"></div>
+  <div class="grid2">
+    <div class="field"><label>Дата УЗИ</label><input id="uziDate" type="date"></div>
+    <div class="field"><label>Регенерат</label>
+      <select id="uziType"><option>нормотрофический</option><option>гипертрофический</option><option>гипотрофический</option><option>без особенностей</option></select>
+    </div>
+  </div>
+  <div class="row">
+    <div class="field"><label>Новый темп</label><select id="uziTempo"><option value="2">2×/день</option><option value="3">3×/день (08/16/00)</option></select></div>
+    <div class="field"><label>мм/сут</label><input id="uziMm" type="number" min="0.25" max="2" step="0.25" value="1"></div>
+  </div>
+  <div class="field"><label>Обоснование / заметка</label><input id="uziNote" placeholder="напр. замедлить — гипертрофический регенерат"></div>
+  <button class="btn ghost block" id="uziAdd">+ Добавить коррекцию</button>
+</div>
+
+<!-- 6. График -->
+<div class="card">
+  <h2>График активаций<span class="n" id="schN"></span></h2>
+  <div class="next" id="nextBox" style="display:none"></div>
+  <div class="readout" id="periodOut" style="margin-bottom:12px">—</div>
+  <div id="schedule"></div>
+</div>
+
+<!-- 7. Действия -->
+<div class="card">
+  <h2>Напоминания, календарь, база</h2>
+  <div class="grid2">
+    <button class="btn" id="btnIcs">📅 В Календарь (.ics)</button>
+    <button class="btn ghost" id="btnNotify">🔔 Напоминания</button>
+  </div>
+  <div class="grid2" style="margin-top:9px">
+    <button class="btn ghost" id="btnExport">⬇ Экспорт JSON</button>
+    <button class="btn ghost" id="btnImport">⬆ Импорт JSON</button>
+  </div>
+  <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+  <div class="hint">Календарь (.ics) — импортируйте в «Календарь» iPhone/Google: напоминания 08:00/20:00 придут сами на весь период. Данные хранятся в этом устройстве (localStorage) + экспорт JSON.</div>
+</div>
+
+<div class="foot">КДА-Актив · ФГБУ НМИЦ «ЦНИИС и ЧЛХ»<br>Вспомогательный планировщик. Решение и контроль — за лечащим врачом.</div>
+
+<!-- Модалка: база случаев -->
+<div class="modal" id="casesModal"><div class="sheet">
+  <h3>База случаев<span class="x" id="casesClose">✕</span></h3>
+  <div class="caselist" id="caseList"></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const DB_KEY = 'kda_db';
+
+  // ── устройства и протокол ──
+  const DEVICES = {
+    R30:{label:'R30', kind:'curve'}, R40:{label:'R40', kind:'curve'}, R50:{label:'R50', kind:'curve'},
+    R70:{label:'R70', kind:'curve'}, R100:{label:'R100', kind:'curve'}, R180:{label:'R180', kind:'curve'},
+    '820':{label:'820 (прямой)', kind:'straight'}
+  };
+  const DEV_IDS = Object.keys(DEVICES);
+  function protocol(kind){
+    return kind === 'straight'
+      ? { dir:'cw',  baseTurns:1.0, mmPerAct:0.5 }   // 820: по часовой, 1 оборот
+      : { dir:'ccw', baseTurns:0.5, mmPerAct:0.5 };  // R-серия: против часовой, ½ оборота
+  }
+  const dirLabel = d => d === 'cw' ? '⟳ по часовой' : '⟲ против часовой';
+  function turnsLabel(t){
+    if (Math.abs(t-0.5)<1e-6) return '½ оборота';
+    if (Math.abs(t-1)<1e-6) return '1 оборот';
+    if (Math.abs(t-Math.round(t))<1e-6) return Math.round(t)+' об.';
+    return t.toFixed(2).replace(/0$/,'')+' об.';
+  }
+  const TIMES = { 2:['08:00','20:00'], 3:['08:00','16:00','00:00'] };
+
+  // ── даты ──
+  const pad = n => String(n).padStart(2,'0');
+  function parseDate(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+  function atTime(day,hm){ const [h,mi]=hm.split(':').map(Number); const x=new Date(day); x.setHours(h,mi,0,0); return x; }
+  function addDays(day,n){ const x=new Date(day); x.setDate(x.getDate()+n); return x; }
+  function daysBetween(a,b){ if(!a||!b) return null; return Math.round((startOfDay(b)-startOfDay(a))/86400000); }
+  function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
+  function isoDate(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function fmtDate(d){ return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear(); }
+  function computeAge(birth){ const b=parseDate(birth); if(!b) return null; const t=new Date(); let a=t.getFullYear()-b.getFullYear(); const md=t.getMonth()-b.getMonth(); if(md<0||(md===0&&t.getDate()<b.getDate())) a--; return a; }
+  function ageWord(a){ const n=a%100, n1=a%10; if(n>10&&n<20) return a+' лет'; if(n1===1) return a+' год'; if(n1>=2&&n1<=4) return a+' года'; return a+' лет'; }
+
+  // ── модель случая ──
+  function newCase(){
+    return { id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+      fio:'', birth:'', code:'', opDate:'', startDate:'', mode:'uni', side:'R', targetMm:10, baseTempo:2,
+      devices:{ R:'R40', L:'R40' }, uzi:[], log:{}, created:Date.now(), updated:Date.now() };
+  }
+  let db = load();
+  function load(){ try{ const d=JSON.parse(localStorage.getItem(DB_KEY)); if(d&&d.cases) return d; }catch(e){} const c=newCase(); return { cases:[c], curId:c.id }; }
+  function save(){ c.updated=Date.now(); try{ localStorage.setItem(DB_KEY, JSON.stringify(db)); }catch(e){} }
+  let c = db.cases.find(x=>x.id===db.curId) || db.cases[0];
+  if(!c){ c=newCase(); db.cases.push(c); db.curId=c.id; }
+
+  // ── активный темп на дату (с учётом УЗИ-коррекций) ──
+  function activeTempo(cc, day){
+    let times = TIMES[cc.baseTempo]||TIMES[2], mmPerDay = 1.0;
+    const sorted = [...(cc.uzi||[])].filter(u=>u.date).sort((a,b)=> parseDate(a.date)-parseDate(b.date));
+    for(const u of sorted){ if(startOfDay(parseDate(u.date)) <= startOfDay(day)){ times = TIMES[u.tempo]||times; mmPerDay = +u.mm||mmPerDay; } }
+    return { times, mmPerDay };
+  }
+
+  // ── построение графика ──
+  function buildSchedule(cc){
+    const acts=[]; const op=parseDate(cc.opDate);
+    const start = parseDate(cc.startDate) || (op? addDays(op,5) : null);
+    if(!start) return acts;
+    const target = +cc.targetMm||0; if(target<=0) return acts;
+    const sides = cc.mode==='bi' ? ['R','L'] : [cc.side||'R'];
+    for(const side of sides){
+      const devId = cc.devices[side]; const dev = DEVICES[devId]; if(!dev) continue;
+      const p = protocol(dev.kind);
+      let cum=0, day=new Date(start), guard=0;
+      while(cum < target-1e-6 && guard<500){
+        const tempo = activeTempo(cc, day);
+        const perAct = tempo.mmPerDay/tempo.times.length;
+        for(const t of tempo.times){
+          if(cum >= target-1e-6) break;
+          const inc = Math.min(perAct, target-cum);
+          const dt = atTime(day,t);
+          const turns = p.baseTurns*(inc/0.5);
+          acts.push({ id:side+'|'+dt.getTime(), side, devId, kind:dev.kind, dir:p.dir, turns, mm:inc, dt, dfo:daysBetween(op,day), cum:+(cum+inc).toFixed(3) });
+          cum += inc;
+        }
+        day = addDays(day,1); guard++;
+      }
+    }
+    acts.sort((a,b)=> a.dt-b.dt || (a.side<b.side?-1:1));
+    return acts;
+  }
+
+  // ── .ics ──
+  function buildICS(cc, acts){
+    const dt = d => d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'T'+pad(d.getHours())+pad(d.getMinutes())+'00';
+    const byTime = {};
+    for(const a of acts){ const k=a.dt.getTime(); (byTime[k]=byTime[k]||[]).push(a); }
+    const pat = (cc.fio||'пациент')+(cc.code?(' ['+cc.code+']'):'');
+    let L = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//CNIIS//KDA-Activ//RU','CALSCALE:GREGORIAN'];
+    for(const k of Object.keys(byTime).sort((a,b)=>a-b)){
+      const grp = byTime[k], d = grp[0].dt;
+      const desc = grp.map(a=>`${a.side==='R'?'справа':a.side==='L'?'слева':''} ${DEVICES[a.devId].label}: ${dirLabel(a.dir)}, ${turnsLabel(a.turns)} (${a.mm.toFixed(2)} мм)`).join('\\n');
+      L.push('BEGIN:VEVENT','UID:'+k+'-kda@cniis','DTSTAMP:'+dt(new Date()),'DTSTART:'+dt(d),'DTEND:'+dt(new Date(d.getTime()+5*60000)),
+        'SUMMARY:🦷 Подкрутка КДА — '+pat,'DESCRIPTION:'+desc,'BEGIN:VALARM','ACTION:DISPLAY','TRIGGER:PT0M','DESCRIPTION:Пора активировать дистрактор','END:VALARM','END:VEVENT');
+    }
+    L.push('END:VCALENDAR');
+    return L.join('\r\n');
+  }
+
+  function download(name, text, type){ const b=new Blob([text],{type:type||'text/plain;charset=utf-8'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(u),4000); }
+  function toast(t){ const e=$('toast'); e.textContent=t; e.classList.add('on'); clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove('on'),2200); }
+
+  // ── биндинг полей ──
+  function bindInputs(){
+    const map = { fio:'fio', birth:'birth', code:'code', opDate:'opDate', startDate:'startDate', targetMm:'targetMm' };
+    for(const [id,key] of Object.entries(map)){
+      $(id).addEventListener('input', ()=>{ c[key] = id==='targetMm' ? (+$(id).value||0) : $(id).value; save(); renderDyn(); });
+    }
+    $('baseTempo').addEventListener('change', ()=>{ c.baseTempo=+$('baseTempo').value; save(); renderDyn(); });
+    document.querySelectorAll('#modeSeg button').forEach(b=> b.addEventListener('click', ()=>{
+      c.mode=b.dataset.mode; document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.toggle('on', x===b)); save(); renderKDA(); renderDyn();
+    }));
+    $('uziAdd').addEventListener('click', addUzi);
+    $('btnIcs').addEventListener('click', exportICS);
+    $('btnNotify').addEventListener('click', enableNotify);
+    $('btnExport').addEventListener('click', ()=> download((c.code||c.fio||'kda')+'.json', JSON.stringify(c,null,2), 'application/json'));
+    $('btnImport').addEventListener('click', ()=> $('importFile').click());
+    $('importFile').addEventListener('change', importJSON);
+    $('btnNew').addEventListener('click', ()=>{ const n=newCase(); db.cases.push(n); db.curId=n.id; c=n; save(); fillInputs(); renderKDA(); renderDyn(); toast('Новый случай'); });
+    $('btnCases').addEventListener('click', openCases);
+    $('casesClose').addEventListener('click', ()=> $('casesModal').classList.remove('on'));
+  }
+  function fillInputs(){
+    $('fio').value=c.fio||''; $('birth').value=c.birth||''; $('code').value=c.code||'';
+    $('opDate').value=c.opDate||''; $('startDate').value=c.startDate||''; $('targetMm').value=c.targetMm||10;
+    $('baseTempo').value=c.baseTempo||2;
+    document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.toggle('on', x.dataset.mode===c.mode));
+  }
+
+  // ── КДА-поля ──
+  function devSelect(side){
+    const sel=`<select data-side="${side}" class="devSel">`+DEV_IDS.map(id=>`<option value="${id}" ${c.devices[side]===id?'selected':''}>${DEVICES[id].label}</option>`).join('')+`</select>`;
+    return sel;
+  }
+  function renderKDA(){
+    const box=$('kdaFields');
+    if(c.mode==='bi'){
+      $('kdaN').textContent='двусторонняя';
+      box.innerHTML = `<div class="row"><div class="field"><label>Справа (R)</label>${devSelect('R')}</div><div class="field"><label>Слева (L)</label>${devSelect('L')}</div></div>`;
+    } else {
+      $('kdaN').textContent='односторонняя';
+      box.innerHTML = `<div class="row"><div class="field"><label>Сторона</label><div class="seg" id="sideSeg"><button data-side="R" class="${c.side==='R'?'on':''}">Справа</button><button data-side="L" class="${c.side==='L'?'on':''}">Слева</button></div></div><div class="field"><label>Аппарат</label>${devSelect(c.side)}</div></div>`;
+      box.querySelectorAll('#sideSeg button').forEach(b=> b.addEventListener('click', ()=>{ c.side=b.dataset.side; save(); renderKDA(); renderDyn(); }));
+    }
+    box.querySelectorAll('.devSel').forEach(sel=> sel.addEventListener('change', ()=>{ c.devices[sel.dataset.side]=sel.value; save(); renderKDA(); renderDyn(); }));
+    // протокол выбранных
+    const sides = c.mode==='bi'?['R','L']:[c.side];
+    $('kdaProto').innerHTML = sides.map(s=>{ const d=DEVICES[c.devices[s]], p=protocol(d.kind);
+      return `<span class="pill ${p.dir}">${s==='R'?'R':'L'} · ${d.label}</span> ${dirLabel(p.dir)}, ${turnsLabel(p.baseTurns)} ×2/день`;
+    }).join('<br>');
+  }
+
+  // ── УЗИ ──
+  function addUzi(){
+    const date=$('uziDate').value; if(!date){ toast('Укажите дату УЗИ'); return; }
+    c.uzi.push({ date, type:$('uziType').value, tempo:+$('uziTempo').value, mm:+$('uziMm').value||1, note:$('uziNote').value });
+    $('uziNote').value=''; save(); renderUzi(); renderDyn(); toast('Коррекция добавлена');
+  }
+  function renderUzi(){
+    const box=$('uziList'); const list=[...(c.uzi||[])].sort((a,b)=>parseDate(a.date)-parseDate(b.date));
+    if(!list.length){ box.innerHTML='<div class="muted">Пока без коррекций. Базовый темп применяется ко всему периоду.</div>'; return; }
+    box.innerHTML = list.map((u,i)=>`<div class="uzi-item"><div><b>${fmtDate(parseDate(u.date))}</b> · ${u.type} → ${u.tempo}×/день, ${(+u.mm).toFixed(2)} мм/сут${u.note?('<br><span class="muted">'+escapeHtml(u.note)+'</span>'):''}</div><span class="x" data-i="${c.uzi.indexOf(u)}">✕</span></div>`).join('');
+    box.querySelectorAll('.x').forEach(x=> x.addEventListener('click', ()=>{ c.uzi.splice(+x.dataset.i,1); save(); renderUzi(); renderDyn(); }));
+  }
+  function escapeHtml(s){ return (s||'').replace(/[&<>"]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+
+  // ── динамика: возраст, сутки, график ──
+  function renderDyn(){
+    const age=computeAge(c.birth);
+    $('ageOut').innerHTML = age!=null ? `Возраст: <b>${ageWord(age)}</b>` : 'Возраст: —';
+    // сутки
+    const op=parseDate(c.opDate);
+    if(op){ const todayN=daysBetween(op,new Date()); const start=parseDate(c.startDate)||addDays(op,5);
+      $('opOut').innerHTML = `Операция ${fmtDate(op)} · сегодня <b>${todayN}-е сутки</b> после операции.<br>Активация с ${fmtDate(start)} (${daysBetween(op,start)}-е сутки).`;
+      if(!c.startDate) { /* подсказка по умолчанию */ }
+    } else $('opOut').textContent='Укажите дату операции.';
+
+    const acts = buildSchedule(c);
+    renderSchedule(acts);
+    renderNext(acts);
+    renderPeriod(acts);
+  }
+  function renderPeriod(acts){
+    if(!acts.length){ $('periodOut').textContent='Заполните КДА, дату начала и целевую длину.'; $('schN').textContent=''; return; }
+    const first=acts[0].dt, last=acts[acts.length-1].dt;
+    const days=daysBetween(startOfDay(first), startOfDay(last))+1;
+    const sides = c.mode==='bi'?2:1;
+    const mmPerSide = Math.max(...acts.map(a=>a.cum));
+    $('schN').textContent = acts.length+' активаций';
+    $('periodOut').innerHTML = `Период дистракции: <b>${fmtDate(first)} → ${fmtDate(last)}</b> · ${days} дн · ${(+c.targetMm).toFixed(1)} мм${sides===2?' с каждой стороны':''}.`;
+  }
+  function renderNext(acts){
+    const box=$('nextBox'); const now=Date.now();
+    const next = acts.find(a=> a.dt.getTime()>now-30*60000 && !c.log[a.id]);
+    if(!next){ box.style.display='none'; return; }
+    box.style.display='block';
+    const sideTxt = next.side==='R'?'справа':next.side==='L'?'слева':'';
+    box.innerHTML = `<div class="t">БЛИЖАЙШАЯ АКТИВАЦИЯ</div><div class="big">${pad(next.dt.getHours())}:${pad(next.dt.getMinutes())} · ${fmtDate(next.dt)}</div>`+
+      `<div>${sideTxt?('<b>'+sideTxt+'</b> · '):''}${DEVICES[next.devId].label}: ${dirLabel(next.dir)}, ${turnsLabel(next.turns)}</div>`+
+      `<div class="cd" id="cd"></div>`;
+    tickCountdown(next);
+  }
+  let cdTimer=null;
+  function tickCountdown(next){
+    if(cdTimer) clearInterval(cdTimer);
+    const upd=()=>{ const el=$('cd'); if(!el) return; let s=Math.round((next.dt.getTime()-Date.now())/1000);
+      if(s<=0){ el.textContent='⏰ пора активировать'; return; }
+      const h=Math.floor(s/3600), m=Math.floor(s%3600/60); el.textContent='через '+(h?h+' ч ':'')+m+' мин'; };
+    upd(); cdTimer=setInterval(upd,30000);
+  }
+  function renderSchedule(acts){
+    const box=$('schedule');
+    if(!acts.length){ box.innerHTML='<div class="muted">График появится после заполнения аппарата, даты начала и целевой длины.</div>'; return; }
+    const todayKey = isoDate(new Date());
+    const groups={}; for(const a of acts){ const k=isoDate(a.dt); (groups[k]=groups[k]||[]).push(a); }
+    let html='';
+    for(const k of Object.keys(groups).sort()){
+      const d=parseDate(k), list=groups[k], isToday=k===todayKey;
+      html+=`<div class="daygroup"><div class="dayhead ${isToday?'today':''}">${fmtDate(d)} <span class="dd">· ${list[0].dfo}-е сутки${isToday?' · сегодня':''}</span></div>`;
+      for(const a of list){
+        const done=!!c.log[a.id]; const sideTxt=a.side==='R'?'справа':a.side==='L'?'слева':'';
+        html+=`<div class="slot ${done?'done':''}"><div class="tm">${pad(a.dt.getHours())}:${pad(a.dt.getMinutes())}</div>`+
+          `<div class="act"><span class="s">${sideTxt?sideTxt+' · ':''}${DEVICES[a.devId].label}</span><br>${dirLabel(a.dir)}, ${turnsLabel(a.turns)} · ${a.mm.toFixed(2)} мм · Σ ${a.cum.toFixed(1)} мм</div>`+
+          `<button class="chk" data-id="${a.id}">${done?'✓':''}</button></div>`;
+      }
+      html+='</div>';
+    }
+    box.innerHTML=html;
+    box.querySelectorAll('.chk').forEach(b=> b.addEventListener('click', ()=>{ const id=b.dataset.id; if(c.log[id]) delete c.log[id]; else c.log[id]=Date.now(); save(); renderDyn(); }));
+  }
+
+  // ── действия ──
+  function exportICS(){ const acts=buildSchedule(c); if(!acts.length){ toast('Сначала заполните график'); return; } download((c.code||c.fio||'kda')+'-напоминания.ics', buildICS(c,acts), 'text/calendar;charset=utf-8'); toast('Календарь .ics сохранён'); }
+  async function enableNotify(){
+    if(!('Notification' in window)){ toast('Уведомления не поддерживаются'); return; }
+    let p=Notification.permission; if(p!=='granted') p=await Notification.requestPermission();
+    if(p!=='granted'){ toast('Уведомления отклонены'); return; }
+    scheduleNextNotify(); toast('Напоминания включены (пока приложение открыто)');
+  }
+  let notifyTimer=null;
+  function scheduleNextNotify(){
+    if(notifyTimer) clearTimeout(notifyTimer);
+    if(Notification.permission!=='granted') return;
+    const acts=buildSchedule(c); const now=Date.now();
+    const next=acts.find(a=> a.dt.getTime()>now && !c.log[a.id]); if(!next) return;
+    const delay=Math.min(next.dt.getTime()-now, 2**31-1);
+    notifyTimer=setTimeout(()=>{ try{ new Notification('🦷 Пора активировать дистрактор', { body:`${next.side==='R'?'справа':next.side==='L'?'слева':''} ${DEVICES[next.devId].label}: ${dirLabel(next.dir)}, ${turnsLabel(next.turns)}`, icon:'icon-192.png' }); }catch(e){} scheduleNextNotify(); }, delay);
+  }
+  function importJSON(e){ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ const o=JSON.parse(r.result); if(!o.id) o.id=newCase().id; o.updated=Date.now(); const i=db.cases.findIndex(x=>x.id===o.id); if(i>=0) db.cases[i]=o; else db.cases.push(o); db.curId=o.id; c=o; save(); fillInputs(); renderKDA(); renderUzi(); renderDyn(); toast('Импортировано'); }catch(err){ toast('Ошибка JSON'); } }; r.readAsText(f); e.target.value=''; }
+
+  function openCases(){
+    const box=$('caseList');
+    box.innerHTML = db.cases.slice().sort((a,b)=>b.updated-a.updated).map(x=>`<div class="ci ${x.id===c.id?'cur':''}" data-id="${x.id}"><div class="nm"><b>${escapeHtml(x.fio||'(без имени)')}</b><small>${escapeHtml(x.code||'')} · ${x.opDate?('опер. '+fmtDate(parseDate(x.opDate))):'без даты'}</small></div><span class="del" data-del="${x.id}">🗑</span></div>`).join('');
+    box.querySelectorAll('.ci').forEach(el=> el.addEventListener('click', e=>{ if(e.target.dataset.del) return; db.curId=el.dataset.id; c=db.cases.find(x=>x.id===el.dataset.id); save(); fillInputs(); renderKDA(); renderUzi(); renderDyn(); $('casesModal').classList.remove('on'); toast('Открыт случай'); }));
+    box.querySelectorAll('.del').forEach(el=> el.addEventListener('click', e=>{ e.stopPropagation(); if(db.cases.length<=1){ toast('Нельзя удалить единственный'); return; } if(!confirm('Удалить случай?')) return; db.cases=db.cases.filter(x=>x.id!==el.dataset.del); if(db.curId===el.dataset.del){ c=db.cases[0]; db.curId=c.id; } save(); fillInputs(); renderKDA(); renderUzi(); renderDyn(); openCases(); }));
+    $('casesModal').classList.add('on');
+  }
+
+  // ── init ──
+  bindInputs(); fillInputs(); renderKDA(); renderUzi(); renderDyn();
+  if('serviceWorker' in navigator && location.protocol.startsWith('http')){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+
+  // тестовый хук
+  window.KDA = { DEVICES, protocol, computeAge, daysBetween:(a,b)=>daysBetween(parseDate(a),parseDate(b)), buildSchedule, buildICS, get case(){return c;}, setCase(o){ Object.assign(c,o); save(); fillInputs(); renderKDA(); renderUzi(); renderDyn(); },
+    summary(){ const acts=buildSchedule(c); return { acts:acts.length, first:acts[0]&&isoDate(acts[0].dt), last:acts[acts.length-1]&&isoDate(acts[acts.length-1].dt), totalMm:acts.length?Math.max(...acts.map(a=>a.cum)):0, sample:acts.slice(0,4).map(a=>({dt:a.dt.toISOString(),side:a.side,dir:a.dir,turns:a.turns,mm:a.mm,dfo:a.dfo})) }; } };
+})();
+</script>
+</body>
+</html>
