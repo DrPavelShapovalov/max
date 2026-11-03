@@ -37,6 +37,6 @@ jobs:
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OSSA-4-Windows-Installer
+          name: OSSA-3D-Windows-Installer
           path: viewer/release/*.exe
           if-no-files-found: error
