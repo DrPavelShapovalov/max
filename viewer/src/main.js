@@ -647,6 +647,16 @@ function __ossaTestHook(){ try{ window.__ossa = {
     let n=0; for(const b of segMask) n+=b; return n; },
   extractSeg(){ extractSegObject(); return frags.map(f=>f.name); },
   makeMandible(){ modelRadius=100; const s=geoToSoup(new THREE.SphereGeometry(45,64,48)); addFrag(s,0x66d9e8,new THREE.Vector3(0,0,1),soupCentroid(s),'Нижняя челюсть'); isCut=true; },
+  silhTest(){ modelRadius=100; baseSoup=geoToSoup(new THREE.BoxGeometry(60,160,60,6,16,6)); rebuildBaseMesh(); boneSurf={positions:baseSoup,indices:null};
+    const W=800,H=600; const lowerRect=[{x:0,y:H*0.5+6},{x:W,y:H*0.5+6},{x:W,y:H},{x:0,y:H}];
+    silhCaps=[];
+    boneViewOrient(new THREE.Vector3(1,0,0.12), new THREE.Vector3(0,0,1)); camera.updateMatrixWorld(true);
+    silhCaps.push({poly:lowerRect, cam:new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse).toArray(), w:W, h:H});
+    boneViewOrient(new THREE.Vector3(0,-1,0.12), new THREE.Vector3(0,0,1)); camera.updateMatrixWorld(true);
+    silhCaps.push({poly:lowerRect, cam:new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse).toArray(), w:W, h:H});
+    const before=frags.length; isolateMandibleSilh();
+    const f=frags.find(x=>/Нижняя/.test(x.name));
+    return { made:frags.length>before, name:f&&f.name, mandTris:f?(f.soup.length/9|0):0, baseTris:baseSoup.length/9|0 }; },
   projRoundTrip(){ const j=JSON.stringify(buildProjectObj()); applyProjectObj(JSON.parse(j));
     return { bytes:j.length, frags:frags.map(f=>f.name) }; },
   wandTest(){ regionGrow('axial',(volume.dims[0]/2)|0,(volume.dims[1]/2)|0,idx[2]); let n=0; for(const x of segMask)n+=x; return n; },
@@ -850,8 +860,8 @@ function autoSegment(silent){
   const total = comps.reduce((s,c)=>s+c.n,0);
   const keep = comps.slice(1).filter(c=>c.n >= total*0.03).slice(0,4);   // до 4 крупных подвижных
   if(!keep.length){
-    if(!silent) alert('Кость — единая деталь (челюсть сращена с черепом на текущем пороге). Подними «3D порог» или используй распил.');
-    $('cutInfo').textContent = 'Единая деталь: подними 3D порог для отделения челюсти или распили.';
+    if(!silent) alert('Кость — единая деталь (челюсть сращена с черепом на текущем пороге).\n\nНадёжный способ: раздел «🦷 Выделить НЧ обводкой (2 ракурса)» — обведи нижнюю челюсть сбоку и спереди, программа оставит только её. Либо подними «3D порог» или распили перемычки.');
+    $('cutInfo').textContent = 'Единая деталь. Используй «🦷 Выделить НЧ обводкой (2 ракурса)» — надёжно отделит челюсть.';
     return false;
   }
   removeFrags();
@@ -1424,6 +1434,61 @@ function knifeUndo(){
   frags.forEach((f,i)=>{ if(s.frags[i]){ f.soup=s.frags[i]; f.mesh.geometry.dispose();
     const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(f.soup,3)); g.computeVertexNormals(); f.mesh.geometry=g; } });
   $('penInfo').textContent='Обрезанный участок возвращён.';
+}
+
+// ---- Выделение НЧ ОБВОДКОЙ с 2 ракурсов (силуэтное пересечение) --------------
+// Надёжная «ручная автосегментация»: обводишь НЧ сбоку и спереди — остаётся только
+// то, что попало в ОБЕ обводки (пересечение силуэтных призм) = отдельный объект.
+let silhCaps = [];
+function boneViewOrient(axis, up){
+  if(!camera||!controls) return;
+  const R=modelRadius||120;
+  camera.up.copy(up);
+  camera.position.copy(axis.clone().normalize().multiplyScalar(R*3.0));
+  controls.target.set(0,0,0); camera.lookAt(0,0,0);
+  controls.update && controls.update();
+}
+function startSilhDraw(){ if($('penMode')) $('penMode').value='loop'; setPenMode(true); if($('silhDraw')) $('silhDraw').classList.add('armed'); }
+function silhLateral(){ boneViewOrient(new THREE.Vector3(1,0,0.12), new THREE.Vector3(0,0,1)); startSilhDraw(); status('Ракурс «сбоку»: обведи нижнюю челюсть и нажми «+ ракурс».'); setTimeout(()=>status('',null),2600); }
+function silhFrontal(){ boneViewOrient(new THREE.Vector3(0,-1,0.12), new THREE.Vector3(0,0,1)); startSilhDraw(); status('Ракурс «спереди»: обведи нижнюю челюсть и нажми «+ ракурс».'); setTimeout(()=>status('',null),2600); }
+function captureSilhouette(){
+  if(!baseSoup && !boneSurf){ alert('Сначала постройте 3D-модель кости.'); return false; }
+  if(penPts.length<3){ status('Сначала обведи челюсть карандашом на 3D.'); setTimeout(()=>status('',null),2000); return false; }
+  const rw=penCanvas().getBoundingClientRect();
+  camera.updateMatrixWorld(true);
+  const camMat=new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  silhCaps.push({ poly: penPts.map(p=>({x:p.x,y:p.y})), cam: camMat.toArray(), w: rw.width, h: rw.height });
+  penPts=[]; drawPen(); updateSilhInfo(); return true;
+}
+function updateSilhInfo(){ const el=$('silhInfo'); if(!el) return;
+  el.textContent = silhCaps.length
+    ? `Захвачено ракурсов: ${silhCaps.length}. ${silhCaps.length<2?'Поверни к другому ракурсу («Спереди»/«Сбоку»), обведи снова, «+ ракурс».':'Нажми «✓ Выделить НЧ».'}`
+    : 'Обведи нижнюю челюсть с 2 ракурсов (сбоку + спереди) — останется только то, что в обеих обводках.'; }
+function resetSilh(){ silhCaps=[]; penPts=[]; drawPen(); setPenMode(false); if($('silhDraw'))$('silhDraw').classList.remove('armed'); updateSilhInfo(); }
+function isolateMandibleSilh(){
+  if(penPts.length>=3) captureSilhouette();                 // авто-захват незафиксированной обводки
+  if(silhCaps.length<1){ alert('Обведи нижнюю челюсть хотя бы с одного ракурса (лучше с двух: сбоку и спереди).'); return; }
+  ensureBase();
+  if(!baseSoup||baseSoup.length<27){ alert('Нет опорной кости (черепа) для выделения. Построй 3D.'); return; }
+  pushUndo();
+  const cams=silhCaps.map(s=>({ mat:new THREE.Matrix4().fromArray(s.cam), poly:s.poly, w:s.w, h:s.h }));
+  const v=new THREE.Vector3();
+  const inAll=(cx,cy,cz)=>{ for(const C of cams){ v.set(cx,cy,cz).applyMatrix4(C.mat);
+     const sx=(v.x+1)/2*C.w, sy=(1-(v.y+1)/2)*C.h; if(!pointInPoly(sx,sy,C.poly)) return false; } return true; };
+  const mand=[], keep=[];
+  for(let t=0;t<baseSoup.length;t+=9){
+    const cx=(baseSoup[t]+baseSoup[t+3]+baseSoup[t+6])/3, cy=(baseSoup[t+1]+baseSoup[t+4]+baseSoup[t+7])/3, cz=(baseSoup[t+2]+baseSoup[t+5]+baseSoup[t+8])/3;
+    const dst=inAll(cx,cy,cz)?mand:keep; for(let k=0;k<9;k++) dst.push(baseSoup[t+k]);
+  }
+  if(mand.length<90){ alert('В обводку попало мало кости. Обведи челюсть крупнее/плотнее, желательно с двух ракурсов.'); return; }
+  baseSoup=new Float32Array(keep); rebuildBaseMesh();
+  const mandA=new Float32Array(mand);
+  const rec=addFrag(mandA, 0x66d9e8, new THREE.Vector3(0,0,1), soupCentroid(mandA), 'Нижняя челюсть');
+  isCut=true; clearArc&&clearArc(); clearRegen&&clearRegen();
+  selectFrag(frags.indexOf(rec)); if(gizmo){ gizmo.setMode('translate'); gizmo.attach(rec.group); }
+  silhCaps=[]; penPts=[]; drawPen(); setPenMode(false); if($('silhDraw'))$('silhDraw').classList.remove('armed');
+  updateSilhInfo(); refreshObjPanel();
+  if($('cutInfo')) $('cutInfo').textContent=`Нижняя челюсть выделена обводкой (${(mandA.length/9|0).toLocaleString('ru')} треуг.). Двигай/режь — череп не тронется.`;
 }
 
 // ---- Точки под аппарат (клик по фрагменту) ----
@@ -2446,6 +2511,12 @@ function bindOsteotomy() {
   $('penCut').onclick = penCutDispatch;
   $('penSwap').onclick = swapFragment;
   $('knifeUndo').onclick = knifeUndo;
+  if($('silhSide')) $('silhSide').onclick = silhLateral;
+  if($('silhFront')) $('silhFront').onclick = silhFrontal;
+  if($('silhDraw')) $('silhDraw').onclick = ()=>{ if(penOn){ setPenMode(false); $('silhDraw').classList.remove('armed'); } else startSilhDraw(); };
+  if($('silhAdd')) $('silhAdd').onclick = captureSilhouette;
+  if($('silhGo')) $('silhGo').onclick = isolateMandibleSilh;
+  if($('silhReset')) $('silhReset').onclick = resetSilh;
   $('penMode').addEventListener('change', clearPen);
   $('rotFree').onclick = ()=> setRotMode('free');
   $('rotTurn').onclick = ()=> setRotMode('turn');
