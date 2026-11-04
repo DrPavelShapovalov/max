@@ -8,6 +8,7 @@ import { segmentMandible } from './seg.js';
 import { traceMandibularCanal } from './nerve.js';
 import { splitByPlane } from './cut.js';
 import { DEVICES, arcRadius, selectDevice, arcFrame, arcPoints } from './distractors.js';
+import { buildKDA, transformSoup } from './kda.js';
 
 let gizmo = null, pickMode = false;
 
@@ -559,6 +560,8 @@ function __ossaTestHook(){ try{ window.__ossa = {
     return { bytes:j.length, frags:frags.map(f=>f.name) }; },
   wandTest(){ regionGrow('axial',(volume.dims[0]/2)|0,(volume.dims[1]/2)|0,idx[2]); let n=0; for(const x of segMask)n+=x; return n; },
   distractorTest(){ devPts=[new THREE.Vector3(-20,0,20), new THREE.Vector3(-25,0,-20)]; modelRadius=100; addDistractor(); return frags.map(f=>f.name); },
+  kdaTest(R){ modelRadius=100; devPts=[new THREE.Vector3(-18,0,16), new THREE.Vector3(16,0,-8)]; if($('distModel')) $('distModel').value='R'+(R||70); clearDevPts&&0; addDistractor();
+    const f=frags.find(x=>/КДА/i.test(x.name)); return { name:f&&f.name, tris:f?(f.soup.length/9|0):0, nFrags:frags.length }; },
   plateTest(){ modelRadius=100; platePts=[new THREE.Vector3(-30,0,0),new THREE.Vector3(-10,10,0),new THREE.Vector3(10,10,0),new THREE.Vector3(30,0,0)]; buildPlate(); const f=frags.find(x=>/пластина/i.test(x.name)); return { name:f&&f.name, tris:f?(f.soup.length/9|0):0 }; },
   proxTest(){ modelRadius=100;
     const nerve=geoToSoup(new THREE.CylinderGeometry(1,1,40,8)); addFrag(nerve,0xff5d6c,new THREE.Vector3(0,0,1),soupCentroid(nerve),'Канал нерва (правый)');
@@ -1647,28 +1650,27 @@ function addScrew(){
 // ---- Библиотека дистракторов КДА: реалистичная модель по 2 точкам опор ----
 function orientSoup(geo, center, yTo){ const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), yTo.clone().normalize());
   return geoToWorldSoup(geo, new THREE.Matrix4().compose(center.clone(), q, new THREE.Vector3(1,1,1))); }
+// Реалистичный внутриротовой криволинейный КДА по патенту RU2772023C1:
+// криволинейная зубчатая рейка радиуса R + пластина (неподвижный фрагмент),
+// ползун с червяком + пластина (подвижный) и привод наружу.
 function addDistractor(){
-  if(devPts.length<2){ alert('Отметь 2 точки аппарата (кнопка «Точки аппарата»): это опоры дистрактора.'); return; }
+  if(devPts.length<2){ alert('Отметь 2 точки аппарата (кнопка «Точки аппарата»): 1-я — у неподвижного фрагмента (рейка/пластина), 2-я — у подвижного (ползун).'); return; }
   pushUndo();
   const P1=devPts[0].clone(), P2=devPts[1].clone();
-  const dir=P2.clone().sub(P1); const L=dir.length(); if(L<2){ alert('Точки слишком близко.'); return; } dir.normalize();
+  const dir=P2.clone().sub(P1); const L=dir.length(); if(L<3){ alert('Точки слишком близко.'); return; } dir.normalize();
   let up=new THREE.Vector3(0,0,1); if(Math.abs(dir.dot(up))>0.9) up=new THREE.Vector3(0,1,0);
-  const side=new THREE.Vector3().crossVectors(dir,up).normalize(); const nrm=new THREE.Vector3().crossVectors(side,dir).normalize();
-  const mid=P1.clone().add(P2).multiplyScalar(0.5);
-  const soups=[];
-  soups.push(orientSoup(new THREE.CylinderGeometry(1.3,1.3,L*1.05,16), mid, dir));                 // резьбовой стержень
-  soups.push(orientSoup(new THREE.CylinderGeometry(2.6,2.6,3.4,6), mid.clone().add(nrm.clone().multiplyScalar(1.5)), dir)); // активатор-гайка
-  [P1,P2].forEach(P=>{ // опорная площадка (footplate) + 2 отверстия-винта
-    const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), nrm);
-    soups.push(geoToWorldSoup(new THREE.BoxGeometry(11,1.6,7), new THREE.Matrix4().compose(P.clone(), q, new THREE.Vector3(1,1,1))));
-    soups.push(orientSoup(new THREE.CylinderGeometry(1.1,1.1,3.4,12), P.clone().add(side.clone().multiplyScalar(3.2)), nrm));
-    soups.push(orientSoup(new THREE.CylinderGeometry(1.1,1.1,3.4,12), P.clone().add(side.clone().multiplyScalar(-3.2)), nrm));
-  });
-  const soup=concatSoups(soups);
-  const model=$('distModel')?$('distModel').value:'КДА-180';
-  const rec=addFrag(soup, 0xbfc7cf, dir, soupCentroid(soup), 'Дистрактор '+model);
+  const side=new THREE.Vector3().crossVectors(dir,up).normalize();
+  const nrm=new THREE.Vector3().crossVectors(side,dir).normalize();            // наружная нормаль кости
+  const model=$('distModel')?$('distModel').value:'R70';
+  const R=parseFloat(String(model).replace(/[^0-9.]/g,''))||70;
+  const { soup }=buildKDA(R);
+  // локальный базис модели: X→dir (вдоль ветви), Y→nrm (толщина пластин/выход привода), Z→side (выпуклость дуги)
+  const basis=new THREE.Matrix4().makeBasis(dir, nrm, side); basis.setPosition(P1);
+  const world=transformSoup(soup, basis);
+  const rec=addFrag(world, 0xcfd6dd, dir, soupCentroid(world), 'КДА R'+R+' (аппарат)');
+  rec.mesh.material.metalness=0.72; rec.mesh.material.roughness=0.32; rec.mesh.material.needsUpdate=true;
   isCut=true; selectFrag(frags.indexOf(rec)); if(gizmo){gizmo.setMode('translate');gizmo.attach(rec.group);} refreshObjPanel();
-  status('Дистрактор '+model+' установлен'); setTimeout(()=>status('',null),2200);
+  status('КДА R'+R+' установлен (по патенту RU2772023). Двигай/вращай гизмо, экспорт «STL объекта».'); setTimeout(()=>status('',null),2800);
 }
 // ---- Авто-изгиб реконструктивной пластины по отмеченным точкам вдоль кости ----
 let plateMode=false, platePts=[], plateMarks=[];

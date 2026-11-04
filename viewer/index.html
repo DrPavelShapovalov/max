@@ -309,11 +309,12 @@
             <select id="screwL"><option>6</option><option selected>8</option><option>10</option><option>12</option><option>14</option></select>
           </div>
           <div class="btns"><button id="screwBtn" class="ghost">🔩 Добавить винт</button></div>
-          <div class="sect">Дистрактор (библиотека)</div>
-          <div class="row"><label>Модель</label>
-            <select id="distModel"><option>КДА-30</option><option>КДА-50</option><option>КДА-70</option><option>КДА-100</option><option selected>КДА-180</option></select>
+          <div class="sect">КДА — криволинейный аппарат (RU2772023)</div>
+          <div class="row"><label>Радиус R</label>
+            <select id="distModel"><option>R40</option><option>R50</option><option selected>R70</option><option>R100</option><option>R180</option></select>
           </div>
-          <div class="btns"><button id="distAddBtn" class="ghost" title="По 2 точкам аппарата поставить реалистичный дистрактор">🩺 Дистрактор</button></div>
+          <div class="btns"><button id="distAddBtn" class="ghost" title="Отметь 2 точки аппарата → поставить реалистичный криволинейный КДА (рейка R + ползун + привод)">🩺 Поставить КДА</button></div>
+          <div class="info" style="font-size:11px;opacity:.7">Модель аппарата по патенту RU2772023C1 (КОНМЕТ): зубчатая рейка радиуса R, ползун с червяком, 2 костные пластины, привод. Экспорт — «STL объекта».</div>
           <div class="sect">Реконструктивная пластина</div>
           <div class="row"><label>Ширина</label><input type="range" id="plateW" min="3" max="12" step="0.5" value="6"><span class="v" id="plateWv">6 мм</span></div>
           <div class="row"><label>Толщина</label><input type="range" id="plateT" min="0.8" max="3" step="0.2" value="1.4"><span class="v" id="plateTv">1.4 мм</span></div>
