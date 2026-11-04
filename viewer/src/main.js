@@ -657,6 +657,14 @@ function __ossaTestHook(){ try{ window.__ossa = {
     const before=frags.length; isolateMandibleSilh();
     const f=frags.find(x=>/Нижняя/.test(x.name));
     return { made:frags.length>before, name:f&&f.name, mandTris:f?(f.soup.length/9|0):0, baseTris:baseSoup.length/9|0 }; },
+  trgTest(){
+    if(!volume){ const nx=48,ny=48,nz=60; const d=new Int16Array(nx*ny*nz).fill(-1000);
+      for(let z=6;z<54;z++)for(let y=10;y<38;y++)for(let x=10;x<38;x++) d[z*nx*ny+y*nx+x]=1200;
+      volume={dims:[nx,ny,nz],spacing:[1,1,1],data:d,min:-1000,max:1200}; idx=[24,24,30]; win={center:300,width:1500}; threshold=300; }
+    trgProj='lat'; trgDRRcur=trgDRR('lat');
+    trgLM.lat={ S:{ix:12,iy:18}, N:{ix:40,iy:14}, A:{ix:44,iy:34}, B:{ix:42,iy:44}, Go:{ix:10,iy:44}, Me:{ix:40,iy:52}, Po:{ix:8,iy:20}, Or:{ix:40,iy:24}, Ar:{ix:8,iy:34}, Pog:{ix:43,iy:48} };
+    const rows=trgAnalysisLat();
+    return { W:trgDRRcur.W, H:trgDRRcur.H, max:trgDRRcur.max|0, rows: rows.map(r=>({k:r.key, v:r.val!=null?+r.val.toFixed(1):null, st:r.st, extra:r.extra||''})) }; },
   projRoundTrip(){ const j=JSON.stringify(buildProjectObj()); applyProjectObj(JSON.parse(j));
     return { bytes:j.length, frags:frags.map(f=>f.name) }; },
   wandTest(){ regionGrow('axial',(volume.dims[0]/2)|0,(volume.dims[1]/2)|0,idx[2]); let n=0; for(const x of segMask)n+=x; return n; },
@@ -2517,6 +2525,17 @@ function bindOsteotomy() {
   if($('silhAdd')) $('silhAdd').onclick = captureSilhouette;
   if($('silhGo')) $('silhGo').onclick = isolateMandibleSilh;
   if($('silhReset')) $('silhReset').onclick = resetSilh;
+  // ТРГ-цефалометрия
+  if($('trgOpenBtn')) $('trgOpenBtn').onclick = openTRG;
+  if($('trgClose')) $('trgClose').onclick = closeTRG;
+  if($('trgLat')) $('trgLat').onclick = ()=> trgSetProj('lat');
+  if($('trgFront')) $('trgFront').onclick = ()=> trgSetProj('front');
+  if($('trgGen')) $('trgGen').onclick = trgGenerate;
+  if($('trgClearPts')) $('trgClearPts').onclick = trgClearPts;
+  if($('trgPng')) $('trgPng').onclick = trgExportPNG;
+  if($('trgCanvas')) $('trgCanvas').addEventListener('click', trgCanvasClick);
+  window.addEventListener('keydown',(e)=>{ if(e.key==='Escape' && $('trgModal') && $('trgModal').style.display==='flex') closeTRG(); });
+  window.addEventListener('resize',()=>{ if($('trgModal') && $('trgModal').style.display==='flex') trgRender(); });
   $('penMode').addEventListener('change', clearPen);
   $('rotFree').onclick = ()=> setRotMode('free');
   $('rotTurn').onclick = ()=> setRotMode('turn');
@@ -2586,6 +2605,154 @@ function bindWheel() {
     }, { passive: false });
   });
 }
+
+// ============================================================================
+//  ТРГ — цефалометрия (телерентгенограмма): боковая/прямая проекция (DRR),
+//  ручная расстановка точек с подсказками, авто-интерпретация (Steiner/Downs).
+// ============================================================================
+const TRG_LAT_LM=[
+  {id:'S',  nm:'S — Sella',              h:'Центр турецкого седла (середина гипофизарной ямки).'},
+  {id:'N',  nm:'N — Nasion',             h:'Назион: передняя точка лобно-носового шва (переносье).'},
+  {id:'Or', nm:'Or — Orbitale',          h:'Нижний край глазницы (самая нижняя точка орбиты).'},
+  {id:'Po', nm:'Po — Porion',            h:'Верхняя точка костного наружного слухового прохода.'},
+  {id:'ANS',nm:'ANS — перед. нос. ость', h:'Вершина передней носовой ости (spina nasalis anterior).'},
+  {id:'PNS',nm:'PNS — задняя нос. ость', h:'Задняя носовая ость — задний край твёрдого нёба.'},
+  {id:'A',  nm:'A — субспинале',         h:'Глубочайшая точка переднего контура верхней челюсти (между ANS и альвеолой).'},
+  {id:'B',  nm:'B — супраментале',       h:'Глубочайшая точка переднего контура нижней челюсти (между альвеолой и Pog).'},
+  {id:'Pog',nm:'Pog — погонион',         h:'Самая передняя точка костного подбородка.'},
+  {id:'Gn', nm:'Gn — гнатион',           h:'Передне-нижняя точка подбородка (между Pog и Me).'},
+  {id:'Me', nm:'Me — ментон',            h:'Самая нижняя точка симфиза нижней челюсти.'},
+  {id:'Go', nm:'Go — гонион',            h:'Угол нижней челюсти (пересечение касательных к ветви и телу).'},
+  {id:'Ar', nm:'Ar — articulare',        h:'Пересечение заднего контура ветви НЧ и основания черепа.'},
+];
+const TRG_FRONT_LM=[
+  {id:'Cg', nm:'Cg — crista galli',      h:'Петушиный гребень — верхняя точка лицевой средней линии.'},
+  {id:'ANS',nm:'ANS — нос. ость',        h:'Передняя носовая ость по средней линии.'},
+  {id:'Me', nm:'Me — ментон',            h:'Самая нижняя точка подбородка (симфиз).'},
+  {id:'GoR',nm:'Go R — угол НЧ справа',  h:'Правый угол нижней челюсти.'},
+  {id:'GoL',nm:'Go L — угол НЧ слева',   h:'Левый угол нижней челюсти.'},
+  {id:'JR', nm:'J R — югале справа',     h:'Правая югальная точка (скуло-альвеолярный гребень).'},
+  {id:'JL', nm:'J L — югале слева',      h:'Левая югальная точка (скуло-альвеолярный гребень).'},
+];
+let trgProj='lat', trgDRRcur=null, trgLM={lat:{},front:{}}, trgPickId=null, trgView=null;
+function trgLMset(){ return trgProj==='lat'?TRG_LAT_LM:TRG_FRONT_LM; }
+function trgMM(p){ if(typeof p==='string') p=trgLM[trgProj][p]; const d=trgDRRcur; return { x:p.ix*d.pxx, y:(d.H-1-p.iy)*d.pxy }; }  // мм, superior вверх
+function trgDRR(proj){
+  const [nx,ny,nz]=volume.dims,[sx,sy,sz]=volume.spacing,d=volume.data;
+  let W,H,pxx,pxy;
+  if(proj==='lat'){ W=ny;H=nz;pxx=sy;pxy=sz; } else { W=nx;H=nz;pxx=sx;pxy=sz; }
+  const img=new Float32Array(W*H); let mx=1;
+  const cl=(hu)=> hu<-200?0:(hu>1800?2000:hu+200);
+  if(proj==='lat'){
+    for(let z=0;z<nz;z++)for(let y=0;y<ny;y++){ let a=0; const b=z*nx*ny+y*nx; for(let x=0;x<nx;x++)a+=cl(d[b+x]); const p=(nz-1-z)*W+y; img[p]=a; if(a>mx)mx=a; }
+  } else {
+    for(let z=0;z<nz;z++)for(let x=0;x<nx;x++){ let a=0; for(let y=0;y<ny;y++)a+=cl(d[z*nx*ny+y*nx+x]); const p=(nz-1-z)*W+x; img[p]=a; if(a>mx)mx=a; }
+  }
+  return {img,W,H,pxx,pxy,max:mx,proj};
+}
+function trgGenerate(){
+  if(!volume){ alert('Сначала загрузите КТ.'); return; }
+  status('Строю ТРГ…');
+  trgDRRcur=trgDRR(trgProj);
+  // в offscreen-канвас (гамма для контраста)
+  const d=trgDRRcur; const off=document.createElement('canvas'); off.width=d.W; off.height=d.H;
+  const im=new ImageData(d.W,d.H); const D=im.data; const inv=1/d.max;
+  for(let i=0;i<d.img.length;i++){ let g=Math.pow(d.img[i]*inv,0.6)*255; g=g>255?255:g; const o=i*4; D[o]=D[o+1]=D[o+2]=g; D[o+3]=255; }
+  off.getContext('2d').putImageData(im,0,0); trgDRRcur.off=off;
+  status('',null); trgRender(); trgUpdateReport();
+}
+function trgRender(){
+  const cv=$('trgCanvas'); if(!cv||!trgDRRcur) return;
+  const wrap=cv.parentElement; const CW=cv.width=wrap.clientWidth, CH=cv.height=wrap.clientHeight;
+  const ctx=cv.getContext('2d'); ctx.fillStyle='#05080b'; ctx.fillRect(0,0,CW,CH);
+  const d=trgDRRcur; const ar=(d.W*d.pxx)/(d.H*d.pxy); let dw=CW,dh=CW/ar; if(dh>CH){dh=CH;dw=CH*ar;} const ox=(CW-dw)/2,oy=(CH-dh)/2;
+  ctx.imageSmoothingEnabled=true; ctx.drawImage(d.off,0,0,d.W,d.H,ox,oy,dw,dh);
+  trgView={ox,oy,dw,dh};
+  const toPx=(p)=>({x:ox+(p.ix/(d.W-1))*dw, y:oy+(p.iy/(d.H-1))*dh});
+  const LM=trgLM[trgProj];
+  // ключевые линии
+  ctx.lineWidth=1.4; ctx.font='12px ui-monospace,monospace';
+  const line=(a,b,col)=>{ if(LM[a]&&LM[b]){ const A=toPx(LM[a]),B=toPx(LM[b]); ctx.strokeStyle=col; ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke(); } };
+  if(trgProj==='lat'){ line('S','N','#4aa8ff'); line('Go','Me','#39d98a'); line('Po','Or','#b98bff'); line('N','A','#ffc24d'); line('N','B','#ff8a5c'); line('Ar','Go','#39d98a'); }
+  else { line('Cg','ANS','#4aa8ff'); line('ANS','Me','#4aa8ff'); line('GoR','Me','#39d98a'); line('GoL','Me','#39d98a'); line('GoR','GoL','#ffc24d'); }
+  // точки
+  for(const k in LM){ const P=toPx(LM[k]); const cur=(k===trgPickId);
+    ctx.fillStyle=cur?'#ffd34d':'#33ecdd'; ctx.strokeStyle='#04120f'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(P.x,P.y,cur?5:4,0,7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#eafcfd'; ctx.fillText(k,P.x+7,P.y-6); }
+}
+function trgCanvasClick(ev){
+  if(!trgDRRcur||!trgView) return; const cv=$('trgCanvas'); const r=cv.getBoundingClientRect();
+  const x=(ev.clientX-r.left)*cv.width/r.width, y=(ev.clientY-r.top)*cv.height/r.height;
+  const d=trgDRRcur; const ix=Math.round((x-trgView.ox)/trgView.dw*(d.W-1)), iy=Math.round((y-trgView.oy)/trgView.dh*(d.H-1));
+  if(ix<0||ix>=d.W||iy<0||iy>=d.H) return;
+  if(!trgPickId){ const set=trgLMset(); const nextUn=set.find(l=>!trgLM[trgProj][l.id]); trgPickId=nextUn?nextUn.id:set[0].id; }
+  trgLM[trgProj][trgPickId]={ix,iy};
+  const set=trgLMset(); const i=set.findIndex(l=>l.id===trgPickId); const next=set.slice(i+1).find(l=>!trgLM[trgProj][l.id]);
+  trgPickId = next?next.id:null;
+  trgRender(); trgRenderPtList(); trgUpdateReport();
+}
+function trgRenderPtList(){
+  const box=$('trgPts'); if(!box) return; const set=trgLMset(); const cur=trgPickId;
+  box.innerHTML='<div class="sect" style="margin-top:0">Точки</div>'+set.map(l=>{
+    const placed=!!trgLM[trgProj][l.id];
+    return `<div class="trg-lm${l.id===cur?' cur':''}${placed?' ok':''}" data-id="${l.id}"><span class="trg-ck">${placed?'✓':'○'}</span><span class="trg-nm">${l.nm}</span></div>`;
+  }).join('')+'<div class="info" id="trgHint" style="margin-top:7px"></div>';
+  box.querySelectorAll('.trg-lm').forEach(row=> row.onclick=()=>{ trgPickId=row.dataset.id; trgRenderPtList(); trgRender(); });
+  const hintEl=$('trgHint'); const sel = cur? set.find(l=>l.id===cur) : set.find(l=>!trgLM[trgProj][l.id]);
+  if(hintEl) hintEl.innerHTML = sel? `<b>${sel.nm}</b><br>${sel.h}` : 'Все точки расставлены. Можно корректировать — кликни точку в списке и поставь заново.';
+}
+// угол при вершине v между лучами v→a и v→b (°)
+function trgAngAt(v,a,b){ const V=trgMM(v),A=trgMM(a),B=trgMM(b); const v1={x:A.x-V.x,y:A.y-V.y},v2={x:B.x-V.x,y:B.y-V.y};
+  return Math.acos((v1.x*v2.x+v1.y*v2.y)/((Math.hypot(v1.x,v1.y)*Math.hypot(v2.x,v2.y))||1))*180/Math.PI; }
+// острый угол между прямыми a-b и c-d (°)
+function trgLineAng(a,b,c,d){ const A=trgMM(a),B=trgMM(b),C=trgMM(c),D=trgMM(d); const v1={x:B.x-A.x,y:B.y-A.y},v2={x:D.x-C.x,y:D.y-C.y};
+  return Math.acos(Math.min(1,Math.abs(v1.x*v2.x+v1.y*v2.y)/((Math.hypot(v1.x,v1.y)*Math.hypot(v2.x,v2.y))||1)))*180/Math.PI; }
+function trgDist(a,b){ const A=trgMM(a),B=trgMM(b); return Math.hypot(A.x-B.x,A.y-B.y); }
+function trgAnalysisLat(){
+  const L=trgLM.lat; const has=(...k)=>k.every(x=>L[x]); const out=[];
+  const row=(key,val,lo,hi,extra)=>{ let st='—'; if(val!=null){ st = val<lo?'↓ ниже':(val>hi?'↑ выше':'норма'); } out.push({key,val,norm:`${lo}–${hi}`,st,extra}); };
+  row('SNA (°)', has('S','N','A')?trgAngAt('N','S','A'):null, 80,84);
+  row('SNB (°)', has('S','N','B')?trgAngAt('N','S','B'):null, 78,82);
+  const anb = (has('S','N','A')&&has('S','N','B'))? trgAngAt('N','S','A')-trgAngAt('N','S','B') : null;
+  let cls=''; if(anb!=null) cls = anb>4?'скелетный II класс':(anb<0?'скелетный III класс':'I класс');
+  row('ANB (°)', anb, 0,4, cls);
+  row('SN–MP (°)', has('S','N','Go','Me')?trgLineAng('S','N','Go','Me'):null, 28,37);
+  row('FMA Fr–MP (°)', has('Po','Or','Go','Me')?trgLineAng('Po','Or','Go','Me'):null, 20,30);
+  row('Гониальный ∠Ar-Go-Me (°)', has('Ar','Go','Me')?trgAngAt('Go','Ar','Me'):null, 118,132);
+  row('SN–Pog лицевой (°)', has('S','N','Pog')?trgAngAt('N','S','Pog'):null, 78,84);
+  return out;
+}
+function trgAnalysisFront(){
+  const L=trgLM.front; const has=(...k)=>k.every(x=>L[x]); const out=[];
+  // девиация подбородка от средней линии Cg–ANS
+  if(has('Cg','ANS','Me')){ const A=trgMM(L.Cg),B=trgMM(L.ANS),M=trgMM(L.Me);
+    const dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy)||1; const dev=((M.x-A.x)*dy-(M.y-A.y)*dx)/len;
+    out.push({key:'Девиация Me от ср. линии (мм)', val:Math.abs(dev), norm:'0–2', st:Math.abs(dev)>2?(dev>0?'вправо':'влево'):'норма', extra:dev>0?'подбородок вправо':'подбородок влево'}); }
+  if(has('GoR','Me')&&has('GoL','Me')){ const r=trgDist('GoR','Me'), l=trgDist('GoL','Me'); const d=Math.abs(r-l);
+    out.push({key:'Тело НЧ R / L (мм)', val:null, norm:'', st:'', extra:`R ${r.toFixed(1)} · L ${l.toFixed(1)} · Δ ${d.toFixed(1)}`});
+    out.push({key:'Асимметрия тела НЧ (%)', val:100*d/Math.max(r,l), norm:'0–3', st:(100*d/Math.max(r,l))>3?'асимметрия':'симм.'}); }
+  if(has('GoR','GoL')) out.push({key:'Ширина по гонионам (мм)', val:trgDist('GoR','GoL'), norm:'', st:''});
+  if(has('JR','JL')) out.push({key:'Ширина по югале (мм)', val:trgDist('JR','JL'), norm:'', st:''});
+  if(!out.length) out.push({key:'Расставь Cg, ANS, Me, Go R/L', val:null,norm:'',st:''});
+  return out;
+}
+function trgUpdateReport(){
+  const box=$('trgReport'); if(!box) return;
+  const rows = trgProj==='lat'?trgAnalysisLat():trgAnalysisFront();
+  const stCol=(s)=> s==='норма'||s==='симм.'? 'var(--good)' : (s==='—'||s===''? 'var(--ink-faint)':'var(--warn)');
+  box.innerHTML='<div class="sect" style="margin-top:0">Интерпретация '+(trgProj==='lat'?'(боковая)':'(прямая)')+'</div>'+
+    rows.map(r=>`<div class="trg-rep"><span class="trg-rk">${r.key}</span><span class="trg-rv">${r.val!=null?r.val.toFixed(1):'—'}</span>`+
+      `<span class="trg-rn">${r.norm?('норма '+r.norm):''}</span><span class="trg-rs" style="color:${stCol(r.st)}">${r.st||''}</span>`+
+      `${r.extra?`<div class="trg-rx">${r.extra}</div>`:''}</div>`).join('')+
+    '<div class="info" style="margin-top:8px">Нормы ориентировочные (взрослые, европеоиды). Значения зависят от точности расстановки точек.</div>';
+}
+function trgSetProj(p){ trgProj=p; trgPickId=null; $('trgLat')&&$('trgLat').classList.toggle('armed',p==='lat'); $('trgFront')&&$('trgFront').classList.toggle('armed',p==='front'); trgGenerate(); trgRenderPtList(); }
+function openTRG(){ if(!volume){ alert('Сначала загрузите КТ (DICOM).'); return; } const m=$('trgModal'); if(!m) return; m.style.display='flex';
+  requestAnimationFrame(()=>{ trgSetProj(trgProj); }); }
+function closeTRG(){ const m=$('trgModal'); if(m) m.style.display='none'; }
+function trgClearPts(){ trgLM[trgProj]={}; trgPickId=null; trgRender(); trgRenderPtList(); trgUpdateReport(); }
+function trgExportPNG(){ const cv=$('trgCanvas'); if(!cv) return; cv.toBlob(b=>{ if(b) downloadBlob(b, `ТРГ_${trgProj==='lat'?'боковая':'прямая'}.png`); }); }
 
 let thrTimer;
 function bindControls() {
