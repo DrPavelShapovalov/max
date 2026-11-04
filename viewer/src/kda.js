@@ -71,31 +71,35 @@ function barBetween(A, B, width, thick) {
   return box(len, thick, width, A.clone().add(B).multiplyScalar(0.5), qFromTo(V(1, 0, 0), d));
 }
 
-// ── Трилистник: 3 зенкованных отверстия треугольником вокруг центра tc ──
-function trilobe(tc, thick, r = 2.5, Ro = 2.5, Ri = 1.15) {
+// ── Трилистник (клеверный лист): 3 зенкованных отверстия под 120° вокруг tc ──
+//   baseAng — ориентация: одна доля смотрит наружу (от центра аппарата)
+function trilobe(tc, baseAng, thick, r = 2.8, Ro = 2.6, Ri = 1.2) {
   const parts = [];
-  const h = [0, 1, 2].map(k => { const a = -Math.PI / 2 + k * 2 * Math.PI / 3; return V(tc.x + Math.cos(a) * r, tc.y, tc.z + Math.sin(a) * r); });
-  for (let k = 0; k < 3; k++) parts.push(barBetween(h[k], h[(k + 1) % 3], 2.6, thick)); // треугольник перемычек
+  const h = [0, 1, 2].map(k => { const a = baseAng + k * 2 * Math.PI / 3; return V(tc.x + Math.cos(a) * r, tc.y, tc.z + Math.sin(a) * r); });
+  for (let k = 0; k < 3; k++) parts.push(barBetween(h[k], h[(k + 1) % 3], 2.5, thick)); // перепонки
+  parts.push(box(2.6, thick, 2.6, tc));                                                  // центр лепестка
   for (const p of h) parts.push(washer(Ro, Ri, thick, p));
-  return { soup: concat(parts), holes: h };
+  return concat(parts);
 }
 
-// ── Клеверная пластина-«бабочка»: две трилистниковые лопасти (фиг. 25) ──
-//   hub — центр (под крепление к узлу), side=+1 лопасти веером +Z, −1 веером −Z
+// ── Клеверная пластина-«бабочка»: две трилистниковые лопасти (фиг. 25, 28) ──
+//   hub — центр (под крепление к узлу), side=+1 лопасти веером +Z, −1 веером −Z.
+//   Два лепестка разнесены в разные стороны по X → с другой пластиной образуют
+//   4 трилистника в 4 «квадрантах» (как на фото фиг. 28).
 function butterflyPlate(hub, side, thick) {
   const parts = [];
-  const span = 5.4, reach = 7.4;   // разнос лопастей по X и вынос по Z
+  const span = 6.2, reach = 8.8;   // разнос лопастей по X и вынос по Z
   const tcL = V(hub.x - span, hub.y, hub.z + reach * side);
   const tcR = V(hub.x + span, hub.y, hub.z + reach * side);
-  const neck = V(hub.x, hub.y, hub.z + 1.6 * side);
-  // центральная площадка-хребет 32 вокруг hub
-  parts.push(box(6.2, thick, 4.0, V(hub.x, hub.y, hub.z + 1.0 * side)));
-  // шейки к лопастям
-  parts.push(barBetween(neck, tcL, 3.6, thick));
-  parts.push(barBetween(neck, tcR, 3.6, thick));
-  parts.push(barBetween(tcL, tcR, 2.8, thick));
-  const L = trilobe(tcL, thick), R = trilobe(tcR, thick);
-  parts.push(L.soup, R.soup);
+  const neck = V(hub.x, hub.y, hub.z + 2.0 * side);
+  // короткая площадка-хребет 32 у центрального узла
+  parts.push(box(4.4, thick, 2.8, V(hub.x, hub.y, hub.z + 1.3 * side)));
+  // шейки к лопастям (без широкой верхней перемычки — лепестки отдельные)
+  parts.push(barBetween(neck, tcL, 3.3, thick));
+  parts.push(barBetween(neck, tcR, 3.3, thick));
+  // лепестки-трилистники: одной долей наружу от центра
+  parts.push(trilobe(tcL, Math.atan2(tcL.z - hub.z, tcL.x - hub.x), thick));
+  parts.push(trilobe(tcR, Math.atan2(tcR.z - hub.z, tcR.x - hub.x), thick));
   return concat(parts);
 }
 
@@ -162,6 +166,8 @@ function sliderBlock(c, tang, Wr) {
   // крыша-арка 44/45 над червяком
   parts.push(L(box(6.6, 1.8, Wr + 4.8, V(0, 3.0, 0))));
   parts.push(L(geoSoup(new THREE.CylinderGeometry(half + 0.3, half + 0.3, 6.6, 18, 1, false, 0, Math.PI), Mx(V(0, 3.0, 0), qAxis(V(1, 0, 0), -Math.PI / 2).multiply(qAxis(V(0, 0, 1), Math.PI / 2))))));
+  // корпус-бочка червяка (горизонтальный цилиндр по касательной, как на фиг. 28)
+  parts.push(L(cyl(half + 0.35, half + 0.35, 4.6, V(0, 3.0, 0), qAxis(V(0, 0, 1), Math.PI / 2), 18)));
   // выступы 36 по углам
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) parts.push(L(box(1.6, 2.8, 1.6, V(sx * 3.1, -0.5, sz * half))));
   // пружинящие элементы 15 — тонкие дужки по бокам
@@ -194,37 +200,58 @@ function cardan(pos, dir) {
   return { soup: concat(parts), end: at(7.0), dir: d };
 }
 
-// ── ГИБКИЙ привод 30: S-образный витой вал (стопка колец) + хвостовик 28 ──
+// ── Сплошная труба-свёртка вдоль ломаной (параллельный перенос репера) ──
+function tubeAlong(pts, r, K = 9) {
+  const A = []; const P = (a, b, c) => A.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+  const n = pts.length; const rings = [];
+  for (let i = 0; i < n; i++) {
+    const t = (i < n - 1 ? pts[i + 1].clone().sub(pts[i]) : pts[i].clone().sub(pts[i - 1])).normalize();
+    const up = Math.abs(t.y) > 0.9 ? V(1, 0, 0) : V(0, 1, 0);
+    const nrm = up.clone().sub(t.clone().multiplyScalar(up.dot(t))).normalize();
+    const bi = new THREE.Vector3().crossVectors(t, nrm).normalize();
+    const ring = [];
+    for (let k = 0; k < K; k++) { const a = k / K * 2 * Math.PI; ring.push(pts[i].clone().add(nrm.clone().multiplyScalar(Math.cos(a) * r)).add(bi.clone().multiplyScalar(Math.sin(a) * r))); }
+    rings.push(ring);
+  }
+  for (let i = 0; i < n - 1; i++) for (let k = 0; k < K; k++) { const k2 = (k + 1) % K; P(rings[i][k], rings[i + 1][k], rings[i + 1][k2]); P(rings[i][k], rings[i + 1][k2], rings[i][k2]); }
+  return new Float32Array(A);
+}
+
+// ── ГИБКИЙ привод 30: S-образный ТУГО ВИТОЙ вал (пружина) + хвостовик 28 ──
 function flexDrive(start, startDir) {
   const parts = [];
   const d0 = startDir.clone().normalize();
   const P0 = start.clone();
-  const P1 = start.clone().add(d0.clone().multiplyScalar(8)).add(V(0, 1.0, 3.2));
-  const P2 = start.clone().add(d0.clone().multiplyScalar(16)).add(V(0, 2.4, -3.2));
-  const P3 = start.clone().add(d0.clone().multiplyScalar(26)).add(V(0, 3.4, 3.0));
-  const P4 = start.clone().add(d0.clone().multiplyScalar(36)).add(V(0, 4.2, -1.6));
-  const P5 = start.clone().add(d0.clone().multiplyScalar(44)).add(V(0, 4.6, 0));
+  const P1 = start.clone().add(d0.clone().multiplyScalar(8)).add(V(0, 1.0, 3.4));
+  const P2 = start.clone().add(d0.clone().multiplyScalar(16)).add(V(0, 2.2, -3.4));
+  const P3 = start.clone().add(d0.clone().multiplyScalar(26)).add(V(0, 3.2, 3.2));
+  const P4 = start.clone().add(d0.clone().multiplyScalar(36)).add(V(0, 4.0, -1.8));
+  const P5 = start.clone().add(d0.clone().multiplyScalar(45)).add(V(0, 4.4, 0));
   const curve = new THREE.CatmullRomCurve3([P0, P1, P2, P3, P4, P5]);
-  const n = 60;
+  const n = 64;
   const pts = curve.getPoints(n);
-  // витой вал: чередующиеся кольца разного радиуса вдоль пути (вид витой пружины)
-  for (let i = 0; i < n - 1; i++) {
+  // сплошной сердечник-тяга (без зазоров)
+  parts.push(tubeAlong(pts, 0.82, 9));
+  // тугая навивка: частые перекрывающиеся кольца чуть большего радиуса
+  const coilEnd = Math.round(n * 0.82);  // до начала гладкого хвостовика
+  for (let i = 0; i < coilEnd; i++) {
     const a = pts[i], b = pts[i + 1]; const seg = b.clone().sub(a); const len = seg.length(); if (len < 1e-4) continue;
     const mid = a.clone().add(b).multiplyScalar(0.5); const q = qFromTo(V(0, 1, 0), seg);
-    const coil = (i % 2 === 0) ? 1.28 : 1.02;
-    parts.push(cyl(coil, coil, len * 1.5, mid, q, 10));
+    parts.push(cyl(1.22, 1.22, len * 2.0, mid, q, 8));
   }
   // усилительные муфты-проточки 25 по длине
-  [0.18, 0.42, 0.66].forEach(t => {
+  [0.2, 0.45, 0.68].forEach(t => {
     const i = Math.min(n - 2, Math.round(t * n)); const a = pts[i], b = pts[i + 1];
     const q = qFromTo(V(0, 1, 0), b.clone().sub(a));
-    parts.push(cyl(1.55, 1.55, 2.2, a.clone().add(b).multiplyScalar(0.5), q, 14));
+    parts.push(cyl(1.5, 1.5, 2.0, a.clone().add(b).multiplyScalar(0.5), q, 14));
   });
-  // шестигранный хвостовик 28 на конце
+  // гладкий концевой участок + шестигранный хвостовик 28
   const e0 = pts[n - 1], ePrev = pts[n - 2]; const ed = e0.clone().sub(ePrev).normalize(); const qe = qFromTo(V(0, 1, 0), ed);
-  parts.push(cyl(1.7, 1.7, 1.4, ePrev.clone().add(ed.clone().multiplyScalar(0.4)), qe, 6));
-  parts.push(cyl(1.85, 1.85, 3.6, e0.clone().add(ed.clone().multiplyScalar(1.6)), qe, 6)); // грань-шестигранник
-  parts.push(cyl(1.0, 1.0, 2.0, e0.clone().add(ed.clone().multiplyScalar(4.4)), qe, 6));   // квадрат-носик
+  const cEnd = pts[coilEnd];
+  parts.push(cyl(1.05, 1.05, cEnd.distanceTo(e0), cEnd.clone().add(e0).multiplyScalar(0.5), qFromTo(V(0, 1, 0), e0.clone().sub(cEnd)), 12)); // гладкий стержень
+  parts.push(cyl(1.7, 1.7, 1.3, e0.clone().add(ed.clone().multiplyScalar(-0.2)), qe, 6));
+  parts.push(cyl(1.85, 1.85, 3.4, e0.clone().add(ed.clone().multiplyScalar(1.6)), qe, 6)); // грань-шестигранник 28
+  parts.push(cyl(1.0, 1.0, 2.0, e0.clone().add(ed.clone().multiplyScalar(4.3)), qe, 4));   // квадрат-носик
   return concat(parts);
 }
 
