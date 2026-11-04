@@ -217,19 +217,15 @@ function tubeAlong(pts, r, K = 9) {
   return new Float32Array(A);
 }
 
-// ── ГИБКИЙ привод 30: S-образный ТУГО ВИТОЙ вал (пружина) + хвостовик 28 ──
+// ── ГИБКИЙ привод 30: ПРЯМОЙ витой вал (гибкого типа) + хвостовик 28 ──
+//   Привод гибкий, но моделируется прямым — на фото он лишь лежит изогнутым.
 function flexDrive(start, startDir) {
   const parts = [];
   const d0 = startDir.clone().normalize();
-  const P0 = start.clone();
-  const P1 = start.clone().add(d0.clone().multiplyScalar(8)).add(V(0, 1.0, 3.4));
-  const P2 = start.clone().add(d0.clone().multiplyScalar(16)).add(V(0, 2.2, -3.4));
-  const P3 = start.clone().add(d0.clone().multiplyScalar(26)).add(V(0, 3.2, 3.2));
-  const P4 = start.clone().add(d0.clone().multiplyScalar(36)).add(V(0, 4.0, -1.8));
-  const P5 = start.clone().add(d0.clone().multiplyScalar(45)).add(V(0, 4.4, 0));
-  const curve = new THREE.CatmullRomCurve3([P0, P1, P2, P3, P4, P5]);
-  const n = 64;
-  const pts = curve.getPoints(n);
+  const Ldrv = 42;
+  const n = 60;
+  const pts = [];
+  for (let i = 0; i <= n; i++) pts.push(start.clone().add(d0.clone().multiplyScalar(Ldrv * i / n)));
   // сплошной сердечник-тяга (без зазоров)
   parts.push(tubeAlong(pts, 0.82, 9));
   // тугая навивка: частые перекрывающиеся кольца чуть большего радиуса
@@ -246,7 +242,7 @@ function flexDrive(start, startDir) {
     parts.push(cyl(1.5, 1.5, 2.0, a.clone().add(b).multiplyScalar(0.5), q, 14));
   });
   // гладкий концевой участок + шестигранный хвостовик 28
-  const e0 = pts[n - 1], ePrev = pts[n - 2]; const ed = e0.clone().sub(ePrev).normalize(); const qe = qFromTo(V(0, 1, 0), ed);
+  const e0 = pts[n], ePrev = pts[n - 1]; const ed = e0.clone().sub(ePrev).normalize(); const qe = qFromTo(V(0, 1, 0), ed);
   const cEnd = pts[coilEnd];
   parts.push(cyl(1.05, 1.05, cEnd.distanceTo(e0), cEnd.clone().add(e0).multiplyScalar(0.5), qFromTo(V(0, 1, 0), e0.clone().sub(cEnd)), 12)); // гладкий стержень
   parts.push(cyl(1.7, 1.7, 1.3, e0.clone().add(ed.clone().multiplyScalar(-0.2)), qe, 6));
@@ -287,9 +283,9 @@ export function buildKDA(R) {
 
   // Кардан + ГИБКИЙ привод уходят в противоположную от рейки сторону (−X) с подъёмом +Y
   const driveBase = cS.clone().add(V(-3.2, 3.0, 0));
-  const card = cardan(driveBase, V(-1, 0.22, 0));
+  const card = cardan(driveBase, V(-1, 0.07, 0));
   parts.cardan = card.soup;
-  parts.drive = flexDrive(card.end, card.dir.clone().add(V(0, 0.18, 0)).normalize());
+  parts.drive = flexDrive(card.end, card.dir.clone());   // прямой гибкий вал вдоль оси механизма
 
   const soup = concat([parts.rail, parts.railTab, parts.plateFixed, parts.plateMobile, parts.slider, parts.worm, parts.cardan, parts.drive]);
   return { soup, parts, R, theta, chord };
