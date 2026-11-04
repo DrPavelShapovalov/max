@@ -665,6 +665,20 @@ function __ossaTestHook(){ try{ window.__ossa = {
     trgLM.lat={ S:{ix:12,iy:18}, N:{ix:40,iy:14}, A:{ix:44,iy:34}, B:{ix:42,iy:44}, Go:{ix:10,iy:44}, Me:{ix:40,iy:52}, Po:{ix:8,iy:20}, Or:{ix:40,iy:24}, Ar:{ix:8,iy:34}, Pog:{ix:43,iy:48} };
     const rows=trgAnalysisLat();
     return { W:trgDRRcur.W, H:trgDRRcur.H, max:trgDRRcur.max|0, rows: rows.map(r=>({k:r.key, v:r.val!=null?+r.val.toFixed(1):null, st:r.st, extra:r.extra||''})) }; },
+  async loadRawVolume(b64){                    // инъекция реального объёма КТ (header: 3×int32 dims + 3×float32 spacing, затем int16)
+    const bin=atob(b64); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+    const dv=new DataView(u8.buffer);
+    const nx=dv.getInt32(0,true),ny=dv.getInt32(4,true),nz=dv.getInt32(8,true);
+    const sx=dv.getFloat32(12,true),sy=dv.getFloat32(16,true),sz=dv.getFloat32(20,true);
+    const data=new Int16Array(new Int16Array(u8.buffer,24,nx*ny*nz));
+    let mn=32767,mx=-32768; for(let i=0;i<data.length;i++){const v=data[i];if(v<mn)mn=v;if(v>mx)mx=v;}
+    volume={dims:[nx,ny,nz],spacing:[sx,sy,sz],data,min:mn,max:mx,window:{center:400,width:1800}};
+    idx=[nx>>1,ny>>1,nz>>1]; win={center:400,width:1800}; threshold=300;
+    if($('wc')){$('wc').value=400;$('wcval').textContent=400;} if($('ww')){$('ww').value=1800;$('wwval').textContent=1800;} if($('thr')){$('thr').value=300;$('thrval').textContent='300 HU';}
+    ['axial','coronal','sagittal'].forEach(p=>{ const sl=$('sl-'+p); if(sl){ sl.max=sliceMeta(p).count-1; sl.value=idx[sliceMeta(p).axis]; } });
+    const dh=$('dropHint'); if(dh) dh.style.display='none';
+    renderAllMPR(); await rebuild3D();
+    return {dims:[nx,ny,nz], spacing:[sx,sy,sz], min:mn, max:mx, tris:(boneSurf&&boneSurf.triCount)||0, frags:frags.map(f=>f.name)}; },
   projRoundTrip(){ const j=JSON.stringify(buildProjectObj()); applyProjectObj(JSON.parse(j));
     return { bytes:j.length, frags:frags.map(f=>f.name) }; },
   wandTest(){ regionGrow('axial',(volume.dims[0]/2)|0,(volume.dims[1]/2)|0,idx[2]); let n=0; for(const x of segMask)n+=x; return n; },
