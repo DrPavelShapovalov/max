@@ -861,53 +861,73 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         #loginScreen {
             position: fixed; inset: 0; z-index: 9999; overflow: hidden;
             display: flex; justify-content: center; align-items: center; padding: 24px;
-            background: var(--void);
+            background:
+                radial-gradient(900px 620px at 16% 8%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 62%),
+                radial-gradient(900px 700px at 86% 94%, color-mix(in srgb, var(--accent-2) 28%, transparent), transparent 62%),
+                var(--void);
         }
         #loginScreen.hidden { display: none; }
-        #hudCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-        #loginScreen::after { /* виньетка поверх канваса */
-            content:""; position:absolute; inset:0; pointer-events:none;
-            background: radial-gradient(120% 90% at 50% 50%, transparent 55%, var(--void) 100%);
+        #hudCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity:.30; z-index:0; }
+        #loginScreen::before { /* плавающие цветовые пятна (aurora) */
+            content:""; position:absolute; inset:-25%; pointer-events:none; z-index:0;
+            background:
+                radial-gradient(36% 40% at 24% 28%, color-mix(in srgb, var(--accent) 60%, transparent), transparent 70%),
+                radial-gradient(42% 46% at 78% 74%, color-mix(in srgb, var(--accent-2) 58%, transparent), transparent 70%),
+                radial-gradient(32% 36% at 70% 18%, color-mix(in srgb, var(--accent) 34%, transparent), transparent 70%);
+            filter: blur(46px) saturate(1.25); opacity:.55;
+            animation: auroraFloat 18s ease-in-out infinite alternate;
+        }
+        @keyframes auroraFloat {
+            0%   { transform: translate3d(-3%,-2%,0) scale(1); }
+            50%  { transform: translate3d(3%,2%,0) scale(1.09); }
+            100% { transform: translate3d(-2%,3%,0) scale(1.03); }
+        }
+        #loginScreen::after { /* виньетка поверх */
+            content:""; position:absolute; inset:0; pointer-events:none; z-index:1;
+            background: radial-gradient(135% 100% at 50% 50%, transparent 56%, color-mix(in srgb, var(--void) 88%, transparent) 100%);
         }
         .login-card {
-            position: relative; z-index: 2; width: 400px; max-width: 100%;
-            padding: 40px 34px 30px;
-            background: var(--panel); backdrop-filter: blur(16px) saturate(1.3);
-            -webkit-backdrop-filter: blur(16px) saturate(1.3);
-            border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+            position: relative; z-index: 2; width: 410px; max-width: 100%;
+            padding: 0; overflow: hidden; text-align: center;
+            background: color-mix(in srgb, var(--panel) 90%, transparent);
+            backdrop-filter: blur(22px) saturate(1.4); -webkit-backdrop-filter: blur(22px) saturate(1.4);
+            border: 1px solid var(--line-strong); border-radius: 24px;
             box-shadow:
-                inset 0 1px 0 rgba(255,255,255,.08),
-                0 0 0 1px rgba(0,0,0,.3),
-                0 40px 90px -30px rgba(0,0,0,.85),
-                0 0 60px -12px var(--glow);
+                inset 0 1px 0 rgba(255,255,255,.12),
+                0 40px 100px -34px rgba(0,0,0,.6),
+                0 0 80px -22px var(--glow);
             animation: cardRise .6s cubic-bezier(.2,.7,.2,1) both;
         }
-        @keyframes cardRise { from { opacity:0; transform: translateY(14px) scale(.985); } to { opacity:1; transform:none; } }
+        @keyframes cardRise { from { opacity:0; transform: translateY(16px) scale(.985); } to { opacity:1; transform:none; } }
+        .login-head {
+            position: relative; padding: 32px 34px 22px;
+            background: radial-gradient(130% 130% at 50% -20%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 62%);
+            border-bottom: 1px solid var(--line);
+        }
+        .login-body { padding: 24px 34px 26px; text-align: left; }
         .login-mark {
-            width: 50px; height: 50px; border-radius: 13px; margin-bottom: 22px;
-            display: grid; place-items: center; color: var(--accent);
-            background: radial-gradient(circle at 35% 30%, var(--glow-soft), transparent 70%), var(--panel-2);
-            border: 1px solid var(--line-strong);
-            box-shadow: 0 0 24px -6px var(--glow), inset 0 0 12px -4px var(--glow);
+            width: 64px; height: 64px; border-radius: 19px; margin: 0 auto 16px;
+            display: grid; place-items: center; color: #fff;
+            background: linear-gradient(145deg, var(--accent), var(--accent-2));
+            box-shadow: 0 14px 34px -10px var(--glow), inset 0 1px 0 rgba(255,255,255,.4);
         }
         .login-eyebrow {
             font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .22em;
-            text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
-            text-shadow: 0 0 12px var(--glow-soft);
+            text-transform: uppercase; color: var(--accent); margin-bottom: 9px;
         }
         .login-title {
-            font-size: 24px; font-weight: 700; letter-spacing: -.01em; line-height: 1.15;
-            margin-bottom: 8px; color: var(--ink); text-wrap: balance;
+            font-size: 25px; font-weight: 800; letter-spacing: -.02em; line-height: 1.12;
+            margin: 0 0 7px; color: var(--ink); text-wrap: balance;
         }
-        .login-sub { font-size: 13.5px; color: var(--ink-soft); margin-bottom: 26px; line-height: 1.55; }
+        .login-sub { font-size: 13px; color: var(--ink-soft); margin: 0 auto; max-width: 320px; line-height: 1.5; }
         .field-label {
             display:block; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
             letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 7px 2px;
         }
         .field {
-            width: 100%; box-sizing: border-box; padding: 12px 14px;
+            width: 100%; box-sizing: border-box; padding: 13px 15px;
             background: var(--panel-2); color: var(--ink);
-            border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+            border: 1px solid var(--line-strong); border-radius: 12px;
             font-size: 15px; font-family: inherit; transition: border-color .16s, box-shadow .16s, background .16s;
         }
         .field::placeholder { color: var(--ink-faint); }
@@ -917,18 +937,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
             background: color-mix(in srgb, var(--panel-2) 80%, var(--accent) 4%);
         }
         .btn-primary {
-            position: relative; width: 100%; padding: 13px 16px; margin-top: 4px; overflow: hidden;
-            background: linear-gradient(180deg, var(--accent), var(--accent-dim));
-            color: var(--accent-ink); border: 1px solid color-mix(in srgb, var(--accent) 60%, white 10%);
-            border-radius: var(--r-sm); font-size: 14.5px; font-weight: 700; letter-spacing: .02em;
+            position: relative; width: 100%; padding: 14px 16px; margin-top: 4px; overflow: hidden;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            color: #fff; border: 1px solid color-mix(in srgb, var(--accent) 60%, white 10%);
+            border-radius: 12px; font-size: 14.5px; font-weight: 700; letter-spacing: .02em;
             font-family: inherit; cursor: pointer; transition: box-shadow .18s, transform .05s, filter .18s;
-            box-shadow: 0 0 26px -8px var(--glow), inset 0 1px 0 rgba(255,255,255,.3);
+            box-shadow: 0 10px 28px -10px var(--glow), inset 0 1px 0 rgba(255,255,255,.3);
         }
-        .btn-primary:hover { box-shadow: 0 0 40px -6px var(--glow), inset 0 1px 0 rgba(255,255,255,.4); filter: brightness(1.06); }
+        .btn-primary:hover { box-shadow: 0 16px 38px -10px var(--glow), inset 0 1px 0 rgba(255,255,255,.4); filter: brightness(1.06); }
         .btn-primary:active { transform: translateY(1px); }
-        .btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--glow-soft), 0 0 30px -6px var(--glow); }
+        .btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--glow-soft), 0 10px 30px -8px var(--glow); }
         .login-foot {
-            margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line);
+            margin-top: 22px; padding-top: 15px; border-top: 1px solid var(--line);
             font-family: var(--font-mono); font-size: 10px; letter-spacing: .04em;
             color: var(--ink-faint); line-height: 1.7; text-align:center;
         }
@@ -937,20 +957,32 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         #mainApp { display: none; }
         #mainApp.visible { display: block; }
         .user-bar {
-            background: var(--panel); backdrop-filter: blur(14px) saturate(1.2);
+            background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 94%, var(--accent) 7%), var(--panel));
+            backdrop-filter: blur(14px) saturate(1.2);
             -webkit-backdrop-filter: blur(14px) saturate(1.2);
             border-bottom: 1px solid var(--line-strong);
-            padding: 12px 22px; display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 20px; display: flex; justify-content: space-between; align-items: center;
             gap: 16px; position: sticky; top: 0; z-index: 40;
         }
         .user-id { display:flex; align-items:center; gap:11px; font-family: var(--font-mono);
             font-size:12px; letter-spacing:.04em; color:var(--ink-soft); text-transform: uppercase; }
         .user-id .avatar {
             width: 32px; height: 32px; border-radius: 9px; display:grid; place-items:center;
-            background: var(--panel-2); color: var(--accent); font-weight:700; font-size:13px; font-family: var(--font-sans);
-            border:1px solid var(--line-strong); box-shadow: 0 0 16px -6px var(--glow), inset 0 0 10px -4px var(--glow);
+            background: linear-gradient(145deg, var(--accent), var(--accent-2)); color:#fff; font-weight:700; font-size:13px; font-family: var(--font-sans);
+            border:1px solid color-mix(in srgb, var(--accent) 50%, transparent); box-shadow: 0 6px 16px -8px var(--glow);
         }
         .user-id b { color: var(--ink); font-weight: 700; }
+        .brand { display:flex; align-items:center; gap:10px; min-width:0; }
+        .brand-mark {
+            width: 34px; height: 34px; border-radius: 10px; display:grid; place-items:center; color:#fff; flex:none;
+            background: linear-gradient(145deg, var(--accent), var(--accent-2));
+            box-shadow: 0 8px 20px -8px var(--glow), inset 0 1px 0 rgba(255,255,255,.35);
+        }
+        .brand-name { display:flex; flex-direction:column; line-height:1.1; min-width:0; }
+        .brand-name .bn-1 { font-size:14px; font-weight:800; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; }
+        .brand-name .bn-2 { font-family:var(--font-mono); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin-top:2px; }
+        .brand-sep { width:1px; height:26px; background:var(--line-strong); margin:0 2px; flex:none; }
+        @media (max-width: 640px){ .brand-name, .brand-sep, .user-id > span:last-child { display:none; } }
         .bar-actions { display:flex; align-items:center; gap:8px; }
         .icon-btn {
             width: 38px; height: 38px; border-radius: var(--r-sm);
@@ -981,11 +1013,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
             font-family: var(--font-mono); font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase;
             font-weight: 600; color: var(--ink-faint); cursor: pointer; transition: color .15s;
         }
-        .tab:hover { color: var(--ink-soft); }
-        .tab.active { color: var(--accent); }
+        .tab { border-radius: 10px 10px 0 0; transition: color .15s, background .15s; }
+        .tab:hover { color: var(--ink-soft); background: color-mix(in srgb, var(--panel-2) 55%, transparent); }
+        .tab.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 11%, transparent); }
         .tab.active::after {
-            content:""; position:absolute; left:12px; right:12px; bottom:-1px; height:2px;
-            background: var(--accent); box-shadow: 0 0 12px 1px var(--glow); border-radius: 2px;
+            content:""; position:absolute; left:10px; right:10px; bottom:-1px; height:3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2)); box-shadow: 0 0 12px 1px var(--glow); border-radius: 3px 3px 0 0;
         }
         #archiveTab, #statsTab { display: none; }
 
@@ -1057,6 +1090,49 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         }
         input, textarea { -webkit-user-select: text; user-select: text; }
 
+        /* ── Калькулятор: единый визуальный стиль с экраном входа ───── */
+        #calcContent .bg-white {
+            border-radius: 18px !important;
+            border: 1px solid color-mix(in srgb, var(--accent) 12%, #e9eef0) !important;
+            box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 16px 40px -24px color-mix(in srgb, var(--accent) 60%, transparent) !important;
+        }
+        #calcContent .rounded-xl { border-radius: 18px !important; }
+        #calcContent .rounded-lg { border-radius: 12px !important; }
+        #calcContent button.rounded-xl, #calcContent button.rounded-lg { border-radius: 14px !important; }
+        /* поля ввода — единый фокус под бренд */
+        #calcContent input[type="number"], #calcContent input[type="text"], #calcContent input[type="date"], #calcContent select {
+            border-radius: 11px !important; transition: border-color .15s, box-shadow .15s !important;
+        }
+        #calcContent input:focus, #calcContent select:focus {
+            outline: none !important; border-color: var(--accent) !important;
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent) !important;
+        }
+        /* брендовые градиенты вместо сине-фиолетовых и сине-зелёных */
+        #calcContent [class*="from-blue-600"][class*="to-purple-600"],
+        #calcContent [class*="from-green-600"][class*="to-teal-600"] {
+            background-image: linear-gradient(135deg, var(--accent), var(--accent-2)) !important;
+            box-shadow: 0 14px 34px -14px color-mix(in srgb, var(--accent) 65%, transparent) !important;
+        }
+        #calcContent [class*="from-blue-50"][class*="to-purple-50"] {
+            background-image: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, white), color-mix(in srgb, var(--accent-2) 12%, white)) !important;
+        }
+        /* акцентные цвета → бренд (teal/blue) */
+        #calcContent .text-blue-600 { color: var(--accent-2) !important; }
+        #calcContent .text-purple-600 { color: var(--accent) !important; }
+        #calcContent .text-blue-800 { color: color-mix(in srgb, var(--accent) 70%, #0c2b31) !important; }
+        #calcContent .bg-blue-50, #calcContent .bg-purple-50 { background-color: color-mix(in srgb, var(--accent) 8%, white) !important; }
+        #calcContent .border-blue-200 { border-color: color-mix(in srgb, var(--accent) 22%, white) !important; }
+        #calcContent .border-purple-300 { border-color: color-mix(in srgb, var(--accent) 35%, white) !important; }
+        #calcContent .border-blue-500 { border-color: var(--accent) !important; }
+        #calcContent .focus\:ring-blue-500, #calcContent .focus\:ring-purple-500 { --tw-ring-color: color-mix(in srgb, var(--accent) 40%, transparent) !important; }
+        #calcContent input[type="radio"] { accent-color: var(--accent); }
+
+        /* ── Анимированный датчик индекса ─────────────────────────── */
+        @keyframes gaugeGlowPulse { 0%,100%{ opacity:.5; } 50%{ opacity:.14; } }
+        .gauge-glow { animation: gaugeGlowPulse 2s ease-in-out infinite; }
+        .gauge-card { animation: gaugeCardIn .5s cubic-bezier(.2,.7,.2,1) both; }
+        @keyframes gaugeCardIn { from{ opacity:0; transform: translateY(8px); } to{ opacity:1; transform:none; } }
+
     </style>
     <meta name="author" content="Шаповалов П.И.">
     <meta name="copyright" content="© 2026 Шаповалов П.И. Все права защищены">
@@ -1078,40 +1154,52 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
 <div id="loginScreen">
     <canvas id="hudCanvas" aria-hidden="true"></canvas>
-    <div class="login-card reticle">
-        <span class="rc-tr"></span><span class="rc-bl"></span>
-        <div class="login-mark" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 7h16"/><path d="M4 7v10"/><path d="M20 7v10"/>
-                <path d="M7 7v3"/><path d="M11 7v4"/><path d="M15 7v3"/><path d="M9 7v2"/><path d="M13 7v2"/><path d="M17 7v2"/>
-                <path d="M4 17h16"/>
-            </svg>
+    <div class="login-card">
+        <div class="login-head">
+            <div class="login-mark" aria-hidden="true">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 7h16"/><path d="M4 7v10"/><path d="M20 7v10"/>
+                    <path d="M7 7v3"/><path d="M11 7v4"/><path d="M15 7v3"/><path d="M9 7v2"/><path d="M13 7v2"/><path d="M17 7v2"/>
+                    <path d="M4 17h16"/>
+                </svg>
+            </div>
+            <div class="login-eyebrow">ЦНИИСиЧЛХ · Морфометрия</div>
+            <h1 class="login-title">Анализатор показаний к ДО</h1>
+            <p class="login-sub">Функционально-морфометрическая оценка недоразвития нижней челюсти</p>
         </div>
-        <div class="login-eyebrow">ЦНИИСиЧЛХ · Морфометрия</div>
-        <h1 class="login-title">Анализатор показаний к ДО</h1>
-        <p class="login-sub">Функционально-морфометрическая оценка недоразвития нижней челюсти. Вход для авторизованного персонала.</p>
+        <div class="login-body">
+            <label class="field-label" for="loginInput">Логин</label>
+            <input type="text" id="loginInput" placeholder="Имя пользователя" autocomplete="username" class="field" style="margin-bottom:16px;">
 
-        <label class="field-label" for="loginInput">Логин</label>
-        <input type="text" id="loginInput" placeholder="Имя пользователя" autocomplete="username" class="field" style="margin-bottom:16px;">
+            <label class="field-label" for="passwordInput">Пароль</label>
+            <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password" class="field" style="margin-bottom:20px;">
 
-        <label class="field-label" for="passwordInput">Пароль</label>
-        <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password" class="field" style="margin-bottom:20px;">
+            <button id="loginBtn" class="btn-primary">Войти в систему</button>
 
-        <button id="loginBtn" class="btn-primary">Войти в систему</button>
-
-        <div class="login-foot">
-            Программа для ЭВМ · Свид. RU 2026614230<br>© 2026 Шаповалов П.И. Все права защищены
+            <div class="login-foot">
+                Программа для ЭВМ · Свид. RU 2026614230<br>© 2026 Шаповалов П.И. Все права защищены
+            </div>
         </div>
     </div>
 </div>
 
 <div id="mainApp">
     <div class="user-bar">
-        <div class="user-id">
-            <span class="avatar" id="userAvatar" aria-hidden="true">—</span>
-            <span>Пользователь: <b id="userName"></b></span>
+        <div style="display:flex;align-items:center;gap:14px;min-width:0;">
+            <div class="brand">
+                <span class="brand-mark" aria-hidden="true">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M4 7v10"/><path d="M20 7v10"/><path d="M8 7v3"/><path d="M12 7v4"/><path d="M16 7v3"/><path d="M4 17h16"/></svg>
+                </span>
+                <span class="brand-name"><span class="bn-1">Анализатор КДО</span><span class="bn-2">ЦНИИСиЧЛХ</span></span>
+            </div>
+            <span class="brand-sep"></span>
+            <div class="user-id">
+                <span class="avatar" id="userAvatar" aria-hidden="true">—</span>
+                <span>Пользователь: <b id="userName"></b></span>
+            </div>
         </div>
         <div class="bar-actions">
+            <button class="icon-btn" id="syncGear" onclick="openSyncSettings()" title="Синхронизация / Google Диск" aria-label="Синхронизация">⚙</button>
             <button class="icon-btn" id="themeToggle" onclick="toggleTheme()" title="Светлая / тёмная тема" aria-label="Переключить тему">◐</button>
             <button class="btn-ghost danger" onclick="logout()">Выйти</button>
         </div>
@@ -1121,6 +1209,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         <button id="calcTab" class="tab active" onclick="switchTab('calc')">Калькулятор</button>
         <button id="archiveTab" class="tab" onclick="switchTab('archive')">Архив · <span id="archiveCount" class="num">0</span></button>
         <button id="statsTab" class="tab" onclick="switchTab('stats')">Статистика</button>
+        <button id="cloudTab" class="tab" onclick="switchTab('cloud')">☁ Облако · <span id="cloudCount" class="num">0</span></button>
     </div>
     
     <div id="calcContent">
@@ -1228,7 +1317,61 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         </div>
     </div>
 
+    <div id="cloudContent" style="display:none;padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:16px;flex-wrap:wrap;">
+            <h1 class="h-title">Облачный архив КДО</h1>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <span id="cloudStatus" class="mono" style="font-size:12px;color:var(--ink-dim);"></span>
+                <button onclick="cloudPull()" class="btn-primary" style="width:auto;padding:9px 16px;">⟳ Обновить из облака</button>
+                <button onclick="cloudResync()" class="btn-ghost">Досинхронизировать мои</button>
+                <button onclick="openSyncSettings()" class="btn-ghost">⚙ Настройки</button>
+            </div>
+        </div>
+        <div id="cloudNotice" class="panel" style="padding:14px;margin-bottom:16px;display:none;"></div>
+        <div class="stat-grid" id="cloudKpi" style="margin-bottom:16px;"></div>
+        <div class="panel" style="overflow-x:auto;">
+          <table>
+            <thead><tr>
+              <th>Дата/Время</th><th>Врач</th><th>Компьютер</th><th>ФИО</th><th>Возраст</th>
+              <th>Индекс</th><th>Значение</th><th>Тяжесть</th><th>Рекомендация</th>
+            </tr></thead>
+            <tbody id="cloudTableBody"><tr><td colspan="9" style="text-align:center;color:var(--ink-dim);padding:24px;">Нет данных. Настройте синхронизацию (⚙) и нажмите «Обновить из облака».</td></tr></tbody>
+          </table>
+        </div>
+    </div>
+
 </div>
+</div>
+
+<!-- ═══ Модальное окно: Синхронизация с Google Диском ═══ -->
+<div id="syncModal" class="sync-modal-backdrop" style="display:none;" onclick="if(event.target===this)closeSyncSettings()">
+  <div class="sync-modal">
+    <div class="sync-modal-head">
+      <h2>Синхронизация архива · Google Диск</h2>
+      <button class="icon-btn" onclick="closeSyncSettings()" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="sync-modal-body">
+      <p class="sync-hint">Единая база КДО в вашем Google&nbsp;Диске (Google&nbsp;Таблица). Каждый расчёт с любого компьютера попадает в общий архив; на головном компьютере вы видите, кто и что измеряет.</p>
+      <label class="field-label">Адрес веб-приложения (Apps Script URL)</label>
+      <input id="cfgUrl" class="field" placeholder="https://script.google.com/macros/s/…/exec" style="margin-bottom:12px;">
+      <label class="field-label">Секретный ключ (token)</label>
+      <input id="cfgToken" class="field" placeholder="общий секрет (как в скрипте)" style="margin-bottom:12px;">
+      <label class="field-label">Имя этого компьютера / кабинета</label>
+      <input id="cfgDevice" class="field" placeholder="напр. Ординаторская-1 или Шаповалов-ПК" style="margin-bottom:12px;">
+      <label class="sync-check"><input type="checkbox" id="cfgEnabled"> <span>Включить автосинхронизацию (отправлять расчёты в облако)</span></label>
+      <label class="sync-check"><input type="checkbox" id="cfgSendFio"> <span>Отправлять ФИО пациента в облако</span></label>
+      <div class="sync-legal">⚠ Отправка ФИО и клинических данных в облако — под ответственность правообладателя (152-ФЗ о персональных данных). Без галки «Отправлять ФИО» в облако уходят инициалы + год рождения (псевдонимизация).</div>
+      <div class="sync-actions">
+        <button onclick="saveSyncSettings()" class="btn-primary" style="width:auto;padding:10px 18px;">Сохранить</button>
+        <button onclick="syncTest()" class="btn-ghost">Проверить связь</button>
+        <button onclick="showAppsScript()" class="btn-ghost">📋 Показать код для Google</button>
+        <button onclick="downloadAppsScript()" class="btn-ghost">⬇ Скачать Code.gs</button>
+      </div>
+      <div id="syncTestResult" class="mono" style="font-size:12px;margin-top:10px;color:var(--ink-dim);"></div>
+      <pre id="appsScriptBox" style="display:none;white-space:pre-wrap;user-select:text;-webkit-user-select:text;cursor:text;background:var(--void-2);border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:12px;font-size:11.5px;max-height:260px;overflow:auto;"></pre>
+      <div id="appsScriptSteps" style="display:none;margin-top:10px;font-size:12.5px;color:var(--ink-dim);line-height:1.6;"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1362,22 +1505,13 @@ function toggleTheme() {
 document.addEventListener('DOMContentLoaded', applyThemeIcon);
 
 function switchTab(tab) {
-    // Переключаем отображение контента
-    document.getElementById('calcContent').style.display = tab === 'calc' ? 'block' : 'none';
-    document.getElementById('archiveContent').style.display = tab === 'archive' ? 'block' : 'none';
-    document.getElementById('statsContent').style.display = tab === 'stats' ? 'block' : 'none';
-    
-    // Переключаем активные вкладки
-    document.getElementById('calcTab').classList.remove('active');
-    document.getElementById('archiveTab').classList.remove('active');
-    if (document.getElementById('statsTab')) {
-        document.getElementById('statsTab').classList.remove('active');
-    }
-    document.getElementById(tab + 'Tab').classList.add('active');
-    
+    const tabs = ['calc','archive','stats','cloud'];
+    tabs.forEach(t => { const c = document.getElementById(t + 'Content'); if (c) c.style.display = (t === tab) ? 'block' : 'none';
+        const b = document.getElementById(t + 'Tab'); if (b) b.classList.toggle('active', t === tab); });
     // Загружаем данные при открытии вкладок
     if (tab === 'archive') loadArchive();
     if (tab === 'stats') calculateStats();
+    if (tab === 'cloud' && window.renderCloud) window.renderCloud();
 }
 
 window.saveToArchive = function(data) {
@@ -1395,16 +1529,12 @@ window.saveToArchive = function(data) {
     archive.push(entry);
     localStorage.setItem('kdo_archive', JSON.stringify(archive));
     console.log('✅ Сохранено в архив:', data);
-    
+
     // Уведомить React о обновлении архива
     window.dispatchEvent(new Event('archiveUpdated'));
-    
-    // ============================================================
-    //  ПЕРСОНАЛЬНЫЕ ДАННЫЕ: автоматическая отправка на внешний
-    //  сервер (Google Sheets) УДАЛЕНА в целях защиты ПДн (152-ФЗ).
-    //  Данные хранятся только локально; выгрузка — исключительно
-    //  по явному нажатию кнопки экспорта самим пользователем.
-    // ============================================================
+
+    // ── Облачная синхронизация (Google Диск через Apps Script) ──
+    try { if (window.syncPush) window.syncPush(entry); } catch (e) { console.warn('sync push failed', e); }
 };
 
 
@@ -2406,184 +2536,206 @@ function TriangleViz({
   }, asym.toFixed(1), "%")));
 }
 
+// ── MOFI — композитный индекс (морфология + функция), анимированная карточка ──
+function MofiCard({ data }) {
+  const [t, setT] = React.useState(0);
+  const mofi = data ? data.mofi : 0;
+  const key = data ? (data.mofi + '|' + data.m + '|' + data.F) : '';
+  React.useEffect(() => {
+    if (!data) return;
+    let raf, start = null;
+    const dur = 1050;
+    const ease = x => 1 - Math.pow(1 - x, 3);
+    const step = ts => { if (start === null) start = ts; const p = Math.min(1, (ts - start) / dur); setT(ease(p)); if (p < 1) raf = requestAnimationFrame(step); };
+    setT(0);
+    raf = requestAnimationFrame(step);
+    return () => { if (raf) cancelAnimationFrame(raf); };
+  }, [key]);
+  if (!data) return null;
+  const h = React.createElement;
+  const num = Math.round(mofi * t);
+  const band = data.band;
+  const pct = x => Math.round(x * 100);
+  const names = { ahi: 'ИАГ', odi: 'ODI', spo2: 'SpO₂', snore: 'Храп', emg: 'ЭМГ', tscan: 'T-scan', incisal: 'Открыв. рта', eat10: 'EAT-10', saliva: 'Саливация', speech: 'Речь' };
+  const bar = (label, frac, color) => h("div", { style: { marginTop: 7 } },
+    h("div", { style: { display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--ink-soft)', marginBottom: 3 } },
+      h("span", null, label), h("span", { style: { fontWeight: 700, color: 'var(--ink)' } }, pct(frac) + '%')),
+    h("div", { style: { height: '8px', borderRadius: '5px', background: 'color-mix(in srgb, var(--ink) 10%, transparent)', overflow: 'hidden' } },
+      h("div", { style: { height: '100%', width: (pct(frac) * t) + '%', borderRadius: '5px', background: color } })));
+  return h("div", { className: "gauge-card", style: { padding: '18px 16px 14px', background: 'var(--panel)', border: '1px solid color-mix(in srgb, var(--accent) 14%, var(--line))', borderRadius: 18, marginBottom: 16, boxShadow: '0 1px 2px rgba(16,24,40,.04), 0 18px 44px -26px color-mix(in srgb, var(--accent) 60%, transparent)' } },
+    h("div", { className: "mono-label", style: { marginBottom: 8 } }, "MOFI · Mandibular Osteo-Functional Index"),
+    h("div", { style: { display: 'flex', alignItems: 'baseline', gap: '10px', justifyContent: 'center' } },
+      h("span", { style: { fontSize: '52px', fontWeight: 800, letterSpacing: '-0.03em', color: band.c, lineHeight: 1, fontFamily: 'var(--font-sans)' } }, num),
+      h("span", { style: { fontSize: '18px', fontWeight: 700, color: 'var(--ink-faint)' } }, "/ 100")),
+    h("div", { style: { textAlign: 'center', marginTop: 6, fontSize: '13px', fontWeight: 700, color: band.c, textTransform: 'uppercase', letterSpacing: '0.04em' } }, band.t),
+    bar("Морфология (ИА/ИНЧ) · вес 0.6", data.m, 'linear-gradient(90deg,var(--accent),var(--accent-2))'),
+    bar("Функция · вес 0.4", data.F, 'linear-gradient(90deg,#ea580c,#f59e0b)'),
+    (data.parts && data.parts.length) ? h("div", { style: { display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: 10 } },
+      data.parts.slice(0, 5).map((p, i) => h("span", { key: i, style: { fontSize: '10.5px', fontWeight: 600, color: 'var(--ink-soft)', background: 'color-mix(in srgb, var(--accent) 9%, transparent)', border: '1px solid var(--line)', borderRadius: '8px', padding: '2px 7px' } }, (names[p.key] || p.key) + ' ' + pct(p.s) + '%'))) : null,
+    h("div", { style: { marginTop: 10, fontSize: '10px', color: 'var(--ink-faint)', lineHeight: 1.5 } }, "MOFI = 0.6·морфология + 0.4·функция. Функция — объединение показателей (вес × объективная тяжесть каждого). Вспомогательный ориентир, решение за врачом.")
+  );
+}
+
 // ── 2. HUD-шкала индекса с зонами порогов ────────────────
 function IndexGauge({
   index,
   value
 }) {
   const v = parseFloat(value);
+  const [t, setT] = React.useState(0);
+  React.useEffect(() => {
+    if (isNaN(v)) return;
+    let raf, start = null;
+    const dur = 1050;
+    const ease = x => 1 - Math.pow(1 - x, 3); // easeOutCubic
+    const step = ts => {
+      if (start === null) start = ts;
+      const p = Math.min(1, (ts - start) / dur);
+      setT(ease(p));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    setT(0);
+    raf = requestAnimationFrame(step);
+    return () => { if (raf) cancelAnimationFrame(raf); };
+  }, [value, index]);
   if (isNaN(v)) return null;
-  let domain,
-    zones,
-    unit = '%';
+  let domain, zones, unit = '%';
   if (index === 'ИА') {
     domain = [0, 20];
-    zones = [{
-      from: 0,
-      to: 3,
-      c: 'var(--good)'
-    }, {
-      from: 3,
-      to: 8,
-      c: 'var(--warn)'
-    }, {
-      from: 8,
-      to: 20,
-      c: 'var(--crit)'
-    }];
+    zones = [
+      { from: 0, to: 3, c: 'var(--good)', label: 'норма' },
+      { from: 3, to: 8, c: 'var(--warn)', label: 'умеренная' },
+      { from: 8, to: 20, c: 'var(--crit)', label: 'выраженная' }
+    ];
   } else {
     domain = [-30, 10];
-    zones = [{
-      from: 5,
-      to: 10,
-      c: 'var(--warn)'
-    }, {
-      from: -5,
-      to: 5,
-      c: 'var(--good)'
-    }, {
-      from: -15,
-      to: -5,
-      c: 'var(--warn)'
-    }, {
-      from: -30,
-      to: -15,
-      c: 'var(--crit)'
-    }];
+    zones = [
+      { from: 5, to: 10, c: 'var(--warn)', label: 'гипермегалия' },
+      { from: -5, to: 5, c: 'var(--good)', label: 'норма' },
+      { from: -15, to: -5, c: 'var(--warn)', label: 'умеренное' },
+      { from: -30, to: -15, c: 'var(--crit)', label: 'выраженное' }
+    ];
   }
-  const W = 240,
-    H = 138,
-    cx = W / 2,
-    cy = 122,
-    rad = 96;
+  const W = 264, H = 162, cx = 132, cy = 134, rad = 102;
   const clamp = x => Math.max(domain[0], Math.min(domain[1], x));
-  const toAng = x => Math.PI - (clamp(x) - domain[0]) / (domain[1] - domain[0]) * Math.PI; // 180°→0°
-  const pt = (ang, r) => ({
-    x: cx + Math.cos(ang) * r,
-    y: cy - Math.sin(ang) * r
-  });
+  const toAng = x => Math.PI - (clamp(x) - domain[0]) / (domain[1] - domain[0]) * Math.PI;
+  const pt = (ang, r) => ({ x: cx + Math.cos(ang) * r, y: cy - Math.sin(ang) * r });
   const arc = (a0, a1, r) => {
-    const s = pt(a0, r),
-      e = pt(a1, r);
+    const s = pt(a0, r), e = pt(a1, r);
     const large = Math.abs(a1 - a0) > Math.PI ? 1 : 0;
     return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large} 1 ${e.x} ${e.y}`;
   };
-  const needle = pt(toAng(v), rad - 12);
-  return /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: 16,
-      background: 'var(--panel-2)',
-      border: '1px solid var(--line-strong)',
-      borderRadius: 'var(--r-md)',
-      marginBottom: 16
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "mono-label",
-    style: {
-      marginBottom: 8
-    }
-  }, "\u0428\u043A\u0430\u043B\u0430 ", index, " \xB7 \u0437\u043E\u043D\u044B \u043F\u043E\u0440\u043E\u0433\u043E\u0432"), /*#__PURE__*/React.createElement("svg", {
-    width: "100%",
-    viewBox: `0 0 ${W} ${H}`,
-    style: {
-      display: 'block'
-    }
-  }, zones.map((z, i) => /*#__PURE__*/React.createElement("path", {
-    key: i,
-    d: arc(toAng(z.from), toAng(z.to), rad),
-    fill: "none",
-    stroke: z.c,
-    strokeWidth: "12",
-    strokeLinecap: "butt",
-    opacity: "0.85"
-  })), /*#__PURE__*/React.createElement("line", {
-    x1: cx,
-    y1: cy,
-    x2: needle.x,
-    y2: needle.y,
-    stroke: "var(--ink)",
-    strokeWidth: "2.5",
-    style: {
-      filter: 'drop-shadow(0 0 4px var(--glow))'
-    }
-  }), /*#__PURE__*/React.createElement("circle", {
-    cx: cx,
-    cy: cy,
-    r: "5",
-    fill: "var(--accent)",
-    style: {
-      filter: 'drop-shadow(0 0 6px var(--glow))'
-    }
-  }), /*#__PURE__*/React.createElement("text", {
-    x: cx,
-    y: cy - 30,
-    textAnchor: "middle",
-    fill: "var(--ink)",
-    fontFamily: "var(--font-mono)",
-    fontSize: "30",
-    fontWeight: "700"
-  }, v, unit)));
+  const zoneArc = z => {
+    const a0 = toAng(z.from), a1 = toAng(z.to);
+    const span = a0 - a1;
+    const g = Math.min(0.045, Math.max(0, (span - 0.06) / 2));
+    return arc(a0 - g, a1 + g, rad);
+  };
+  const zoneOf = x => zones.find(z => x >= Math.min(z.from, z.to) && x <= Math.max(z.from, z.to)) || zones[zones.length - 1];
+  const zc = zoneOf(v);
+  const aStart = Math.PI, aEnd = toAng(v);
+  const curAng = aStart + (aEnd - aStart) * t;
+  const tip = pt(curAng, rad);
+  const nEnd = pt(curAng, rad - 16);
+  const nBack = pt(curAng + Math.PI, 13);
+  const numStr = (Math.round(v * t * 10) / 10).toFixed(1);
+  const h = React.createElement;
+  const legend = zones.filter((z, i, a) => a.findIndex(x => x.label === z.label) === i);
+  return h("div", {
+    className: "gauge-card",
+    style: { padding: '16px 16px 14px', background: 'var(--panel)', border: '1px solid color-mix(in srgb, var(--accent) 14%, var(--line))', borderRadius: 18, marginBottom: 16, boxShadow: '0 1px 2px rgba(16,24,40,.04), 0 18px 44px -26px color-mix(in srgb, var(--accent) 60%, transparent)' }
+  },
+    h("div", { className: "mono-label", style: { marginBottom: 2 } }, "Шкала ", index, " · зоны порогов"),
+    h("svg", { width: "100%", viewBox: `0 0 ${W} ${H}`, style: { display: 'block', overflow: 'visible' } },
+      h("defs", null,
+        h("linearGradient", { id: "gaugeNeedle", x1: "0", y1: "0", x2: "1", y2: "0" },
+          h("stop", { offset: "0%", stopColor: "var(--accent)" }),
+          h("stop", { offset: "100%", stopColor: "var(--accent-2)" })),
+        h("filter", { id: "gaugeTipGlow", x: "-80%", y: "-80%", width: "260%", height: "260%" },
+          h("feGaussianBlur", { stdDeviation: "3.5", result: "b" }),
+          h("feMerge", null, h("feMergeNode", { in: "b" }), h("feMergeNode", { in: "SourceGraphic" })))),
+      h("path", { d: arc(Math.PI, 0, rad), fill: "none", stroke: "color-mix(in srgb, var(--ink) 12%, transparent)", strokeWidth: "16", strokeLinecap: "round" }),
+      zones.map((z, i) => h("path", { key: i, d: zoneArc(z), fill: "none", stroke: z.c, strokeWidth: "14", strokeLinecap: "round" })),
+      h("circle", { className: "gauge-glow", cx: tip.x, cy: tip.y, r: "11", fill: zc.c, opacity: "0.5", style: { filter: 'blur(3px)' } }),
+      h("line", { x1: nBack.x, y1: nBack.y, x2: nEnd.x, y2: nEnd.y, stroke: "url(#gaugeNeedle)", strokeWidth: "4", strokeLinecap: "round", style: { filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.25))' } }),
+      h("circle", { cx: tip.x, cy: tip.y, r: "6", fill: zc.c, stroke: "#fff", strokeWidth: "2", style: { filter: 'url(#gaugeTipGlow)' } }),
+      h("circle", { cx: cx, cy: cy, r: "13", fill: "var(--panel)", stroke: "color-mix(in srgb, var(--accent) 30%, var(--line))", strokeWidth: "1.5" }),
+      h("circle", { cx: cx, cy: cy, r: "5.5", fill: "url(#gaugeNeedle)" }),
+      h("text", { x: cx, y: cy - 30, textAnchor: "middle", fill: zc.c, fontFamily: "var(--font-sans)", fontSize: "38", fontWeight: "800", style: { letterSpacing: '-0.02em' } }, numStr, h("tspan", { fontSize: "18", fontWeight: "700", dx: "1" }, unit)),
+      h("text", { x: cx, y: cy - 10, textAnchor: "middle", fill: "var(--ink-soft)", fontFamily: "var(--font-sans)", fontSize: "12.5", fontWeight: "600" }, zc.label)
+    ),
+    h("div", { style: { display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap', marginTop: 6 } },
+      legend.map((z, i) => h("span", { key: i, style: { display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: 'var(--ink-soft)' } },
+        h("span", { style: { width: '9px', height: '9px', borderRadius: '3px', background: z.c } }),
+        z.label)))
+  );
 }
 
 // ── 3. Мини-тренд ИА/ИНЧ по истории пациента ─────────────
 function TrendSparkline({
   history
 }) {
+  const n = (history && history.length) || 0;
+  const stamp = history && history[0] && history[0].timestamp;
+  const [t, setT] = React.useState(0);
+  React.useEffect(() => {
+    if (n < 2) return;
+    let raf, start = null;
+    const dur = 950;
+    const ease = x => 1 - Math.pow(1 - x, 3);
+    const step = ts => {
+      if (start === null) start = ts;
+      const p = Math.min(1, (ts - start) / dur);
+      setT(ease(p));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    setT(0);
+    raf = requestAnimationFrame(step);
+    return () => { if (raf) cancelAnimationFrame(raf); };
+  }, [n, stamp]);
   if (!history || history.length < 2) return null;
-  const vals = history.map(h => parseFloat(h.indexValue)).filter(x => !isNaN(x));
+  const vals = history.map(hh => parseFloat(hh.indexValue)).filter(x => !isNaN(x));
   if (vals.length < 2) return null;
-  const W = 260,
-    H = 64,
-    PAD = 8;
-  const min = Math.min(...vals),
-    max = Math.max(...vals),
-    span = max - min || 1;
-  const X = i => PAD + i * (W - 2 * PAD) / (vals.length - 1);
-  const Y = v => H - PAD - (v - min) / span * (H - 2 * PAD);
-  const pts = vals.map((v, i) => `${X(i)},${Y(v)}`).join(' ');
-  const last = vals[vals.length - 1],
-    first = vals[0];
+  const W = 280, H = 96, PX = 12, PT = 16, PB = 20;
+  const min = Math.min(...vals), max = Math.max(...vals), span = (max - min) || 1;
+  const X = i => PX + i * (W - 2 * PX) / (vals.length - 1);
+  const Y = v => PT + (1 - (v - min) / span) * (H - PT - PB);
+  const full = vals.map((v, i) => ({ x: X(i), y: Y(v) }));
+  const segs = vals.length - 1;
+  const prog = t * segs;
+  const fi = Math.min(segs, Math.floor(prog));
+  const frac = Math.min(1, prog - fi);
+  const vis = full.slice(0, fi + 1).map(p => ({ x: p.x, y: p.y }));
+  if (fi < segs) { const a = full[fi], b = full[fi + 1]; vis.push({ x: a.x + (b.x - a.x) * frac, y: a.y + (b.y - a.y) * frac }); }
+  const linePts = vis.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const areaPts = `${PX},${H - PB} ` + linePts + ` ${vis[vis.length - 1].x.toFixed(1)},${H - PB}`;
+  const last = vals[vals.length - 1], first = vals[0];
   const arrow = last < first ? '↓' : last > first ? '↑' : '→';
-  return /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: 16,
-      background: 'var(--panel-2)',
-      border: '1px solid var(--line-strong)',
-      borderRadius: 'var(--r-md)',
-      marginBottom: 16
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "mono-label",
-    style: {
-      marginBottom: 8,
-      display: 'flex',
-      justifyContent: 'space-between'
-    }
-  }, /*#__PURE__*/React.createElement("span", null, "\u0422\u0440\u0435\u043D\u0434 ", history[0] && history[0].indexType ? history[0].indexType : '', " \xB7 ", history.length, " \u0438\u0437\u043C\u0435\u0440\u0435\u043D\u0438\u0439"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: 'var(--accent)'
-    }
-  }, first.toFixed(1), " \u2192 ", last.toFixed(1), " ", arrow)), /*#__PURE__*/React.createElement("svg", {
-    width: "100%",
-    viewBox: `0 0 ${W} ${H}`,
-    style: {
-      display: 'block'
-    }
-  }, /*#__PURE__*/React.createElement("polyline", {
-    points: pts,
-    fill: "none",
-    stroke: "var(--accent)",
-    strokeWidth: "2",
-    style: {
-      filter: 'drop-shadow(0 0 5px var(--glow))'
-    }
-  }), vals.map((v, i) => /*#__PURE__*/React.createElement("circle", {
-    key: i,
-    cx: X(i),
-    cy: Y(v),
-    r: i === vals.length - 1 ? 4 : 2.5,
-    fill: i === vals.length - 1 ? 'var(--accent)' : 'var(--ink-faint)'
-  }))));
+  const better = Math.abs(last) < Math.abs(first);
+  const trendColor = last === first ? 'var(--ink-soft)' : (better ? 'var(--good)' : 'var(--crit)');
+  const h = React.createElement;
+  return h("div", {
+    className: "gauge-card",
+    style: { padding: '16px 16px 12px', background: 'var(--panel)', border: '1px solid color-mix(in srgb, var(--accent) 14%, var(--line))', borderRadius: 18, marginBottom: 16, boxShadow: '0 1px 2px rgba(16,24,40,.04), 0 18px 44px -26px color-mix(in srgb, var(--accent) 60%, transparent)' }
+  },
+    h("div", { className: "mono-label", style: { marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+      h("span", null, "Динамика ", history[0] && history[0].indexType ? history[0].indexType : '', " · ", history.length, " измерений"),
+      h("span", { style: { color: trendColor, fontWeight: 700, fontFamily: 'var(--font-sans)', fontSize: '12px' } }, first.toFixed(1), " → ", last.toFixed(1), " ", arrow)),
+    h("svg", { width: "100%", viewBox: `0 0 ${W} ${H}`, style: { display: 'block', overflow: 'visible' } },
+      h("defs", null,
+        h("linearGradient", { id: "trendArea", x1: "0", y1: "0", x2: "0", y2: "1" },
+          h("stop", { offset: "0%", stopColor: "var(--accent)", stopOpacity: "0.28" }),
+          h("stop", { offset: "100%", stopColor: "var(--accent)", stopOpacity: "0" })),
+        h("linearGradient", { id: "trendLine", x1: "0", y1: "0", x2: "1", y2: "0" },
+          h("stop", { offset: "0%", stopColor: "var(--accent)" }),
+          h("stop", { offset: "100%", stopColor: "var(--accent-2)" }))),
+      h("line", { x1: PX, y1: H - PB, x2: W - PX, y2: H - PB, stroke: "color-mix(in srgb, var(--ink) 10%, transparent)", strokeWidth: "1" }),
+      h("polygon", { points: areaPts, fill: "url(#trendArea)", opacity: t }),
+      h("polyline", { points: linePts, fill: "none", stroke: "url(#trendLine)", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round" }),
+      (t >= 1) ? h("circle", { className: "gauge-glow", cx: full[vals.length - 1].x, cy: full[vals.length - 1].y, r: "9", fill: "var(--accent-2)", opacity: "0.5", style: { filter: 'blur(3px)' } }) : null,
+      full.map((p, i) => (i <= fi) ? h("circle", { key: i, cx: p.x, cy: p.y, r: i === vals.length - 1 ? 4.5 : 3, fill: i === vals.length - 1 ? 'var(--accent-2)' : 'var(--panel)', stroke: i === vals.length - 1 ? '#fff' : 'var(--accent)', strokeWidth: i === vals.length - 1 ? 2 : 1.5 }) : null)
+    )
+  );
 }
 
 // ── Тип КДА по ИА (из диссертации) ──────────────────────
@@ -2920,6 +3072,166 @@ function DistractionCalculator() {
   const [speechDisorder, setSpeechDisorder] = useState(false); // 0.4 — речь
   const [salivation, setSalivation] = useState(false); // 0.3 — слюнотечение
 
+  // ── ОБЪЕКТИВИЗАЦИЯ: конкретные доп. методы обследования ──
+  // Каждый метод самодокументирован: что это, откуда взять цифру, какая норма.
+  // Введено число → программа сама сверяет с нормой и решает, начислять ли балл.
+  // Пусто → работает субъективная отметка (чекбокс), как резерв.
+  const [objMeas, setObjMeas] = useState({});          // {ahi:'34', emg:'18', tscan:'68', ...}
+  const [objNotes, setObjNotes] = useState('');        // произвольный комментарий врача
+  const [logoText, setLogoText] = useState('');        // заключение логопеда (свободный текст)
+  const [subj, setSubj] = useState({});                // субъективные галки-резерв по ключу метода, если цифры/текста нет
+  const [eatAns, setEatAns] = useState({});            // ответы опросника EAT-10 (0..4 по каждому из 10 вопросов)
+  const [eatOpen, setEatOpen] = useState(false);       // раскрыт ли опросник EAT-10
+  // Конфигурация методов. Каждое окно = конкретный параметр из бланка (с тем же названием).
+  // dir: 'gte' — патология при значении ≥ norm; 'lte' — при ≤ norm; 'lt' — при < norm.
+  // aux:true — метод справочный, в сумму баллов не входит (но показывает вердикт).
+  const ageN = parseFloat(age);
+  const ahiNorm = (ageN > 0 && ageN < 14) ? 1 : 5;   // у детей норма ИАГ строже (< 1)
+  const METHODS = [
+    // ───── ПОЛИСОМНОГРАФИЯ (сон) ─────
+    { key:'ahi', base:1.0, group:'Полисомнография (сон)',
+      title:'Индекс апноэ-гипопноэ (ИАГ / «А+Г»), эп./час',
+      what:'Сколько остановок/ослаблений дыхания во сне приходится на 1 час. Главный маркёр ночного апноэ при недоразвитии нижней челюсти.',
+      source:'В заключении ПСГ или в блоке «Индекс эпизодов нарушения дыхания» — строка «А+Г» (апноэ+гипопноэ). У Горбатенко — 0,87.',
+      unit:'эп./час', normText:'Норма < ' + ahiNorm + (ageN > 0 && ageN < 14 ? ' (ребёнок)' : '') + '. Балл — при ИАГ ≥ ' + ahiNorm + '.',
+      dir:'gte', norm:ahiNorm, severe:30, grade:v=> v>=30?1.3 : v>=15?1.0 : v>=5?0.9 : 0.7 },
+
+    { key:'odi', base:0.7, group:'Полисомнография (сон)',
+      title:'Индекс десатураций (ODI), эп./час',
+      what:'Сколько раз за час кислород крови падает на ≥ 3–4 %. Отражает кислородное голодание из-за ночной обструкции.',
+      source:'В таблице десатурации — строка «Количество десатураций на один час сна (индекс)». У Горбатенко — 0,25.',
+      unit:'эп./час', normText:'Норма < 5. Балл — при ODI ≥ 5.',
+      dir:'gte', norm:5, severe:30, grade:v=> v>=15?1.2:1.0 },
+
+    { key:'spo2', base:0.8, group:'Полисомнография (сон)',
+      title:'Минимальная сатурация SpO₂ за время сна, %',
+      what:'Самый низкий уровень кислорода за ночь. Чем ниже — тем тяжелее ночная гипоксия.',
+      source:'В сводной таблице десатурации — строка «Минимальный уровень сатурации за время сна, %». У Горбатенко — 76.',
+      unit:'%', normText:'Норма ≥ 90 %. Балл — при SpO₂ min ≤ 90 % (≤ 85 % — тяжёлая).',
+      dir:'lte', norm:90, severe:80, grade:v=> v<=85?1.3:1.0 },
+
+    { key:'snore', base:0.5, group:'Полисомнография (сон)',
+      title:'Индекс храпа, эп./час',
+      what:'Сколько эпизодов храпа в час. Высокий индекс = постоянный храп, косвенный признак сужения дыхательных путей.',
+      source:'В блоке «Анализ храпа во время сна» — строка «Количество эпизодов храпа в час (индекс)», столбец NREM+REM. У Горбатенко — 192,6.',
+      unit:'эп./час', normText:'Практический порог: норма < 30. Балл — при индексе ≥ 30.',
+      dir:'gte', norm:30, severe:300, grade:v=> v>=100?1.2:1.0 },
+
+    // ───── ЭМГ ЖЕВАТЕЛЬНЫХ МЫШЦ ─────
+    { key:'emg', base:0.6, group:'ЭМГ жевательных мышц', dual:true,
+      rLabel:'справа (D)', lLabel:'слева (S)',
+      title:'Асимметрия сторон (по «Площадь, мкВ·мс»)',
+      what:'Сила мышцы справа и слева. Введите два числа — программа посчитает асимметрию = |П−Л| / (П+Л) × 100 %.',
+      source:'Проба «Сжатие зубных рядов», строка «Площадь (мкВ·мс)». Берите пару с наибольшей разницей: височные (1.temporalis D / 3.temporalis S) или жевательные (2.masseter D / 4.masseter S). У Ефимова височные 32,34 / 75,06.',
+      unit:'%', normText:'Норма < 15 % разницы. Балл — при асимметрии ≥ 15 % (≥ 25 % — усиление).',
+      dir:'gte', norm:15, severe:40, grade:v=> v>=25?1.2:1.0 },
+
+    // ───── ОККЛЮЗИЯ ─────
+    { key:'tscan', base:0.5, group:'Окклюзия (T-scan)',
+      title:'Нагрузка на перегруженную сторону, %',
+      what:'Какой процент силы смыкания приходится на одну сторону. При одностороннем недоразвитии нагрузка смещается.',
+      source:'Внизу отчёта T-scan — «Левый … % / Право … %». Введите большее из двух. У Ефимова — «Право 63,7 %».',
+      unit:'%', normText:'Норма 40–60 % на сторону. Балл — при перекосе ≥ 60 %.',
+      dir:'gte', norm:60, severe:80, grade:v=> v>=70?1.2:1.0 },
+
+    // ───── КЛИНИЧЕСКИЕ ПОКАЗАТЕЛИ ─────
+    { key:'incisal', base:0.7, group:'Клинические показатели',
+      title:'Открывание рта — межрезцовое расстояние, мм',
+      what:'Расстояние между режущими краями верхних и нижних резцов при максимально открытом рте.',
+      source:'Измеряется линейкой между резцами, в мм.',
+      unit:'мм', normText:'Норма ≥ 35 мм (у детей ≥ 30 мм). Балл — при < 35 мм.',
+      dir:'lt', norm:35, severe:20, grade:v=> v<25?1.2:1.0 },
+
+    { key:'eat10', base:0.6, group:'Клинические показатели',
+      title:'Дисфагия — сумма баллов опросника EAT-10',
+      what:'Стандартный опросник из 10 вопросов о трудностях глотания (0–40 баллов).',
+      source:'Сумма баллов опросника EAT-10, заполненного пациентом.',
+      unit:'балл', normText:'Норма < 3. Балл — при сумме ≥ 3.',
+      dir:'gte', norm:3, severe:15, grade:v=> v>=15?1.2:1.0 },
+
+    { key:'saliva', base:0.3, group:'Клинические показатели',
+      title:'Слюнотечение — саливация, мл/мин',
+      what:'Объём не удерживаемой во рту слюны; связан с нарушением смыкания губ при микрогении.',
+      source:'Сиалометрия — нестимулированная саливация, мл/мин.',
+      unit:'мл/мин', normText:'Норма ≤ 7 мл/мин. Балл — при ≥ 7 мл/мин.',
+      dir:'gte', norm:7, severe:20, grade:v=> 1.0 },
+
+    // ───── РАВНОВЕСИЕ (справочно) ─────
+    { key:'stab', base:0, group:'Равновесие (стабилометрия)', aux:true,
+      title:'Площадь статокинезиограммы S (з), мм²',
+      what:'Оценка равновесия/постурального баланса. При челюстно-лицевой асимметрии бывает повышена, но прямого балла к КДО не даёт.',
+      source:'Таблица «Балансировочные параметры», столбец «S (з), мм²» — глаза закрыты. У Ефимова — 426,5.',
+      unit:'мм²', normText:'Референс бланка < 99,5 мм². Выше — нарушение равновесия. В сумму баллов не входит.',
+      dir:'gte', norm:99.5, grade:v=> 0 }
+  ];
+  const SPEECH_BASE = 0.4;
+  // Вердикт по одному числовому методу (meas — весь объект objMeas)
+  function methodVerdict(m, meas){
+    let v, has, r, l;
+    if(m.dual){
+      r = parseFloat(meas[m.key+'_r']); l = parseFloat(meas[m.key+'_l']);
+      has = !isNaN(r) && !isNaN(l) && (r+l) > 0;
+      v = has ? +(Math.abs(r-l)/(r+l)*100).toFixed(1) : null;
+    } else {
+      const raw = meas[m.key];
+      v = parseFloat(raw);
+      has = raw!==undefined && raw!=='' && !isNaN(v);
+    }
+    if(!has) return { has:false, v:null, bad:null, add:0, r, l };
+    const bad = m.dir==='gte' ? v>=m.norm : m.dir==='lte' ? v<=m.norm : v<m.norm;
+    const add = (m.aux || !bad) ? 0 : +(m.base*m.grade(v)).toFixed(2);
+    return { has:true, v, bad, add, r, l };
+  }
+  // «Нейросетевой» (эвристический) разбор заключения логопеда по ключевым словам
+  function analyzeSpeech(text){
+    const t = (text||'').toLowerCase().replace(/ё/g,'е');
+    if(!t.trim()) return { status:'none', add:0, text:'Заключение логопеда не введено — балл за речь не начисляется.' };
+    // Явные формулировки «норма / не нарушено» (при отсутствии конкретного дефекта)
+    const normMatch = /(в норме|не наруш[а-я]*|сформирован[а-я]*|соответству[а-я]* возраст|без [а-я ]{0,15}наруш|наруш[а-я]* не выявл|патологии не выявл|речь чист)/.test(t);
+    const strongDisorder = /(сигматизм|ротацизм|ламбдацизм|дизартри|дислали|ринолали|искажен|межзубн|косноязыч|нечетк|невнятн|смаз[а-я]* речь|горлов)/.test(t);
+    if(normMatch && !strongDisorder) return { status:'normal', add:0, text:'В заключении речь оценена как нормальная / без нарушений — балл не начисляется.' };
+    const hasDisorder = strongDisorder || /(наруш|дефект|искаж|звукопроизнош|артикуляц|боков[а-я]* сигм|шепеляв|картав)/.test(t);
+    if(!hasDisorder) return { status:'normal', add:0, text:'В заключении не выявлено речевого нарушения — балл не начисляется.' };
+    // Отрицание «вины» челюсти/прикуса (напр. «с прикусом не связано», «не обусловлено челюстью»)
+    const jawNeg = /не\s+(связан[а-я]*\s+с\s+|обусловлен[а-я]*\s+)[^.!?;]{0,40}(челюст|прикус|окклюз)/.test(t)
+      || /(челюст[а-я]*|прикус[а-я]*|окклюз[а-я]*)[^.!?;]{0,25}не\s+связан/.test(t)
+      || /прикус[а-я]*\s+(физиологическ|ортогнатическ|правильн|в норме)/.test(t);
+    const skeletalRaw = /(нижн[а-я]* челюст|челюст[а-я]* (недоразв|укорочен|асимметри|деформ)|микрогени|ретрогнати|прикус|окклюз|зубочелюстн|скелетн|анатомическ|механическ|межзубн|сужени[а-я]* челюст|деформац[а-я]* челюст|недоразвити[а-я]* (нижн[а-я]* )?челюст)/.test(t);
+    const skeletal = skeletalRaw && !jawNeg;
+    const other = /(неврологи|дизартри|алали|зрр|задержк[а-я]* (речев|психоречев)|сенсоневральн|тугоухост|снижени[а-я]* слуха|аденоид|функциональн[а-я]* дислали|возрастн|педагогическ|социальн|билингв|заикани|логоневроз)/.test(t) || jawNeg;
+    if(skeletal && !other) return { status:'confirmed', add:SPEECH_BASE, text:'Нарушение речи по заключению связано с анатомией нижней челюсти / прикуса → балл начислен (+'+SPEECH_BASE+').' };
+    if(skeletal && other)  return { status:'uncertain', add:+(SPEECH_BASE/2).toFixed(2), text:'Названы и скелетная, и иная причина — вклад челюсти вероятен, но не единственный → половинный балл (+'+(SPEECH_BASE/2)+').' };
+    if(other && !skeletal) return { status:'other', add:0, text:'Нарушение речи обусловлено иной причиной (неврология / слух / дислалия и т. п.), не связанной с недоразвитием челюсти → балл не начислен.' };
+    return { status:'uncertain', add:+(SPEECH_BASE/2).toFixed(2), text:'Причина нарушения речи из текста неоднозначна → половинный балл (+'+(SPEECH_BASE/2)+'). Уточните заключение.' };
+  }
+  // Единая оценка функционального блока.
+  // subjChecks — галки-резерв по ключу метода (используются, только если цифры/текста нет).
+  function evalFunctional(subjChecks, meas, speech){
+    const sc = subjChecks || {};
+    const per={}; let score=0;
+    for(const m of METHODS){
+      const vv = methodVerdict(m, meas);
+      if(vv.has){
+        if(vv.add>0) score += vv.add;
+        per[m.key] = { source:'num', confirmed: m.aux? null : vv.bad, bad: vv.bad, v:vv.v, add:vv.add, r:vv.r, l:vv.l };
+      } else if(!m.aux && sc[m.key]){
+        score += m.base; per[m.key]={ source:'sub', confirmed:null, add:m.base };
+      } else {
+        per[m.key]={ source:'none', confirmed:null, add:0 };
+      }
+    }
+    // Речь: есть текст → анализ текста; нет текста, но стоит галка → субъективно
+    const sp = speech || { status:'none', add:0 };
+    if(sp.status === 'none' && sc.speech){
+      score += SPEECH_BASE;
+      per.speech = { source:'sub', status:'sub', add:SPEECH_BASE, text:'Нарушение речи отмечено вручную (без заключения) → балл начислен (+'+SPEECH_BASE+').' };
+    } else {
+      if(sp.add>0) score += sp.add;
+      per.speech = { source:'text', status:sp.status, add:sp.add, text:sp.text };
+    }
+    return { score:+score.toFixed(2), per };
+  }
+
   // Результаты
   const [result, setResult] = useState(null);
 
@@ -3008,18 +3320,50 @@ function DistractionCalculator() {
     return Math.sqrt(s * (s - a) * (s - b) * (s - c));
   };
 
-  // Расчет балла функциональных нарушений
-  const calculateFunctionalScore = () => {
-    let score = 0;
-    if (polysomnography) score += 1.0;
-    if (breathingDisorder) score += 0.8;
-    if (mouthOpening) score += 0.7;
-    if (dysphagia) score += 0.6;
-    if (snoring) score += 0.5;
-    if (chewingDisorder) score += 0.5;
-    if (speechDisorder) score += 0.4;
-    if (salivation) score += 0.3;
-    return score;
+  // Расчет балла функциональных нарушений (объективизация + субъективный резерв)
+  const fnEval = () => evalFunctional(subj, objMeas, analyzeSpeech(logoText));
+  const calculateFunctionalScore = () => fnEval().score;
+
+  // ── MOFI — Mandibular Osteo-Functional Index (0–100) ──
+  // Каждый показатель → объективная тяжесть s∈[0..1] (норма=0, «тяжёлое»=1),
+  // вклад c = вес·s; функция собирается «объединением» (noisy-OR), затем связка с ИА/ИНЧ.
+  const methodSeverity = (m, meas, subjChecks, speechRes) => {
+    if (m.aux) return { has: false, s: 0 };
+    const vv = methodVerdict(m, meas);
+    if (vv.has) {
+      if (!vv.bad || m.severe == null) return { has: true, s: 0 };
+      const s = m.dir === 'gte' ? (vv.v - m.norm) / (m.severe - m.norm) : (m.norm - vv.v) / (m.norm - m.severe);
+      return { has: true, s: Math.max(0, Math.min(1, s)) };
+    }
+    if (subjChecks && subjChecks[m.key]) return { has: true, s: 0.5 }; // есть по галке, но не измерено
+    return { has: false, s: 0 };
+  };
+  const morphoSeverity = (index, val) => {
+    const x = parseFloat(val);
+    if (isNaN(x)) return 0;
+    if (index === 'ИА') return Math.max(0, Math.min(1, (x - 3) / (20 - 3)));
+    return Math.max(0, Math.min(1, (-5 - x) / 25)); // ИНЧ: недоразвитие (отрицательное)
+  };
+  const mofiBand = v => v >= 70 ? { t: 'явные показания к ДО', c: 'var(--crit)' }
+    : v >= 45 ? { t: 'выраженные показания', c: '#ea580c' }
+    : v >= 20 ? { t: 'умеренные показания', c: 'var(--warn)' }
+    : { t: 'показания минимальны', c: 'var(--good)' };
+  const computeMOFI = (index, indexValue) => {
+    const sp = analyzeSpeech(logoText);
+    const parts = [];
+    let prod = 1;
+    for (const m of METHODS) {
+      if (m.aux) continue;
+      const { has, s } = methodSeverity(m, objMeas, subj, sp);
+      if (has && s > 0) { const c = m.base * s; prod *= (1 - c); parts.push({ key: m.key, title: m.title, w: m.base, s, c }); }
+    }
+    const ss = sp.status === 'confirmed' ? 1 : sp.status === 'sub' ? 0.6 : sp.status === 'uncertain' ? 0.5 : 0;
+    if (ss > 0) { const c = SPEECH_BASE * ss; prod *= (1 - c); parts.push({ key: 'speech', title: 'Нарушение речи', w: SPEECH_BASE, s: ss, c }); }
+    const F = 1 - prod;
+    const m = morphoSeverity(index, indexValue);
+    const mofi = Math.max(0, Math.min(100, Math.round(100 * (0.6 * m + 0.4 * F))));
+    parts.sort((a, b) => b.c - a.c);
+    return { mofi, m, F, band: mofiBand(mofi), parts };
   };
 
   // Расчет ИА
@@ -3122,16 +3466,51 @@ function DistractionCalculator() {
         color = 'green';
       }
     }
+    const extra = computeExtra(index, indexValue, severity, functionalScore);
+    let extraText = ` · MOFI: ${extra.integral}/100 (${extra.mofi ? extra.mofi.band.t : ''}).`;
+    if (extra.inchRight !== undefined) extraText += ` Недоразвитие справа ${extra.inchRight.toFixed(1)}%, слева ${extra.inchLeft.toFixed(1)}% (поражённая сторона — ${extra.affectedSide}).`;
+    if (extra.dynamics) extraText += ` Динамика: было ${extra.dynamics.prevValue}% (${extra.dynamics.prevDate}), стало ${indexValue}% — Δ ${extra.dynamics.delta}%.`;
     return {
       index,
       indexValue,
       severity,
       recommendation,
-      rationale,
+      rationale: rationale + extraText,
       color,
       functionalScore: functionalScore.toFixed(1),
-      age
+      age,
+      ...extra
     };
+  };
+
+  // ── ДОРАБОТКА ФОРМУЛЫ: пофланговое недоразвитие, интегральный показатель, динамика ──
+  const computeExtra = (index, indexValue, severity, functionalScore) => {
+    const extra = {};
+    const aR = calculateArea(parseFloat(rightAB), parseFloat(rightBC), parseFloat(rightCA));
+    const aL = calculateArea(parseFloat(leftAB), parseFloat(leftBC), parseFloat(leftCA));
+    const aRef = calculateArea(parseFloat(refAB), parseFloat(refBC), parseFloat(refCA));
+    // Пофланговый индекс недоразвития относительно эталона (видно, какая сторона и насколько отстаёт)
+    if (isFinite(aRef) && aRef > 0) {
+      extra.inchRight = ((aR - aRef) / aRef * 100);
+      extra.inchLeft = ((aL - aRef) / aRef * 100);
+    }
+    // Сторона поражения
+    extra.affectedSide = aR < aL ? 'правая' : (aL < aR ? 'левая' : 'симметрично');
+    // MOFI — морфо-функциональный индекс (0–100), принципиальная формула
+    extra.mofi = computeMOFI(index, indexValue);
+    extra.integral = extra.mofi.mofi; // обратная совместимость (архив/поля)
+    // Динамика: сравнение с предыдущей записью того же пациента (результат дистракции)
+    try {
+      const arch = JSON.parse(localStorage.getItem('kdo_archive') || '[]');
+      const prior = arch.filter(e => (e.fio || '').trim().toLowerCase() === (fio || '').trim().toLowerCase() && (e.fio || '').trim())
+                        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      if (prior.length) {
+        const prev = prior[prior.length - 1];
+        const dIdx = (parseFloat(indexValue) - parseFloat(prev.indexValue));
+        extra.dynamics = { prevValue: prev.indexValue, prevDate: prev.datetime, delta: dIdx.toFixed(1), prevIndex: prev.indexType };
+      }
+    } catch (e) {}
+    return extra;
   };
 
   // Функция очистки формы
@@ -3160,6 +3539,7 @@ function DistractionCalculator() {
     setChewingDisorder(false);
     setSpeechDisorder(false);
     setSalivation(false);
+    setObjMeas({}); setObjNotes(''); setLogoText(''); setSubj({}); setEatAns({}); setEatOpen(false);
     setResult(null);
   };
   const handleCalculate = () => {
@@ -3203,7 +3583,15 @@ function DistractionCalculator() {
         chewingDisorder,
         speechDisorder,
         salivation
-      }
+      },
+      // Объективизация доп. методами (ЭМГ, полисомнография, T-scan…)
+      objMeas: { ...objMeas },
+      objNotes: objNotes,
+      logoText: logoText,
+      subj: { ...subj },
+      eatAns: { ...eatAns },
+      integral: interpretation.integral,
+      affectedSide: interpretation.affectedSide
     };
     window.saveToArchive(archiveData);
     setResult({
@@ -3259,6 +3647,7 @@ function DistractionCalculator() {
     setChewingDisorder(false);
     setSpeechDisorder(false);
     setSalivation(false);
+    setObjMeas({}); setObjNotes(''); setLogoText(''); setSubj({}); setEatAns({}); setEatOpen(false);
     setResult(null);
   };
 
@@ -3291,6 +3680,7 @@ function DistractionCalculator() {
       setSpeechDisorder(data.symptoms.speechDisorder || false);
       setSalivation(data.symptoms.salivation || false);
     }
+    setObjMeas(data.objMeas || {}); setObjNotes(data.objNotes || ''); setLogoText(data.logoText || ''); setSubj(data.subj || {}); setEatAns(data.eatAns || {}); setEatOpen(false);
     if (data.indexValue && data.severity) {
       // Создаем calculatedData для корректного отображения
       const calculatedData = {
@@ -3535,21 +3925,47 @@ function DistractionCalculator() {
                             <span style="color:#dcf5f7; font-size: 12px; font-weight: 700; letter-spacing: 1px;">ФУНКЦИОНАЛЬНЫЕ НАРУШЕНИЯ</span>
                         </div>
                         <div style="padding: 10px 14px; font-size: 12px;">
-                            ${result.functionalDetails.polysomnography ? '<div style="padding: 3px 0; display:flex; align-items:center; gap:6px;"><span style="display:inline-block; padding:1px 6px; border-radius:8px; background:#fee2e2; color:#dc2626; font-size:10px; font-weight:700;">КРИТИЧЕС.</span><span style="color:#dc2626; font-weight:600;">Нарушения дыхания во сне (ИАГ &gt; 5)</span><span style="margin-left:auto; color:#64748b;">+1.0 б.</span></div>' : ''}
-                            ${result.functionalDetails.breathingDisorder ? '<div style="padding: 3px 0; display:flex; align-items:center; gap:6px;"><span style="display:inline-block; padding:1px 6px; border-radius:8px; background:#fee2e2; color:#dc2626; font-size:10px; font-weight:700;">КРИТИЧЕС.</span><span style="color:#dc2626; font-weight:600;">Нарушения дыхания в покое / при нагрузке</span><span style="margin-left:auto; color:#64748b;">+0.8 б.</span></div>' : ''}
-                            ${result.functionalDetails.mouthOpening ? '<div style="padding: 3px 0; display:flex; align-items:center; gap:6px;"><span style="display:inline-block; padding:1px 6px; border-radius:8px; background:#ffedd5; color:#ea580c; font-size:10px; font-weight:700;">ВЫСОКИЙ</span><span style="color:#ea580c; font-weight:600;">Ограничение открывания рта</span><span style="margin-left:auto; color:#64748b;">+0.7 б.</span></div>' : ''}
-                            ${result.functionalDetails.dysphagia ? '<div style="padding: 3px 0; display:flex; align-items:center; gap:6px;"><span style="display:inline-block; padding:1px 6px; border-radius:8px; background:#ffedd5; color:#ea580c; font-size:10px; font-weight:700;">ВЫСОКИЙ</span><span style="color:#ea580c; font-weight:600;">Нарушение глотания (дисфагия)</span><span style="margin-left:auto; color:#64748b;">+0.6 б.</span></div>' : ''}
-                            ${result.functionalDetails.snoring ? '<div style="padding: 3px 0; display:flex; align-items:center; gap:6px;"><span style="display:inline-block; padding:1px 6px; border-radius:8px; background:#fef9c3; color:#854d0e; font-size:10px; font-weight:700;">СРЕДНИЙ</span><span style="color:#854d0e; font-weight:600;">Храп</span><span style="margin-left:auto; color:#64748b;">+0.5 б.</span></div>' : ''}
-                            ${result.functionalDetails.chewingDisorder ? '<div style="padding: 3px 0; display:flex; align-items:center; gap:6px;"><span style="display:inline-block; padding:1px 6px; border-radius:8px; background:#fef9c3; color:#854d0e; font-size:10px; font-weight:700;">СРЕДНИЙ</span><span style="color:#854d0e; font-weight:600;">Нарушение жевания / приёма пищи</span><span style="margin-left:auto; color:#64748b;">+0.5 б.</span></div>' : ''}
-                            ${result.functionalDetails.speechDisorder ? '<div style="padding: 3px 0; display:flex; align-items:center; gap:6px;"><span style="display:inline-block; padding:1px 6px; border-radius:8px; background:#fef9c3; color:#854d0e; font-size:10px; font-weight:700;">СРЕДНИЙ</span><span style="color:#854d0e; font-weight:600;">Нарушение речи (дизартрия)</span><span style="margin-left:auto; color:#64748b;">+0.4 б.</span></div>' : ''}
-                            ${result.functionalDetails.salivation ? '<div style="padding: 3px 0; display:flex; align-items:center; gap:6px;"><span style="display:inline-block; padding:1px 6px; border-radius:8px; background:#dcfce7; color:#166534; font-size:10px; font-weight:700;">НИЗКИЙ</span><span style="color:#166534; font-weight:600;">Слюнотечение (сиалоррея)</span><span style="margin-left:auto; color:#64748b;">+0.3 б.</span></div>' : ''}
-                            ${!result.functionalDetails.polysomnography && !result.functionalDetails.breathingDisorder && !result.functionalDetails.mouthOpening && !result.functionalDetails.dysphagia && !result.functionalDetails.snoring && !result.functionalDetails.chewingDisorder && !result.functionalDetails.speechDisorder && !result.functionalDetails.salivation ? '<div style="padding: 4px 0; color: #16a34a; font-weight:600;">● Функциональные нарушения не выявлены</div>' : ''}
+                            ${(() => {
+                              const ev = fnEval();
+                              const tagStyle = (base, aux) => aux ? 'background:#f1f5f9; color:#475569' : base >= 0.8 ? 'background:#fee2e2; color:#dc2626' : base >= 0.6 ? 'background:#ffedd5; color:#ea580c' : base >= 0.4 ? 'background:#fef9c3; color:#854d0e' : 'background:#dcfce7; color:#166534';
+                              const tagName = (base, aux) => aux ? 'СПРАВ.' : base >= 0.8 ? 'КРИТИЧЕС.' : base >= 0.6 ? 'ВЫСОКИЙ' : base >= 0.4 ? 'СРЕДНИЙ' : 'НИЗКИЙ';
+                              const txtColor = (base, aux) => aux ? '#475569' : base >= 0.8 ? '#dc2626' : base >= 0.6 ? '#ea580c' : base >= 0.4 ? '#854d0e' : '#166534';
+                              const row = (base, aux, title, detail, pts) => '<div style="padding: 3px 0; display:flex; align-items:center; gap:6px;"><span style="display:inline-block; padding:1px 6px; border-radius:8px; ' + tagStyle(base, aux) + '; font-size:10px; font-weight:700;">' + tagName(base, aux) + '</span><span style="color:' + txtColor(base, aux) + '; font-weight:600;">' + title + '</span><span style="color:#64748b; font-size:11px;">' + detail + '</span><span style="margin-left:auto; color:#64748b;">' + pts + '</span></div>';
+                              const rows = [];
+                              METHODS.forEach(m => {
+                                const per = ev.per[m.key] || {};
+                                if (m.aux) {
+                                  if (per.source === 'num') rows.push(row(m.base, true, m.title, (per.bad ? 'выше ориентира' : 'в пределах') + ': ' + per.v + ' ' + m.unit, 'справочно'));
+                                  return;
+                                }
+                                if (per.source === 'num' && per.confirmed === true) rows.push(row(m.base, false, m.title, m.dual ? ('асимметрия ' + per.v + ' % (П ' + per.r + ' / Л ' + per.l + ')') : ('объективно: ' + per.v + ' ' + m.unit), '+' + (per.add || 0).toFixed(1) + ' б.'));
+                                else if (per.source === 'sub') rows.push(row(m.base, false, m.title, 'субъективно (без цифры)', '+' + (per.add || 0).toFixed(1) + ' б.'));
+                              });
+                              const sp = ev.per.speech || {};
+                              if (sp.add > 0) rows.push(row(0.4, false, 'Нарушение речи (логопед)', sp.status === 'confirmed' ? 'связано с челюстью/прикусом' : sp.status === 'sub' ? 'отмечено вручную' : 'частично связано с челюстью', '+' + sp.add.toFixed(1) + ' б.'));
+                              if (rows.length === 0) return '<div style="padding: 4px 0; color: #16a34a; font-weight:600;">● Функциональные нарушения объективно не подтверждены</div>';
+                              return rows.join('');
+                            })()}
                             <div style="margin-top: 8px; padding: 6px 10px; background: #fefce8; border-radius: 6px; border: 1px solid #fde047; display: inline-block;">
                                 <strong style="color:#854d0e;">Суммарный балл: ${result.functionalScore}</strong>
                                 <span style="color: #854d0e; font-size: 12px; margin-left: 10px;">${parseFloat(result.functionalScore) >= 1.5 ? '⚠️ Явное показание к КДО' : parseFloat(result.functionalScore) >= 0.7 ? '◐ Умеренные нарушения' : '● Норма'}</span>
                             </div>
                         </div>
                     </div>
+
+                    <!-- MOFI -->
+                    ${result.mofi ? (() => {
+                      const v = result.mofi.mofi;
+                      const c = v >= 70 ? '#dc2626' : v >= 45 ? '#ea580c' : v >= 20 ? '#ca8a04' : '#16a34a';
+                      return `<div style="margin-bottom:18px; background:#f8fafc; border-radius:10px; overflow:hidden; border:1px solid #e2e8f0;">
+                            <div style="background:#0c2b31; padding:8px 14px;"><span style="color:#dcf5f7; font-size:12px; font-weight:700; letter-spacing:1px;">MOFI · MANDIBULAR OSTEO-FUNCTIONAL INDEX</span></div>
+                            <div style="padding:12px 14px;">
+                                <div style="display:flex; align-items:baseline; gap:10px;"><span style="font-size:34px; font-weight:800; color:${c};">${v}</span><span style="font-size:14px; color:#94a3b8;">/ 100</span><span style="font-size:13px; font-weight:700; color:${c}; text-transform:uppercase; margin-left:6px;">${result.mofi.band.t}</span></div>
+                                <div style="margin-top:8px; font-size:12px; color:#475569;">Морфология (ИА/ИНЧ): <strong>${Math.round(result.mofi.m * 100)}%</strong> · Функция: <strong>${Math.round(result.mofi.F * 100)}%</strong></div>
+                                <div style="margin-top:4px; font-size:11px; color:#94a3b8;">MOFI = 0.6·морфология + 0.4·функция. Вспомогательный ориентир, окончательное решение за врачом.</div>
+                            </div>
+                        </div>`;
+                    })() : ''}
 
                     <!-- РЕЗУЛЬТАТЫ: ИНДЕКС + ШКАЛА -->
                     <div style="margin-bottom: 18px; background: #f8fafc; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0;">
@@ -4036,139 +4452,157 @@ function DistractionCalculator() {
     className: "text-xl font-semibold text-gray-800"
   }, "\u0424\u0443\u043D\u043A\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0435 \u043D\u0430\u0440\u0443\u0448\u0435\u043D\u0438\u044F")), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-gray-500 mb-4"
-  }, "\u0411\u0430\u043B\u043B\u044C\u043D\u0430\u044F \u0441\u0438\u0441\u0442\u0435\u043C\u0430 \u043E\u0446\u0435\u043D\u043A\u0438 \u0444\u0443\u043D\u043A\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0445 \u043F\u043E\u043A\u0430\u0437\u0430\u043D\u0438\u0439"), /*#__PURE__*/React.createElement("div", {
+  }, "\u041A\u0430\u0436\u0434\u043E\u0435 \u043E\u043A\u043D\u043E \u2014 \u043A\u043E\u043D\u043A\u0440\u0435\u0442\u043D\u044B\u0439 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440 \u0438\u0437 \u0431\u043B\u0430\u043D\u043A\u0430 (\u0442\u0430\u043A \u0436\u0435 \u043D\u0430\u0437\u0432\u0430\u043D). \u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0446\u0438\u0444\u0440\u0443 \u2014 \u043F\u0440\u043E\u0433\u0440\u0430\u043C\u043C\u0430 \u0441\u0430\u043C\u0430 \u0441\u0432\u0435\u0440\u0438\u0442 \u0441 \u043D\u043E\u0440\u043C\u043E\u0439. \u041F\u0443\u0441\u0442\u043E\u0435 \u043E\u043A\u043D\u043E = \u0438\u0441\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u043D\u0438\u0435 \u043D\u0435 \u043F\u0440\u043E\u0432\u043E\u0434\u0438\u043B\u043E\u0441\u044C."), /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
-  }, [{
-    label: 'Нарушения дыхания во сне (ИАГ > 5)',
-    score: 1.0,
-    state: polysomnography,
-    setter: setPolysomnography,
-    level: 'critical',
-    tag: 'КРИТИЧЕС.'
-  }, {
-    label: 'Нарушения дыхания в покое / при нагрузке',
-    score: 0.8,
-    state: breathingDisorder,
-    setter: setBreathingDisorder,
-    level: 'critical',
-    tag: 'КРИТИЧЕС.'
-  }, {
-    label: 'Ограничение открывания рта',
-    score: 0.7,
-    state: mouthOpening,
-    setter: setMouthOpening,
-    level: 'high',
-    tag: 'ВЫСОКИЙ'
-  }, {
-    label: 'Нарушение глотания (дисфагия)',
-    score: 0.6,
-    state: dysphagia,
-    setter: setDysphagia,
-    level: 'high',
-    tag: 'ВЫСОКИЙ'
-  }, {
-    label: 'Храп',
-    score: 0.5,
-    state: snoring,
-    setter: setSnoring,
-    level: 'medium',
-    tag: 'СРЕДНИЙ'
-  }, {
-    label: 'Нарушение жевания / приёма пищи',
-    score: 0.5,
-    state: chewingDisorder,
-    setter: setChewingDisorder,
-    level: 'medium',
-    tag: 'СРЕДНИЙ'
-  }, {
-    label: 'Нарушение речи (дизартрия)',
-    score: 0.4,
-    state: speechDisorder,
-    setter: setSpeechDisorder,
-    level: 'medium',
-    tag: 'СРЕДНИЙ'
-  }, {
-    label: 'Слюнотечение (сиалоррея)',
-    score: 0.3,
-    state: salivation,
-    setter: setSalivation,
-    level: 'low',
-    tag: 'НИЗКИЙ'
-  }].map((item, idx) => {
-    const colors = {
-      critical: {
-        bg: '#fef2f2',
-        border: '#fca5a5',
-        activeBorder: '#dc2626',
-        hover: 'hover:bg-red-50',
-        tag: '#dc2626',
-        tagBg: '#fee2e2'
-      },
-      high: {
-        bg: '#fff7ed',
-        border: '#fed7aa',
-        activeBorder: '#ea580c',
-        hover: 'hover:bg-orange-50',
-        tag: '#ea580c',
-        tagBg: '#ffedd5'
-      },
-      medium: {
-        bg: '#fefce8',
-        border: '#fde047',
-        activeBorder: '#ca8a04',
-        hover: 'hover:bg-yellow-50',
-        tag: '#854d0e',
-        tagBg: '#fef9c3'
-      },
-      low: {
-        bg: '#f0fdf4',
-        border: '#bbf7d0',
-        activeBorder: '#16a34a',
-        hover: 'hover:bg-green-50',
-        tag: '#166534',
-        tagBg: '#dcfce7'
-      }
+  }, (() => {
+    const ev = fnEval();
+    const colorFor = (base, aux) => aux ? { bar:'#94a3b8', bg:'#f8fafc', border:'#e2e8f0', tag:'СПРАВОЧНО', tagC:'#475569', tagBg:'#f1f5f9' }
+      : base >= 0.8 ? { bar:'#dc2626', bg:'#fef2f2', border:'#fecaca', tag:'КРИТИЧЕС.', tagC:'#dc2626', tagBg:'#fee2e2' }
+      : base >= 0.6 ? { bar:'#ea580c', bg:'#fff7ed', border:'#fed7aa', tag:'ВЫСОКИЙ', tagC:'#ea580c', tagBg:'#ffedd5' }
+      : base >= 0.4 ? { bar:'#ca8a04', bg:'#fefce8', border:'#fde68a', tag:'СРЕДНИЙ', tagC:'#854d0e', tagBg:'#fef9c3' }
+      : { bar:'#16a34a', bg:'#f0fdf4', border:'#bbf7d0', tag:'НИЗКИЙ', tagC:'#166534', tagBg:'#dcfce7' };
+    const bst = { fontSize:'10.5px', fontWeight:700, padding:'2px 8px', borderRadius:'8px', whiteSpace:'nowrap' };
+    // ── Опросник EAT-10 (встроенный) ──
+    const EAT_Q = [
+      'Из-за глотания я теряю в весе',
+      'Из-за глотания мне трудно есть вне дома',
+      'Проглатывать жидкость трудно',
+      'Проглатывать твёрдую пищу трудно',
+      'Проглатывать таблетки трудно',
+      'Глотать больно',
+      'Из-за глотания еда приносит меньше удовольствия',
+      'При глотании пища застревает в горле',
+      'Во время еды я кашляю',
+      'Глотание вызывает стресс'
+    ];
+    const eatSum = EAT_Q.reduce((s, _q, i) => s + (parseInt(eatAns[i], 10) || 0), 0);
+    const eatCount = EAT_Q.filter((_q, i) => eatAns[i] != null).length;
+    const setEat = (i, val) => {
+      const na = { ...eatAns, [i]: val };
+      setEatAns(na);
+      const sum = EAT_Q.reduce((s, _q, k) => s + (parseInt(na[k], 10) || 0), 0);
+      setObjMeas(prev => ({ ...prev, eat10: String(sum) }));
     };
-    const col = colors[item.level];
-    return /*#__PURE__*/React.createElement("label", {
-      key: idx,
-      className: "flex items-center gap-3 p-2.5 border-2 rounded-lg cursor-pointer transition-colors " + col.hover,
-      style: {
-        borderColor: item.state ? col.activeBorder : col.border,
-        backgroundColor: item.state ? col.bg : 'white'
+    const eatPanel = () => /*#__PURE__*/React.createElement("div", { style:{ marginTop:'8px' } },
+      /*#__PURE__*/React.createElement("button", { onClick: () => setEatOpen(o => !o),
+        style:{ background:'none', border:'none', padding:0, cursor:'pointer', fontSize:'11.5px', fontWeight:700, color:'#0f766e', textDecoration:'underline' } },
+        (eatOpen ? '▴ Свернуть опросник EAT-10' : '▾ Заполнить опросник EAT-10 (10 вопросов)')),
+      eatOpen ? /*#__PURE__*/React.createElement("div", { style:{ marginTop:'8px', border:'1px solid #cbd5e1', borderRadius:'10px', padding:'8px 10px', background:'#f8fafc' } },
+        /*#__PURE__*/React.createElement("div", { style:{ fontSize:'10px', color:'#94a3b8', marginBottom:'6px' } }, "0 — нет проблемы · 4 — серьёзная проблема"),
+        EAT_Q.map((q, i) => /*#__PURE__*/React.createElement("div", { key:i, style:{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'8px', padding:'4px 0', borderBottom: i < 9 ? '1px solid #eef2f4' : 'none' } },
+          /*#__PURE__*/React.createElement("span", { style:{ fontSize:'11.5px', color:'#475569', lineHeight:1.3, flex:1 } }, (i + 1) + '. ' + q),
+          /*#__PURE__*/React.createElement("div", { style:{ display:'flex', gap:'3px', flexShrink:0 } },
+            [0, 1, 2, 3, 4].map(nn => /*#__PURE__*/React.createElement("button", { key:nn, onClick: () => setEat(i, nn),
+              style:{ width:'24px', height:'24px', borderRadius:'7px', cursor:'pointer', fontSize:'12px', fontWeight:700,
+                border:'1px solid ' + (eatAns[i] === nn ? '#0d9488' : '#cbd5e1'),
+                background: eatAns[i] === nn ? '#0d9488' : '#fff', color: eatAns[i] === nn ? '#fff' : '#64748b' } }, nn)))
+        )),
+        /*#__PURE__*/React.createElement("div", { style:{ marginTop:'8px', fontSize:'12px', fontWeight:700, color:'#0f766e', display:'flex', justifyContent:'space-between' } },
+          /*#__PURE__*/React.createElement("span", null, "Отвечено: " + eatCount + "/10"),
+          /*#__PURE__*/React.createElement("span", null, "Сумма EAT-10: " + eatSum + (eatSum >= 3 ? " — есть дисфагия" : " — норма")))
+      ) : null
+    );
+    let lastGroup = null;
+    const cards = [];
+    const groupHeader = (g) => /*#__PURE__*/React.createElement("div", { key:'g-'+g, style:{ display:'flex', alignItems:'center', gap:'8px', margin:'14px 0 2px' } },
+      /*#__PURE__*/React.createElement("span", { style:{ width:'4px', height:'15px', borderRadius:'3px', background:'#0d9488' } }),
+      /*#__PURE__*/React.createElement("span", { style:{ fontSize:'11px', fontWeight:800, letterSpacing:'0.07em', textTransform:'uppercase', color:'#0f766e' } }, g));
+    METHODS.forEach(m => {
+      const col = colorFor(m.base, m.aux);
+      const per = ev.per[m.key] || {};
+      const hasNum = per.source === 'num';
+      const chkState = !!subj[m.key];
+      const chkSetter = (val) => setSubj(prev => ({ ...prev, [m.key]: val }));
+      let badge;
+      if (m.aux) {
+        badge = hasNum
+          ? /*#__PURE__*/React.createElement("span", { style:{ ...bst, color: per.bad ? '#b45309' : '#475569', background: per.bad ? '#fef3c7' : '#f1f5f9' } }, (per.bad ? '⚠ выше ориентира' : '✓ в пределах') + ' · в балл не входит')
+          : /*#__PURE__*/React.createElement("span", { style:{ fontSize:'10.5px', color:'#94a3b8' } }, "справочно");
+      } else if (hasNum && per.confirmed === true) {
+        badge = /*#__PURE__*/React.createElement("span", { style:{ ...bst, color:'#166534', background:'#dcfce7' } }, "✓ подтверждено +" + (per.add || 0).toFixed(1));
+      } else if (hasNum && per.confirmed === false) {
+        badge = /*#__PURE__*/React.createElement("span", { style:{ ...bst, color:'#64748b', background:'#f1f5f9' } }, "в норме — балл не начислен");
+      } else if (per.source === 'sub') {
+        badge = /*#__PURE__*/React.createElement("span", { style:{ ...bst, color:'#854d0e', background:'#fef9c3' } }, "по отметке +" + (per.add || 0).toFixed(1));
+      } else {
+        badge = /*#__PURE__*/React.createElement("span", { style:{ fontSize:'10.5px', color:'#94a3b8' } }, "нет данных");
       }
-    }, /*#__PURE__*/React.createElement("input", {
-      type: "checkbox",
-      checked: item.state,
-      onChange: e => item.setter(e.target.checked),
-      className: "w-5 h-5 rounded",
-      style: {
-        accentColor: col.activeBorder
-      }
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "flex-1 flex items-center justify-between"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "text-gray-800 text-sm"
-    }, item.label), /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-2"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "text-xs font-bold",
-      style: {
-        color: col.tag,
-        backgroundColor: col.tagBg,
-        padding: '1px 6px',
-        borderRadius: '10px'
-      }
-    }, item.tag), /*#__PURE__*/React.createElement("span", {
-      className: "text-xs font-bold text-gray-500 w-14 text-right"
-    }, "+", item.score.toFixed(1), " \u0431."))));
-  }), /*#__PURE__*/React.createElement("div", {
+      if (m.group && m.group !== lastGroup) { lastGroup = m.group; cards.push(groupHeader(m.group)); }
+      cards.push(/*#__PURE__*/React.createElement("div", { key:m.key, style:{ border:'1.5px solid ' + col.border, background:col.bg, borderRadius:'12px', padding:'10px 12px' } },
+        /*#__PURE__*/React.createElement("div", { style:{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'8px' } },
+          /*#__PURE__*/React.createElement("span", { style:{ fontSize:'13px', fontWeight:700, color:'#1e293b', lineHeight:1.3 } }, m.title),
+          /*#__PURE__*/React.createElement("div", { style:{ display:'flex', alignItems:'center', gap:'6px', flexShrink:0 } },
+            /*#__PURE__*/React.createElement("span", { style:{ fontSize:'9.5px', fontWeight:800, color:col.tagC, background:col.tagBg, padding:'2px 6px', borderRadius:'10px', whiteSpace:'nowrap' } }, col.tag),
+            /*#__PURE__*/React.createElement("span", { style:{ fontSize:'11px', fontWeight:700, color:'#64748b', whiteSpace:'nowrap' } }, m.aux ? '— справ.' : '+' + m.base.toFixed(1) + ' б.')
+          )
+        ),
+        /*#__PURE__*/React.createElement("div", { style:{ fontSize:'11.5px', color:'#475569', marginTop:'4px', lineHeight:1.4 } }, m.what),
+        /*#__PURE__*/React.createElement("div", { style:{ fontSize:'11px', color:'#64748b', marginTop:'3px', lineHeight:1.4 } }, "📄 Откуда цифра: " + m.source),
+        /*#__PURE__*/React.createElement("div", { style:{ fontSize:'11px', fontWeight:600, color:'#0f766e', marginTop:'3px' } }, "📏 " + m.normText),
+        /*#__PURE__*/React.createElement("div", { style:{ display:'flex', alignItems:'center', gap:'8px', marginTop:'7px', flexWrap:'wrap' } },
+          m.dual
+            ? /*#__PURE__*/React.createElement("div", { style:{ display:'flex', alignItems:'center', gap:'6px', flexWrap:'wrap' } },
+                /*#__PURE__*/React.createElement("span", { style:{ fontSize:'10.5px', color:'#64748b' } }, m.rLabel + ':'),
+                /*#__PURE__*/React.createElement("input", { type:"number", step:"any", value: objMeas[m.key+'_r'] || '', placeholder:'П',
+                  onChange: e => setObjMeas(prev => ({ ...prev, [m.key+'_r']: e.target.value })),
+                  style:{ width:'78px', padding:'5px 8px', border:'1.5px solid ' + col.border, borderRadius:'7px', fontSize:'13px' } }),
+                /*#__PURE__*/React.createElement("span", { style:{ fontSize:'10.5px', color:'#64748b' } }, m.lLabel + ':'),
+                /*#__PURE__*/React.createElement("input", { type:"number", step:"any", value: objMeas[m.key+'_l'] || '', placeholder:'Л',
+                  onChange: e => setObjMeas(prev => ({ ...prev, [m.key+'_l']: e.target.value })),
+                  style:{ width:'78px', padding:'5px 8px', border:'1.5px solid ' + col.border, borderRadius:'7px', fontSize:'13px' } }),
+                hasNum ? /*#__PURE__*/React.createElement("span", { style:{ fontSize:'11px', fontWeight:700, color:'#0f766e' } }, "→ асимметрия " + per.v + " %") : null
+              )
+            : /*#__PURE__*/React.createElement("input", { type:"number", step:"any", value: objMeas[m.key] || '', placeholder:'введите число',
+                onChange: e => setObjMeas(prev => ({ ...prev, [m.key]: e.target.value })),
+                style:{ width:'110px', padding:'5px 8px', border:'1.5px solid ' + col.border, borderRadius:'7px', fontSize:'13px' } }),
+          m.dual ? null : /*#__PURE__*/React.createElement("span", { style:{ fontSize:'11px', color:'#94a3b8' } }, m.unit),
+          !m.aux ? /*#__PURE__*/React.createElement("label", { title: hasNum ? 'Есть цифра — галка не нужна' : 'Если исследование не делали — отметьте вручную', style:{ display:'flex', alignItems:'center', gap:'4px', fontSize:'10.5px', color: hasNum ? '#cbd5e1' : '#64748b', cursor: hasNum ? 'default' : 'pointer', opacity: hasNum ? 0.5 : 1 } },
+            /*#__PURE__*/React.createElement("input", { type:"checkbox", checked: chkState, disabled: hasNum, onChange: e => chkSetter(e.target.checked), style:{ width:'14px', height:'14px', accentColor:col.bar } }),
+            "нет данных — отметить вручную") : null,
+          badge
+        ),
+        m.key === 'eat10' ? eatPanel() : null
+      ));
+    });
+    const sp = ev.per.speech || {};
+    const spCol = (sp.status === 'confirmed' || sp.status === 'sub') ? { c:'#166534', bg:'#dcfce7', b:'#86efac' }
+      : sp.status === 'uncertain' ? { c:'#854d0e', bg:'#fef9c3', b:'#fde047' }
+      : (sp.status === 'other' || sp.status === 'normal') ? { c:'#475569', bg:'#f1f5f9', b:'#cbd5e1' }
+      : { c:'#94a3b8', bg:'#f8fafc', b:'#e2e8f0' };
+    const spIcon = (sp.status === 'confirmed' || sp.status === 'sub') ? '✓ ' : sp.status === 'uncertain' ? '≈ ' : (sp.status === 'other' || sp.status === 'normal') ? '— ' : '';
+    const logoHasText = (logoText || '').trim().length > 0;
+    const speechCard = /*#__PURE__*/React.createElement("div", { key:'speech', style:{ border:'1.5px solid #fde68a', background:'#fffbeb', borderRadius:'12px', padding:'10px 12px' } },
+      /*#__PURE__*/React.createElement("div", { style:{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'8px' } },
+        /*#__PURE__*/React.createElement("span", { style:{ fontSize:'13px', fontWeight:700, color:'#1e293b', lineHeight:1.3 } }, "Заключение логопеда — анализ причины нарушения речи"),
+        /*#__PURE__*/React.createElement("div", { style:{ display:'flex', alignItems:'center', gap:'6px', flexShrink:0 } },
+          /*#__PURE__*/React.createElement("span", { style:{ fontSize:'9.5px', fontWeight:800, color:'#854d0e', background:'#fef9c3', padding:'2px 6px', borderRadius:'10px', whiteSpace:'nowrap' } }, "СРЕДНИЙ"),
+          /*#__PURE__*/React.createElement("span", { style:{ fontSize:'11px', fontWeight:700, color:'#64748b', whiteSpace:'nowrap' } }, "+" + SPEECH_BASE.toFixed(1) + " б.")
+        )
+      ),
+      /*#__PURE__*/React.createElement("div", { style:{ fontSize:'11.5px', color:'#475569', marginTop:'4px', lineHeight:1.4 } }, "Логопед не даёт цифр — только текст. Программа разбирает заключение и решает: нарушение речи вызвано недоразвитием нижней челюсти / прикуса (балл начисляется) или иной причиной — неврология, слух, дислалия (балл не начисляется)."),
+      /*#__PURE__*/React.createElement("div", { style:{ fontSize:'11px', color:'#64748b', marginTop:'3px', lineHeight:1.4 } }, "📄 Вставьте текст заключения логопеда целиком."),
+      /*#__PURE__*/React.createElement("textarea", { value: logoText, onChange: e => setLogoText(e.target.value), rows: 3,
+        placeholder: "напр.: Межзубное произношение свистящих, обусловленное открытым прикусом и недоразвитием нижней челюсти…",
+        style:{ width:'100%', marginTop:'7px', padding:'7px 9px', border:'1.5px solid #fde68a', borderRadius:'8px', fontSize:'12px', resize:'vertical' } }),
+      /*#__PURE__*/React.createElement("div", { style:{ marginTop:'6px', fontSize:'11.5px', fontWeight:600, color:spCol.c, background:spCol.bg, border:'1px solid ' + spCol.b, borderRadius:'8px', padding:'7px 9px', lineHeight:1.4 } }, spIcon + (sp.text || '')),
+      /*#__PURE__*/React.createElement("label", { title: logoHasText ? 'Есть текст — галка не нужна' : 'Если заключения нет — отметьте нарушение речи вручную', style:{ display:'flex', alignItems:'center', gap:'5px', marginTop:'6px', fontSize:'10.5px', color: logoHasText ? '#cbd5e1' : '#64748b', cursor: logoHasText ? 'default' : 'pointer', opacity: logoHasText ? 0.5 : 1 } },
+        /*#__PURE__*/React.createElement("input", { type:"checkbox", checked: !!subj.speech, disabled: logoHasText, onChange: e => setSubj(prev => ({ ...prev, speech: e.target.checked })), style:{ width:'14px', height:'14px', accentColor:'#ca8a04' } }),
+        "нет заключения — отметить нарушение речи вручную"),
+      /*#__PURE__*/React.createElement("div", { style:{ fontSize:'9.5px', color:'#b45309', marginTop:'4px', fontStyle:'italic' } }, "Эвристический разбор по ключевым словам — вспомогательная подсказка, окончательное решение за врачом.")
+    );
+    return [...cards, speechCard];
+  })(), /*#__PURE__*/React.createElement("div", { style:{ marginTop:'4px' } },
+    /*#__PURE__*/React.createElement("div", { style:{ fontSize:'11px', color:'#64748b', marginBottom:'4px' } }, "Комментарий врача (необязательно):"),
+    /*#__PURE__*/React.createElement("textarea", { value: objNotes, onChange: e => setObjNotes(e.target.value), rows: 2,
+      placeholder: "любые уточнения по доп. методам, динамике, особенностям случая…",
+      style:{ width:'100%', padding:'7px 9px', border:'1px solid #cbd5e1', borderRadius:'8px', fontSize:'12px', resize:'vertical' } })
+  ), /*#__PURE__*/React.createElement("div", {
     className: "p-3 bg-blue-50 border border-blue-200 rounded-lg"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-sm text-blue-800"
-  }, /*#__PURE__*/React.createElement("strong", null, "\u0421\u0443\u043C\u043C\u0430\u0440\u043D\u044B\u0439 \u0431\u0430\u043B\u043B: ", calculateFunctionalScore().toFixed(1)), /*#__PURE__*/React.createElement("p", {
+  }, /*#__PURE__*/React.createElement("strong", null, "\u0424\u0443\u043D\u043A\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0439 \u043A\u043E\u043C\u043F\u043E\u043D\u0435\u043D\u0442 \u0424: ", Math.round(100 * computeMOFI('\u0418\u0410', '0').F), " / 100"), /*#__PURE__*/React.createElement("p", {
     className: "text-xs mt-1"
-  }, "\u22651.5 \u0431\u0430\u043B\u043B\u043E\u0432 = \u044F\u0432\u043D\u043E\u0435 \u043F\u043E\u043A\u0430\u0437\u0430\u043D\u0438\u0435 \u043A \u041A\u0414\u041E"))))), /*#__PURE__*/React.createElement("div", {
+  }, "\u0421\u043A\u043B\u0430\u0434\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0438\u0437 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043D\u043D\u044B\u0445 \u043D\u0430\u0440\u0443\u0448\u0435\u043D\u0438\u0439 (\u043E\u0431\u044A\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435) \u0438 \u0432\u0445\u043E\u0434\u0438\u0442 \u0432 MOFI \u0441 \u0432\u0435\u0441\u043E\u043C 0.4."))))), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-3"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: handleCalculate,
@@ -4200,7 +4634,9 @@ function DistractionCalculator() {
     className: "w-full mt-4 bg-gradient-to-r from-green-600 to-teal-600 text-white py-3 px-6 rounded-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
   }, /*#__PURE__*/React.createElement(Download, {
     className: "w-5 h-5"
-  }), "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u0430 \u0432 PDF")), /*#__PURE__*/React.createElement(IndexGauge, {
+  }), "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u0430 \u0432 PDF")), /*#__PURE__*/React.createElement(MofiCard, {
+    data: result.mofi
+  }), /*#__PURE__*/React.createElement(IndexGauge, {
     index: result.index,
     value: result.indexValue
   }), /*#__PURE__*/React.createElement(DistractionPlan, {
@@ -4679,6 +5115,201 @@ console.log('%cЭто приложение защищено авторским �
     });
     obs.observe(login, { attributes: true, attributeFilter: ['class'] });
     start();
+})();
+</script>
+
+<style>
+/* ── Модалка синхронизации + анимации v3 ── */
+.sync-modal-backdrop{position:fixed;inset:0;background:rgba(3,10,14,.72);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;z-index:9999;animation:kdoFade .22s ease}
+.sync-modal{width:min(560px,94vw);max-height:92vh;overflow:auto;background:var(--panel-solid,#0d1f27);
+  border:1px solid var(--line-strong,rgba(64,214,224,.32));border-radius:18px;
+  box-shadow:0 40px 120px -30px #000, 0 0 60px -30px var(--accent,#40d6e0);animation:kdoPop .28s cubic-bezier(.2,.9,.3,1.2)}
+.sync-modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line,rgba(64,214,224,.16))}
+.sync-modal-head h2{font-size:17px;margin:0;color:var(--ink,#e7fbfd)}
+.sync-modal-body{padding:18px 20px}
+.sync-hint{font-size:13px;color:var(--ink-dim,#8fb3bb);line-height:1.55;margin:0 0 16px}
+.sync-check{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--ink,#e7fbfd);margin:10px 0;cursor:pointer}
+.sync-check input{margin-top:2px;width:16px;height:16px;accent-color:var(--accent,#40d6e0)}
+.sync-legal{font-size:11.5px;color:var(--warn,#ffc24d);background:color-mix(in srgb,var(--warn,#ffc24d) 10%,transparent);
+  border:1px solid color-mix(in srgb,var(--warn,#ffc24d) 30%,transparent);border-radius:10px;padding:10px 12px;margin:12px 0;line-height:1.5}
+.sync-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:8px}
+@keyframes kdoFade{from{opacity:0}to{opacity:1}}
+@keyframes kdoPop{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes kdoRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes kdoPulse{0%,100%{opacity:.5}50%{opacity:1}}
+#calcContent,#archiveContent,#statsContent,#cloudContent{animation:kdoFade .32s ease}
+.stat-card{transition:transform .18s ease, box-shadow .18s ease}
+.stat-card:hover{transform:translateY(-3px)}
+.tab{transition:color .15s ease, border-color .15s ease, background .15s ease}
+.btn-primary,.btn-ghost,.icon-btn{transition:transform .12s ease, filter .12s ease, background .15s ease}
+.btn-primary:hover,.btn-ghost:hover{transform:translateY(-1px)}
+.cloud-live{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--good,#3ee08f);margin-right:6px;animation:kdoPulse 1.6s ease-in-out infinite}
+tbody tr{animation:kdoRise .3s ease both}
+</style>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  ОБЛАЧНАЯ СИНХРОНИЗАЦИЯ архива КДО (Google Диск · Apps Script)
+//  Единая база в Google-Таблице правообладателя. Работает из
+//  установленного .exe на любом компьютере (JSONP, без CORS/OAuth).
+// ══════════════════════════════════════════════════════════════
+(function(){
+  const CFG_KEY='kdo_sync_cfg', QUEUE_KEY='kdo_sync_queue', CLOUD_KEY='kdo_cloud_cache';
+  function cfg(){ try{ return JSON.parse(localStorage.getItem(CFG_KEY)||'{}'); }catch(e){ return {}; } }
+  function setCfg(c){ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }
+  function queue(){ try{ return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]'); }catch(e){ return []; } }
+  function setQueue(q){ localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); }
+
+  // JSONP: надёжно из любого origin (file://) без CORS
+  function jsonp(url, cb){
+    const name='__kdocb'+Math.random().toString(36).slice(2);
+    const s=document.createElement('script'); let done=false;
+    window[name]=(data)=>{ done=true; try{cb(null,data);}finally{ delete window[name]; s.remove(); } };
+    s.onerror=()=>{ if(done)return; done=true; delete window[name]; s.remove(); cb(new Error('Сеть недоступна')); };
+    s.src=url+(url.includes('?')?'&':'?')+'callback='+name;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){ done=true; try{s.remove();}catch(e){} delete window[name]; cb(new Error('Таймаут')); } }, 15000);
+  }
+  function pseudonym(fio, birthDate){
+    const parts=(fio||'').trim().split(/\s+/).filter(Boolean);
+    const init=parts.map(p=>p[0]?p[0].toUpperCase()+'.':'').join('');
+    const y=(birthDate||'').slice(0,4);
+    return (init||'—')+(y?(' '+y):'');
+  }
+  function toRecord(entry){
+    const c=cfg(); const sendFio=!!c.sendFio;
+    return {
+      id: entry.id, timestamp: entry.timestamp, datetime: entry.datetime,
+      user: entry.user||'', device: c.device||'',
+      fio: sendFio ? (entry.fio||'') : pseudonym(entry.fio, entry.birthDate),
+      age: entry.age||'', gender: entry.gender||'', defectType: entry.defectType||'',
+      indexType: entry.indexType||'', indexValue: entry.indexValue,
+      severity: entry.severity||'', recommendation: entry.recommendation||'',
+      rightArea: entry.rightArea||'', leftArea: entry.leftArea||'',
+      functionalScore: entry.functionalScore||''
+    };
+  }
+  function pushRecord(rec, cb){
+    const c=cfg(); if(!c.url||!c.token){ cb&&cb(new Error('Не настроено')); return; }
+    const u=c.url+'?token='+encodeURIComponent(c.token)+'&action=add&record='+encodeURIComponent(JSON.stringify(rec));
+    jsonp(u, (err,data)=> cb&&cb(err, data));
+  }
+  // Публичный API
+  window.syncPush=function(entry){
+    const c=cfg(); if(!c.enabled||!c.url||!c.token) return;
+    const rec=toRecord(entry);
+    pushRecord(rec, (err)=>{ if(err){ const q=queue(); q.push(rec); setQueue(q); setCloudStatus('нет связи — в очереди ('+q.length+')', true); }
+      else { setCloudStatus('отправлено в облако ✓'); } });
+  };
+  window.cloudResync=function(){
+    const q=queue(); if(!q.length){ setCloudStatus('очередь пуста'); return; }
+    let i=0, ok=0; (function next(){ if(i>=q.length){ setQueue(q.slice(ok)); setCloudStatus('досинхронизировано: '+ok+'/'+q.length); return; }
+      pushRecord(q[i], (err)=>{ if(!err) ok++; i++; next(); }); })();
+  };
+  window.cloudPull=function(){
+    const c=cfg(); if(!c.url||!c.token){ openSyncSettings(); return; }
+    setCloudStatus('загрузка…', false, true);
+    jsonp(c.url+'?token='+encodeURIComponent(c.token)+'&action=list', (err,data)=>{
+      if(err||!data||!data.ok){ setCloudStatus('ошибка: '+((data&&data.error)||(err&&err.message)||'нет данных'), true); return; }
+      localStorage.setItem(CLOUD_KEY, JSON.stringify(data.rows||[]));
+      setCloudStatus('обновлено '+new Date().toLocaleTimeString('ru-RU'));
+      renderCloud();
+    });
+  };
+  function setCloudStatus(txt, warn, live){ const el=document.getElementById('cloudStatus');
+    if(el) el.innerHTML=(live?'<span class="cloud-live"></span>':'')+escapeHtml(txt); if(el) el.style.color=warn?'var(--warn,#ffc24d)':'var(--ink-dim,#8fb3bb)'; }
+
+  window.renderCloud=function(){
+    let rows=[]; try{ rows=JSON.parse(localStorage.getItem(CLOUD_KEY)||'[]'); }catch(e){}
+    const body=document.getElementById('cloudTableBody'); const cnt=document.getElementById('cloudCount');
+    const notice=document.getElementById('cloudNotice'); const kpi=document.getElementById('cloudKpi');
+    const c=cfg();
+    if(notice){ if(!c.url||!c.token){ notice.style.display='block'; notice.innerHTML='Синхронизация не настроена. Нажмите <b>⚙ Настройки</b>, вставьте адрес Google-скрипта и ключ — расчёты со всех компьютеров будут собираться здесь.'; } else notice.style.display='none'; }
+    // первая строка — заголовки из таблицы, пропускаем если это шапка
+    let data=rows.slice(); if(data.length && String(data[0][0]).toLowerCase().includes('timestamp')) data=data.slice(1);
+    if(cnt) cnt.textContent=data.length;
+    // колонки: 0 ts,1 datetime,2 user,3 device,4 fio,5 age,6 gender,7 defectType,8 indexType,9 indexValue,10 severity,11 recommendation
+    if(kpi){ const total=data.length; const docs=new Set(data.map(r=>r[2])).size; const devs=new Set(data.map(r=>r[3])).size;
+      const doCnt=data.filter(r=>String(r[11]||'').toLowerCase().includes('дистрак')).length;
+      kpi.innerHTML=[['Записей всего',total],['Врачей',docs],['Компьютеров',devs],['Показан ДО',total?Math.round(doCnt/total*100)+'%':'0%']]
+        .map(k=>`<div class="stat-card reticle"><span class="rc-tr"></span><span class="rc-bl"></span><div class="stat-label">${k[0]}</div><div class="stat-value num">${k[1]}</div></div>`).join(''); }
+    if(body){ if(!data.length){ body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--ink-dim);padding:24px;">Нет данных. Настройте синхронизацию (⚙) и нажмите «Обновить из облака».</td></tr>'; return; }
+      body.innerHTML=data.slice().reverse().map(r=>`<tr>
+        <td class="mono">${escapeHtml(r[1]||r[0]||'')}</td><td>${escapeHtml(r[2]||'')}</td><td>${escapeHtml(r[3]||'')}</td>
+        <td>${escapeHtml(r[4]||'')}</td><td>${escapeHtml(r[5]||'')}</td><td>${escapeHtml(r[8]||'')}</td>
+        <td class="num">${escapeHtml(String(r[9]??''))}</td><td>${escapeHtml(r[10]||'')}</td><td>${escapeHtml(r[11]||'')}</td>
+      </tr>`).join(''); }
+  };
+
+  // ── Настройки (модалка) ──
+  window.openSyncSettings=function(){ const c=cfg(); const g=id=>document.getElementById(id);
+    g('cfgUrl').value=c.url||''; g('cfgToken').value=c.token||''; g('cfgDevice').value=c.device||'';
+    g('cfgEnabled').checked=!!c.enabled; g('cfgSendFio').checked=!!c.sendFio;
+    g('syncTestResult').textContent=''; g('appsScriptBox').style.display='none'; g('appsScriptSteps').style.display='none';
+    g('syncModal').style.display='flex'; };
+  window.closeSyncSettings=function(){ document.getElementById('syncModal').style.display='none'; };
+  window.saveSyncSettings=function(){ const g=id=>document.getElementById(id);
+    setCfg({ url:g('cfgUrl').value.trim(), token:g('cfgToken').value.trim(), device:g('cfgDevice').value.trim(),
+      enabled:g('cfgEnabled').checked, sendFio:g('cfgSendFio').checked });
+    g('syncTestResult').textContent='✓ Сохранено.'; setTimeout(closeSyncSettings, 600); };
+  window.syncTest=function(){ const g=id=>document.getElementById(id); const url=g('cfgUrl').value.trim(), token=g('cfgToken').value.trim();
+    if(!url||!token){ g('syncTestResult').textContent='Укажите URL и ключ.'; return; }
+    g('syncTestResult').textContent='Проверка…';
+    jsonp(url+'?token='+encodeURIComponent(token)+'&action=ping', (err,data)=>{
+      g('syncTestResult').textContent = (!err && data && data.ok) ? '✓ Связь установлена. Таблица доступна.' : ('✗ '+((data&&data.error)||(err&&err.message)||'нет ответа')); }); };
+  window.showAppsScript=function(){
+    const box=document.getElementById('appsScriptBox'), steps=document.getElementById('appsScriptSteps');
+    box.textContent=APPS_SCRIPT_CODE; box.style.display='block';
+    steps.style.display='block';
+    steps.innerHTML='<b>Как подключить Google Диск (один раз, на вашем аккаунте):</b><br>'+
+      '1. Создайте Google-Таблицу «Архив КДО» на Google Диске.<br>'+
+      '2. Меню <b>Расширения → Apps Script</b>. Удалите пустой код, вставьте код выше.<br>'+
+      '3. В начале кода впишите свой <b>TOKEN</b> (любой пароль) — тот же вставьте в поле «ключ» здесь.<br>'+
+      '4. <b>Развернуть → Новое развёртывание → Веб-приложение</b>. Доступ: <b>«Все»</b>. Выполнять от <b>вашего имени</b>.<br>'+
+      '5. Скопируйте выданный <b>URL (…/exec)</b> → вставьте в поле «Адрес веб-приложения».<br>'+
+      '6. На каждом компьютере введите этот URL + TOKEN, укажите имя кабинета, включите автосинхронизацию.';
+  };
+
+  // Скачать серверный код как файл Code.gs (на случай, если копирование из окна недоступно)
+  window.downloadAppsScript=function(){
+    try{
+      var blob=new Blob([APPS_SCRIPT_CODE], {type:'text/plain;charset=utf-8'});
+      var url=URL.createObjectURL(blob);
+      var a=document.createElement('a');
+      a.href=url; a.download='Code.gs';
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+      var r=document.getElementById('syncTestResult'); if(r) r.textContent='✓ Файл Code.gs скачан — откройте его, скопируйте весь текст в Apps Script.';
+    }catch(err){
+      var r2=document.getElementById('syncTestResult'); if(r2) r2.textContent='Не удалось скачать файл: '+err.message;
+    }
+  };
+
+  const APPS_SCRIPT_CODE =
+'const TOKEN = "ПОСТАВЬТЕ_СВОЙ_СЕКРЕТ";  // тот же, что в приложении\n'+
+'function doGet(e){ return handle(e); }\n'+
+'function doPost(e){ return handle(e); }\n'+
+'function handle(e){\n'+
+'  var p = e.parameter || {};\n'+
+'  var cb = p.callback || "";\n'+
+'  function out(o){ var t = cb ? (cb+"("+JSON.stringify(o)+")") : JSON.stringify(o);\n'+
+'    return ContentService.createTextOutput(t).setMimeType(cb?ContentService.MimeType.JAVASCRIPT:ContentService.MimeType.JSON); }\n'+
+'  if (p.token !== TOKEN) return out({ok:false, error:"auth"});\n'+
+'  var ss = SpreadsheetApp.getActiveSpreadsheet();\n'+
+'  var sh = ss.getSheetByName("Архив") || ss.getSheets()[0];\n'+
+'  var HEAD = ["timestamp","datetime","user","device","fio","age","gender","defectType","indexType","indexValue","severity","recommendation","rightArea","leftArea","functionalScore","id"];\n'+
+'  if (sh.getLastRow()===0) sh.appendRow(HEAD);\n'+
+'  if (p.action==="ping") return out({ok:true});\n'+
+'  if (p.action==="add"){ var r=JSON.parse(p.record);\n'+
+'    sh.appendRow(HEAD.map(function(k){ return r[k]!==undefined ? r[k] : ""; }));\n'+
+'    return out({ok:true}); }\n'+
+'  if (p.action==="list"){ return out({ok:true, rows: sh.getDataRange().getValues()}); }\n'+
+'  return out({ok:false, error:"unknown action"});\n'+
+'}\n';
+
+  // авто-подтягивание облака при входе (для головного компьютера)
+  window.addEventListener('load', ()=>{ const c=cfg(); if(c.url&&c.token){ setTimeout(()=>{ try{ window.cloudPull&&window.cloudPull(); }catch(e){} }, 1500); } });
 })();
 </script>
 

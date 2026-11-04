@@ -1,0 +1,34 @@
+{
+  "name": "kda-activ",
+  "version": "1.0.0",
+  "description": "КДА-Актив — планировщик активации компрессионно-дистракционных аппаратов (дистракционный остеогенез нижней челюсти)",
+  "author": "Шаповалов П.И.",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "repository": { "type": "git", "url": "https://github.com/DrPavelShapovalov/max.git" },
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "^31.7.6",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "ru.cniis.kdaactiv",
+    "productName": "KDA-Activ",
+    "artifactName": "KDA-Activ-Setup-${version}.${ext}",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "app/**"],
+    "win": { "target": ["nsis"], "icon": "build/icon.ico" },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "КДА-Актив"
+    }
+  }
+}
