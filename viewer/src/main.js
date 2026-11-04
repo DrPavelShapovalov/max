@@ -122,15 +122,24 @@ function voxel(plane, a, b, k){
   if (plane === 'coronal') return d[b*nx*ny + k*nx + a];
   return d[b*nx*ny + k + a*nx]; // sagittal
 }
+// режим проекции толстого слоя (slab): усреднение / макс.интенсивность / мин.интенсивность
+let slabMode = 'mean';      // 'mean' | 'mip' | 'minip'
+function slabReduce(vals){
+  if(!vals.length) return 0;
+  if(slabMode==='mip'){ let m=-32768; for(const v of vals) if(v>m)m=v; return m; }
+  if(slabMode==='minip'){ let m=32767; for(const v of vals) if(v<m)m=v; return m; }
+  let s=0; for(const v of vals) s+=v; return (s/vals.length)|0;
+}
 function sampleSlice(plane, k, w, h) {
   const m = sliceMeta(plane); const half = (slabN>1)? (slabN>>1) : 0;
   const out = new Int16Array(w * h);
+  const buf = [];
   for (let b=0;b<h;b++) for (let a=0;a<w;a++){
     if (!half){ out[b*w+a] = voxel(plane,a,b,k); continue; }
-    // толстый срез: усреднение соседних срезов (наложение + размытие, видно ориентиры)
-    let sum=0,n=0;
-    for (let s=-half;s<=half;s++){ const kk=k+s; if(kk<0||kk>=m.count) continue; sum+=voxel(plane,a,b,kk); n++; }
-    out[b*w+a] = n? (sum/n)|0 : voxel(plane,a,b,k);
+    // толстый срез: проекция соседних срезов (усреднение / MIP / MinIP)
+    buf.length=0;
+    for (let s=-half;s<=half;s++){ const kk=k+s; if(kk<0||kk>=m.count) continue; buf.push(voxel(plane,a,b,kk)); }
+    out[b*w+a] = buf.length? slabReduce(buf) : voxel(plane,a,b,k);
   }
   return out;
 }
@@ -230,7 +239,7 @@ function renderReslice(plane){
       const bx=cxmm+eu*e1[0]+ev*e2[0], by=cymm+eu*e1[1]+ev*e2[1], bz=czmm+eu*e1[2]+ev*e2[2];
       let val;
       if(nsteps===0) val=sampleVoxelMM(bx,by,bz);
-      else { let s=0,c=0; for(let t=-nsteps;t<=nsteps;t++){ const o=t*step; s+=sampleVoxelMM(bx+o*nrm[0],by+o*nrm[1],bz+o*nrm[2]); c++; } val=s/c; }
+      else { const bb=[]; for(let t=-nsteps;t<=nsteps;t++){ const o=t*step; bb.push(sampleVoxelMM(bx+o*nrm[0],by+o*nrm[1],bz+o*nrm[2])); } val=slabReduce(bb); }
       let g=(val-lo)/span; g=g<0?0:g>1?1:g; g=(g*255)|0;
       const oo=(v*outW+u)*4; dta[oo]=dta[oo+1]=dta[oo+2]=g; dta[oo+3]=255;
     } }
@@ -319,8 +328,8 @@ function renderOblique(){
       const bx=cxmm+eu*e1[0]+ev*e2[0], by=cymm+eu*e1[1]+ev*e2[1], bz=czmm+eu*e1[2]+ev*e2[2];
       let val;
       if(nsteps===0){ val=sampleVoxelMM(bx,by,bz); }
-      else { let s=0,cnt=0; for(let t=-nsteps;t<=nsteps;t++){ const o=t*step;
-        s+=sampleVoxelMM(bx+o*nrm[0], by+o*nrm[1], bz+o*nrm[2]); cnt++; } val=s/cnt; }
+      else { const bb=[]; for(let t=-nsteps;t<=nsteps;t++){ const o=t*step;
+        bb.push(sampleVoxelMM(bx+o*nrm[0], by+o*nrm[1], bz+o*nrm[2])); } val=slabReduce(bb); }
       let g=(val-lo)/span; g=g<0?0:g>1?1:g; g=(g*255)|0;
       const oo=(v*outW+u)*4; dta[oo]=dta[oo+1]=dta[oo+2]=g; dta[oo+3]=255;
     } }
@@ -387,68 +396,137 @@ let mprDraft = null;                // текущее незавершённое
 function frac2px(plane, f){ const L=mprLayout[plane]; return { x:L.ox+f.fx*L.dw, y:L.oy+(L.flipY?(1-f.fy):f.fy)*L.dh }; }
 function px2frac(plane, x, y){ const L=mprLayout[plane]; let fx=(x-L.ox)/L.dw, fy=(y-L.oy)/L.dh; if(L.flipY) fy=1-fy; return {fx,fy}; }
 function fracDistMM(plane, a, b){ const L=mprLayout[plane]; const dx=(a.fx-b.fx)*L.m.pw, dy=(a.fy-b.fy)*L.m.ph; return Math.hypot(dx,dy); }
+const MPR_COL={dist:'#ffc24d',angle:'#38a8ff',circ:'#b98bff',dens:'#39d98a',rect:'#ff8a5c',poly:'#5cd0ff'};
+function mprLabel(o){                 // краткая подпись значения для вывода на срезе/в списке
+  if(o.type==='dist') return (o.mm!=null?o.mm.toFixed(1):'…')+' мм';
+  if(o.type==='angle') return (o.ang!=null?o.ang.toFixed(1):'…')+'°';
+  if(o.type==='circ') return o.r!=null?`R ${o.r.toFixed(1)} · Ø ${(o.r*2).toFixed(1)} мм`:'…';
+  if(o.stats) return `${o.stats.mean|0} HU · ${o.stats.area.toFixed(0)} мм²`;
+  return '…';
+}
 function drawMprMeas(plane, ctx){
   const L=mprLayout[plane]; if(!L) return;
-  const list = mprMeas[plane].filter(o=>o.k===L.k).concat(mprDraft && mprDraft.plane===plane ? [mprDraft] : []);
-  ctx.lineWidth=1.5; ctx.font='11px ui-monospace,monospace';
+  const list = mprMeas[plane].filter(o=>o.k===L.k && o.vis!==false).concat(mprDraft && mprDraft.plane===plane ? [mprDraft] : []);
+  ctx.lineWidth=1.6; ctx.font='11px ui-monospace,monospace';
   for(const o of list){
+    const col=MPR_COL[o.type]||'#ffc24d'; ctx.strokeStyle=col; ctx.fillStyle=col;
     const P=o.pts.map(f=>frac2px(plane,f));
-    if(o.type==='dist' && P.length>=1){ ctx.strokeStyle='#ffc24d'; ctx.fillStyle='#ffc24d';
+    const dot=(p,r)=>{ctx.beginPath();ctx.arc(p.x,p.y,r||2.6,0,7);ctx.fill();};
+    if(o.type==='dist'){
       if(P.length>=2){ ctx.beginPath(); ctx.moveTo(P[0].x,P[0].y); ctx.lineTo(P[1].x,P[1].y); ctx.stroke();
-        const mm=fracDistMM(plane,o.pts[0],o.pts[1]); ctx.fillText(mm.toFixed(1)+' мм',(P[0].x+P[1].x)/2+4,(P[0].y+P[1].y)/2-4); }
-      P.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,7);ctx.fill();}); }
-    else if(o.type==='angle' && P.length>=1){ ctx.strokeStyle='#38a8ff'; ctx.fillStyle='#38a8ff';
+        ctx.fillText(mprLabel(o),(P[0].x+P[1].x)/2+5,(P[0].y+P[1].y)/2-5); }
+      P.forEach(p=>dot(p)); }
+    else if(o.type==='angle'){
       if(P.length>=2){ctx.beginPath();ctx.moveTo(P[0].x,P[0].y);ctx.lineTo(P[1].x,P[1].y);if(P[2])ctx.lineTo(P[2].x,P[2].y);ctx.stroke();}
-      if(P.length>=3){ const a=o.pts[0],c=o.pts[1],b=o.pts[2]; const L2=mprLayout[plane];
-        const v1={x:(a.fx-c.fx)*L2.m.pw,y:(a.fy-c.fy)*L2.m.ph}, v2={x:(b.fx-c.fx)*L2.m.pw,y:(b.fy-c.fy)*L2.m.ph};
-        const ang=Math.acos((v1.x*v2.x+v1.y*v2.y)/(Math.hypot(v1.x,v1.y)*Math.hypot(v2.x,v2.y)||1))*180/Math.PI;
-        ctx.fillText(ang.toFixed(1)+'°',P[1].x+5,P[1].y-5); }
-      P.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,7);ctx.fill();}); }
-    else if(o.type==='dens' && P.length>=1){ ctx.strokeStyle='#39d98a'; ctx.fillStyle='#39d98a';
-      const c=P[0]; const rpx = P.length>=2? Math.hypot(P[1].x-c.x,P[1].y-c.y) : 10;
+      if(P.length>=3) ctx.fillText(mprLabel(o),P[1].x+6,P[1].y-6);
+      P.forEach(p=>dot(p)); }
+    else if(o.type==='circ'){
+      const c=P[0]; const rpx=P.length>=2?Math.hypot(P[1].x-c.x,P[1].y-c.y):10;
       ctx.beginPath(); ctx.arc(c.x,c.y,rpx,0,7); ctx.stroke();
-      if(o.hu!=null) ctx.fillText(`${o.hu|0} HU · ${o.area.toFixed(0)} мм²`, c.x+rpx+4, c.y); }
+      ctx.beginPath(); ctx.moveTo(c.x-rpx,c.y); ctx.lineTo(c.x+rpx,c.y); ctx.stroke();  // диаметр
+      dot(c,2); if(o.r!=null) ctx.fillText(mprLabel(o), c.x+rpx+5, c.y); }
+    else if(o.type==='dens'){
+      const c=P[0]; const rpx=P.length>=2?Math.hypot(P[1].x-c.x,P[1].y-c.y):10;
+      ctx.beginPath(); ctx.arc(c.x,c.y,rpx,0,7); ctx.stroke(); dot(c,2);
+      if(o.stats) ctx.fillText(mprLabel(o), c.x+rpx+5, c.y); }
+    else if(o.type==='rect'){
+      if(P.length>=2){ const x0=Math.min(P[0].x,P[1].x),y0=Math.min(P[0].y,P[1].y),w=Math.abs(P[1].x-P[0].x),h=Math.abs(P[1].y-P[0].y);
+        ctx.strokeRect(x0,y0,w,h); if(o.stats) ctx.fillText(mprLabel(o), x0, y0-4); }
+      P.forEach(p=>dot(p,2)); }
+    else if(o.type==='poly'){
+      if(P.length>=2){ ctx.beginPath(); ctx.moveTo(P[0].x,P[0].y); for(let i=1;i<P.length;i++) ctx.lineTo(P[i].x,P[i].y);
+        if(o.closed) ctx.closePath(); ctx.stroke();
+        if(o.stats) ctx.fillText(mprLabel(o), P[0].x, P[0].y-5); }
+      P.forEach(p=>dot(p,2)); }
   }
 }
+const MPR_CHIP={dist:'mDist',angle:'mAngle',circ:'mCirc',dens:'mDens',rect:'mRect',poly:'mPoly'};
 function setMprMode(mode){
   mprMode = (mprMode===mode)? null : mode; mprDraft=null;
-  ['mDist','mAngle','mDens'].forEach(id=>$(id).classList.remove('armed'));
-  if(mprMode){ setMeasMode(null); const b=$({dist:'mDist',angle:'mAngle',dens:'mDens'}[mprMode]); b&&b.classList.add('armed'); }
+  Object.values(MPR_CHIP).forEach(id=>$(id)&&$(id).classList.remove('armed'));
+  if(mprMode){ setMeasMode(null); segMode=false; segWand=false;
+    $('segPaint')&&$('segPaint').classList.remove('armed'); $('segWandBtn')&&$('segWandBtn').classList.remove('armed');
+    const b=$(MPR_CHIP[mprMode]); b&&b.classList.add('armed'); }
+  if(volume) renderAllMPR();
 }
-function clearMpr(){ mprMeas={axial:[],coronal:[],sagittal:[]}; mprDraft=null; if(volume) renderAllMPR(); }
+function clearMpr(){ mprMeas={axial:[],coronal:[],sagittal:[]}; mprDraft=null; if(volume) renderAllMPR(); renderMeasList(); }
+function delMprMeas(plane, id){ mprMeas[plane]=mprMeas[plane].filter(o=>o.id!==id); if(volume) renderAllMPR(); renderMeasList(); }
+let mprMeasSeq=1;
+// список всех MPR-измерений (панель): клик — перейти к срезу, ✕ — удалить
+function renderMeasList(){
+  const box=$('measListMpr'); if(!box) return;
+  const rows=[];
+  planes.forEach(pl=> mprMeas[pl].forEach(o=> rows.push({pl,o})) );
+  if(!rows.length){ box.innerHTML='<div class="info" style="opacity:.6">Измерений нет. Выбери инструмент (📏 ∠ ⭕ ⊙ ▭ ⬠) и кликай по срезам.</div>'; return; }
+  const TNAME={dist:'Длина',angle:'Угол',circ:'Окр. R/Ø',dens:'HU ⊙',rect:'HU ▭',poly:'HU ⬠'};
+  const PNAME={axial:'акс',coronal:'кор',sagittal:'саг'};
+  box.innerHTML=rows.map(({pl,o})=>
+    `<div class="obj-row" data-pl="${pl}" data-id="${o.id}" data-k="${o.k}" data-ax="${sliceMeta(pl).axis}">
+       <span class="dot" style="background:${MPR_COL[o.type]}"></span>
+       <span class="nm" title="Перейти к срезу">${PNAME[pl]} · ${TNAME[o.type]||o.type}: <b style="color:var(--ink)">${mprLabel(o)}</b>${o.stats?` <span style="opacity:.6">[${o.stats.min|0}…${o.stats.max|0}, σ${o.stats.sd.toFixed(0)}]</span>`:''}</span>
+       <span class="del" title="Удалить">✕</span>
+     </div>`).join('');
+  box.querySelectorAll('.obj-row').forEach(row=>{
+    row.querySelector('.nm').onclick=()=>{ const ax=+row.dataset.ax, k=+row.dataset.k; idx[ax]=k;
+      planes.forEach(p=>{ const sl=$('sl-'+p); if(sl) sl.value=idx[sliceMeta(p).axis]; }); if(volume) renderAllMPR(); };
+    row.querySelector('.del').onclick=()=> delMprMeas(row.dataset.pl, +row.dataset.id);
+  });
+}
 // закраска маски в экранных координатах канваса (переиспользуется мышью и колесом)
 let segCursor={plane:null,x:0,y:0}, segPainting=false;
 function paintScreen(plane, cvx, cvy){ const m=sliceMeta(plane);
   const f=px2frac(plane,cvx,cvy); const a=Math.round(f.fx*(m.w-1)), b=Math.round(f.fy*(m.h-1));
   paintSeg(plane,a,b,idx[m.axis]); renderMPR(plane); }
-function computeDensity(o){
-  const plane=o.plane, m=sliceMeta(plane), k=o.k, c=o.pts[0], e=o.pts[1];
-  const cx=c.fx*m.w, cy=c.fy*m.h; const rpx=Math.hypot((e.fx-c.fx)*m.w,(e.fy-c.fy)*m.h);
-  const r2=rpx*rpx; let sum=0,n=0;
-  for(let b=Math.max(0,Math.floor(cy-rpx));b<Math.min(m.h,Math.ceil(cy+rpx));b++)
-    for(let a=Math.max(0,Math.floor(cx-rpx));a<Math.min(m.w,Math.ceil(cx+rpx));a++)
-      if((a-cx)**2+(b-cy)**2<=r2){ sum+=voxel(plane,a,b,k); n++; }
-  o.hu = n? sum/n : 0;
-  const rmm=(Math.abs(e.fx-c.fx)*m.pw + Math.abs(e.fy-c.fy)*m.ph)/2;
-  o.area=Math.PI*rmm*rmm;
+// статистика плотности (HU) в ROI на текущем срезе: circle / rect / poly
+function pointInPolyFrac(px,py,poly){ let c=false; for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+  const xi=poly[i].fx,yi=poly[i].fy,xj=poly[j].fx,yj=poly[j].fy;
+  if(((yi>py)!==(yj>py)) && (px<(xj-xi)*(py-yi)/((yj-yi)||1e-9)+xi)) c=!c; } return c; }
+function computeROIStats(o){
+  const plane=o.plane, m=sliceMeta(plane), k=o.k, P=o.pts;
+  let a0,a1,b0,b1, test;
+  if(o.type==='dens'){ const c=P[0],e=P[1]; const cx=c.fx*m.w, cy=c.fy*m.h; const rpx=Math.hypot((e.fx-c.fx)*m.w,(e.fy-c.fy)*m.h);
+    a0=cx-rpx;a1=cx+rpx;b0=cy-rpx;b1=cy+rpx; const r2=rpx*rpx; test=(a,b)=>(a-cx)**2+(b-cy)**2<=r2;
+    const rmm=fracDistMM(plane,c,e); o._area=Math.PI*rmm*rmm; }
+  else if(o.type==='rect'){ const x0=Math.min(P[0].fx,P[1].fx)*m.w,x1=Math.max(P[0].fx,P[1].fx)*m.w,y0=Math.min(P[0].fy,P[1].fy)*m.h,y1=Math.max(P[0].fy,P[1].fy)*m.h;
+    a0=x0;a1=x1;b0=y0;b1=y1; test=()=>true;
+    const wmm=Math.abs(P[0].fx-P[1].fx)*m.pw, hmm=Math.abs(P[0].fy-P[1].fy)*m.ph; o._area=wmm*hmm; }
+  else { // poly
+    let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9; for(const p of P){ mnx=Math.min(mnx,p.fx);mxx=Math.max(mxx,p.fx);mny=Math.min(mny,p.fy);mxy=Math.max(mxy,p.fy); }
+    a0=mnx*m.w;a1=mxx*m.w;b0=mny*m.h;b1=mxy*m.h; test=(a,b)=>pointInPolyFrac(a/m.w,b/m.h,P);
+    let area2=0; for(let i=0,j=P.length-1;i<P.length;j=i++){ area2+=(P[j].fx*m.pw)*(P[i].fy*m.ph)-(P[i].fx*m.pw)*(P[j].fy*m.ph); } o._area=Math.abs(area2)/2; }
+  let n=0,sum=0,sumsq=0,mn=1e9,mx=-1e9;
+  for(let b=Math.max(0,Math.floor(b0));b<Math.min(m.h,Math.ceil(b1));b++)
+    for(let a=Math.max(0,Math.floor(a0));a<Math.min(m.w,Math.ceil(a1));a++)
+      if(test(a,b)){ const v=voxel(plane,a,b,k); sum+=v; sumsq+=v*v; if(v<mn)mn=v; if(v>mx)mx=v; n++; }
+  const mean=n?sum/n:0, variance=n?Math.max(0,sumsq/n-mean*mean):0;
+  o.stats={mean, min:n?mn:0, max:n?mx:0, sd:Math.sqrt(variance), area:o._area, n};
+}
+function mprFinalize(o){
+  const plane=o.plane;
+  if(o.type==='dist') o.mm=fracDistMM(plane,o.pts[0],o.pts[1]);
+  else if(o.type==='angle'){ const P=o.pts, L=mprLayout[plane];
+    const v1={x:(P[0].fx-P[1].fx)*L.m.pw,y:(P[0].fy-P[1].fy)*L.m.ph}, v2={x:(P[2].fx-P[1].fx)*L.m.pw,y:(P[2].fy-P[1].fy)*L.m.ph};
+    o.ang=Math.acos((v1.x*v2.x+v1.y*v2.y)/(Math.hypot(v1.x,v1.y)*Math.hypot(v2.x,v2.y)||1))*180/Math.PI; }
+  else if(o.type==='circ') o.r=fracDistMM(plane,o.pts[0],o.pts[1]);
+  else { o.closed=true; computeROIStats(o); }
+  o.id=mprMeasSeq++; o.vis=true;
+  mprMeas[plane].push(o);
+  const V=$('measVal'); if(V){ V.textContent='MPR '+ (({dist:'длина',angle:'угол',circ:'окружность',dens:'плотность',rect:'плотность',poly:'плотность'})[o.type]) +': '+mprLabel(o); V.style.display=''; }
+  renderMeasList();
 }
 function onMprClick(plane, f, k){
   if(!mprDraft || mprDraft.plane!==plane || mprDraft.k!==k || mprDraft.type!==mprMode) mprDraft={type:mprMode,plane,k,pts:[]};
   mprDraft.pts.push(f);
+  if(mprMode==='poly'){ renderMPR(plane); return; }   // многоточечный — завершается двойным кликом
   const need = mprMode==='angle'?3:2;
-  if(mprMode==='dens' && mprDraft.pts.length===2) computeDensity(mprDraft);
-  if(mprDraft.pts.length>=need){
-    if(mprMode==='dist') mprDraft.mm=fracDistMM(plane,mprDraft.pts[0],mprDraft.pts[1]);
-    let msg;
-    if(mprMode==='dist') msg=`MPR длина: ${mprDraft.mm.toFixed(1)} мм`;
-    else if(mprMode==='angle'){ const P=mprDraft.pts, L=mprLayout[plane];
-      const v1={x:(P[0].fx-P[1].fx)*L.m.pw,y:(P[0].fy-P[1].fy)*L.m.ph}, v2={x:(P[2].fx-P[1].fx)*L.m.pw,y:(P[2].fy-P[1].fy)*L.m.ph};
-      msg=`MPR угол: ${(Math.acos((v1.x*v2.x+v1.y*v2.y)/(Math.hypot(v1.x,v1.y)*Math.hypot(v2.x,v2.y)||1))*180/Math.PI).toFixed(1)}°`; }
-    else msg=`MPR плотность: ${mprDraft.hu|0} HU · ${mprDraft.area.toFixed(0)} мм²`;
-    mprMeas[plane].push(mprDraft); mprDraft=null;
-    $('measVal').textContent=msg; $('measVal').style.display='';
-  }
+  if((mprMode==='dens') && mprDraft.pts.length===2) computeROIStats(mprDraft);
+  if(mprDraft.pts.length>=need){ const o=mprDraft; mprDraft=null; mprFinalize(o); }
   renderMPR(plane);
+}
+function finishPoly(plane){
+  if(!mprDraft || mprDraft.type!=='poly' || mprDraft.plane!==plane) return false;
+  if(mprDraft.pts.length<3){ mprDraft=null; renderMPR(plane); return true; }
+  const o=mprDraft; mprDraft=null; mprFinalize(o); renderMPR(plane); return true;
 }
 function setCrosshair(plane, f){        // перетаскиваемый указатель: задаёт срезы др. плоскостей
   const [nx,ny,nz]=volume.dims;
@@ -480,6 +558,7 @@ function bindMprMeas(){
       }
       drag='move'; setCrosshair(plane, toFrac(ev)); }, true);
     cv.addEventListener('mousemove',(ev)=>{ if(segMode){ const p=toPx(ev); segCursor={plane,x:p.x,y:p.y}; }
+      huReadout(plane, toFrac(ev));                      // плотность под курсором
       if(!drag||mprMode) return;
       if(drag==='paint'){ paintAt(ev); return; }
       const p=toPx(ev); const S=xhairScreen[plane];
@@ -498,9 +577,21 @@ function bindMprMeas(){
         renderAllMPR(); return; }
     });
     window.addEventListener('mouseup',()=>{ drag=null; segPainting=false; });
-    cv.addEventListener('dblclick',(ev)=>{ if(!volume||mprMode) return; ev.preventDefault();
+    cv.addEventListener('dblclick',(ev)=>{ if(!volume) return;
+      if(mprMode==='poly'){ ev.preventDefault(); ev.stopPropagation(); finishPoly(plane); return; }
+      if(mprMode) return;
+      ev.preventDefault();
       xhair[plane].angle=0; slabN=1; if($('slab')){ $('slab').value=1; $('slabv').textContent=1; } renderAllMPR(); });
   });
+}
+// плотность под курсором (живой отсчёт HU) в бейдж тулбара
+function huReadout(plane, f){
+  const el=$('huReadout'); if(!el||!volume) return;
+  if((plane==='coronal'&&oblique.on) || (xhair[plane]&&xhair[plane].angle)){ el.textContent='~ косой'; return; }
+  const m=sliceMeta(plane); const a=Math.round(f.fx*(m.w-1)), b=Math.round(f.fy*(m.h-1));
+  if(a<0||a>=m.w||b<0||b>=m.h){ el.textContent='— HU'; return; }
+  const v=voxel(plane,a,b,idx[m.axis]);
+  el.textContent=`${v|0} HU`;
 }
 function resizeMPRCanvases() {
   const dpr = Math.min(devicePixelRatio || 1, 2);
@@ -2438,13 +2529,17 @@ function bindControls() {
   if($('openProjBtn')) $('openProjBtn').onclick = ()=> $('projInput').click();
   if($('projInput')) $('projInput').addEventListener('change', e=>{ if(e.target.files[0]) loadProject(e.target.files[0]); e.target.value=''; });
   $('slab').addEventListener('input', e=>{ slabN=+e.target.value; $('slabv').textContent=slabN; if(volume) renderAllMPR(); });
+  if($('slabMode')) $('slabMode').addEventListener('change', e=>{ slabMode=e.target.value; if(volume) renderAllMPR(); });
   $('obl').onclick = ()=>{ oblique.on=!oblique.on; $('obl').classList.toggle('armed',oblique.on); if(volume) renderMPR('coronal'); };
   $('oblA').addEventListener('input', e=>{ oblique.angle=+e.target.value; $('oblAv').textContent=oblique.angle+'°'; if(volume&&oblique.on) renderMPR('coronal'); });
   $('mDist').onclick = ()=> setMprMode('dist');
   $('mAngle').onclick = ()=> setMprMode('angle');
+  if($('mCirc')) $('mCirc').onclick = ()=> setMprMode('circ');
   $('mDens').onclick = ()=> setMprMode('dens');
+  if($('mRect')) $('mRect').onclick = ()=> setMprMode('rect');
+  if($('mPoly')) $('mPoly').onclick = ()=> setMprMode('poly');
   $('mClear').onclick = clearMpr;
-  bindMprMeas();
+  bindMprMeas(); renderMeasList();
   $('wc').oninput = e => { win.center = +e.target.value; $('wcval').textContent = win.center; renderAllMPR(); };
   $('ww').oninput = e => { win.width = +e.target.value; $('wwval').textContent = win.width; renderAllMPR(); };
   document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => {
