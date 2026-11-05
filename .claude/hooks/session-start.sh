@@ -160,3 +160,8 @@ if [ ! -f "$HF_VENDOR/node_modules/gsap/dist/gsap.min.js" ]; then
     || echo "HyperFrames: не удалось установить gsap@$GSAP_VERSION"
 fi
 echo "HyperFrames $HF_VERSION готов (Node, FFmpeg, Chrome Headless Shell). CDN закрыт: в каждом проекте HyperFrames скопируйте $HF_VENDOR/node_modules/gsap/dist/gsap.min.js в vendor/ и подключайте <script src=\"vendor/gsap.min.js\">."
+
+# yt-dlp: скачивание видео и звука по ссылке (нужен скиллу video-download). Версия закреплена.
+YTDLP_VERSION=2026.10.26
+[ "$(yt-dlp --version 2>/dev/null)" = "$YTDLP_VERSION" ] || python3 -m pip install -q "yt-dlp==$YTDLP_VERSION" >/dev/null 2>&1 \
+  || echo "Не удалось поставить yt-dlp $YTDLP_VERSION — запустите: pip install yt-dlp"
