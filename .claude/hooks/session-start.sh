@@ -54,6 +54,8 @@ fi
 #   davinci-resolve   — resolve-* для DaVinci Resolve MCP      (MIT; сам Resolve и MCP — на компьютере пользователя)
 #   hyperframes       — reverse-any-video                      (Apache-2.0)
 #   OpenMontage       — проект в ~/OpenMontage, его скиллы глобально, кроме ffmpeg (AGPL-3.0)
+#   claude-shorts     — скилл shorts: длинное видео → вертикальные шортсы с субтитрами (MIT);
+#                       зависимости (faster-whisper, PyTorch, Remotion) ставит его setup.sh, вручную
 GHOST_REPO=https://github.com/kurbaitaev/ghost-editor.git
 GHOST_SHA=ce172726c36293722b08eb57b5b307d4f06389e8
 FFSKILL_REPO=https://github.com/kajisho5/ffmpeg-skill.git
@@ -64,6 +66,8 @@ HFREPO=https://github.com/heygen-com/hyperframes.git
 HFREPO_SHA=a04b45a6db0d1f724be9cf1985c3b13657195f0d
 MONTAGE_REPO=https://github.com/calesthio/OpenMontage.git
 MONTAGE_SHA=195eab24478dc9363326aec437aefc3701635ddf
+SHORTS_REPO=https://github.com/AgriciDaniel/claude-shorts.git
+SHORTS_SHA=a369fad9d84287edbb8fa3ab515f268e770f683b
 
 # скопировать каталоги-скиллы, не затирая уже установленные с тем же именем
 copy_skills() {
@@ -124,6 +128,17 @@ if [ "$(cat "$marker" 2>/dev/null)" != "$MONTAGE_SHA" ]; then
   echo "$MONTAGE_SHA" > "$marker"
 fi
 copy_skills "$HOME/OpenMontage/.claude/skills" ffmpeg
+
+# claude-shorts: проект в ~/claude-shorts, скилл — в ~/.claude/skills/shorts (как его install.sh, без node_modules)
+marker="$SKILLS/shorts/.pinned-sha"
+if [ "$(cat "$marker" 2>/dev/null)" != "$SHORTS_SHA" ]; then
+  fetch_commit "$SHORTS_REPO" "$SHORTS_SHA" "$HOME/claude-shorts"
+  rm -rf "$SKILLS/shorts"
+  mkdir -p "$SKILLS/shorts"
+  cp -r "$HOME/claude-shorts/SKILL.md" "$HOME/claude-shorts/scripts" "$HOME/claude-shorts/references" "$HOME/claude-shorts/remotion" "$SKILLS/shorts/"
+  chmod +x "$SKILLS"/shorts/scripts/*.sh "$SKILLS"/shorts/scripts/*.py 2>/dev/null || true
+  echo "$SHORTS_SHA" > "$marker"
+fi
 
 # Python-зависимости ghost-editor, которые ставятся из PyPI
 python3 -c "import numpy, cv2; from google import genai" 2>/dev/null \
