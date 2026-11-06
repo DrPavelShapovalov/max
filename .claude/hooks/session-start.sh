@@ -56,6 +56,7 @@ fi
 #   OpenMontage       — проект в ~/OpenMontage, его скиллы глобально, кроме ffmpeg (AGPL-3.0)
 #   claude-shorts     — скилл shorts: длинное видео → вертикальные шортсы с субтитрами (MIT);
 #                       зависимости (faster-whisper, PyTorch, Remotion) ставит его setup.sh, вручную
+#   brag              — скиллы brag и brag-slim: промо-видео о проекте по его коду (MIT; музыка — CC BY 4.0, Sascha Ende)
 GHOST_REPO=https://github.com/kurbaitaev/ghost-editor.git
 GHOST_SHA=ce172726c36293722b08eb57b5b307d4f06389e8
 FFSKILL_REPO=https://github.com/kajisho5/ffmpeg-skill.git
@@ -68,6 +69,8 @@ MONTAGE_REPO=https://github.com/calesthio/OpenMontage.git
 MONTAGE_SHA=195eab24478dc9363326aec437aefc3701635ddf
 SHORTS_REPO=https://github.com/AgriciDaniel/claude-shorts.git
 SHORTS_SHA=a369fad9d84287edbb8fa3ab515f268e770f683b
+BRAG_REPO=https://github.com/latent-spaces/brag.git
+BRAG_SHA=669ab9286aa28b6c3ee30e75f181ee74319d012a
 
 # скопировать каталоги-скиллы, не затирая уже установленные с тем же именем
 copy_skills() {
@@ -138,6 +141,17 @@ if [ "$(cat "$marker" 2>/dev/null)" != "$SHORTS_SHA" ]; then
   cp -r "$HOME/claude-shorts/SKILL.md" "$HOME/claude-shorts/scripts" "$HOME/claude-shorts/references" "$HOME/claude-shorts/remotion" "$SKILLS/shorts/"
   chmod +x "$SKILLS"/shorts/scripts/*.sh "$SKILLS"/shorts/scripts/*.py 2>/dev/null || true
   echo "$SHORTS_SHA" > "$marker"
+fi
+# brag: из репозитория берутся только папки skills/brag и skills/brag-slim
+marker="$SKILLS/brag/.pinned-sha"
+if [ "$(cat "$marker" 2>/dev/null)" != "$BRAG_SHA" ]; then
+  tmp=$(mktemp -d)
+  fetch_commit "$BRAG_REPO" "$BRAG_SHA" "$tmp/repo"
+  rm -rf "$SKILLS/brag" "$SKILLS/brag-slim"
+  cp -r "$tmp/repo/skills/brag" "$tmp/repo/skills/brag-slim" "$SKILLS/"
+  cp "$tmp/repo/LICENSE" "$SKILLS/brag/LICENSE"
+  rm -rf "$tmp"
+  echo "$BRAG_SHA" > "$marker"
 fi
 [ -x "$HOME/.shorts-skill/bin/python" ] || echo "shorts: зависимости не установлены — перед работой запустите: bash .claude/scripts/shorts-deps.sh"
 
