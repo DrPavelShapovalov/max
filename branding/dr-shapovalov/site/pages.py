@@ -145,8 +145,8 @@ def page(c, path, title, desc, body, crumbs, schema, cta=True):
 <p>Имеются противопоказания. Необходима консультация специалиста.</p>
 <p class="legal"><a href="/">drshapovalov.ru</a> <a href="/{PRIVACY}">Политика конфиденциальности</a> <button type="button" class="linkish" id="ck-open">Настройки cookie</button></p></footer>
 <div class="ck" id="ck" role="region" aria-label="Cookie-файлы" hidden>
-  <p>Сайт может считать посещения с помощью Яндекс Метрики: для этого нужны cookie-файлы. Метрика включится только с вашего согласия. Подробнее — в <a href="/{PRIVACY}">политике конфиденциальности</a>.</p>
-  <p class="row"><button type="button" class="btn" id="ck-yes">Принять</button><button type="button" class="btn ghost" id="ck-no">Отклонить</button></p>
+  <p>Разрешить cookie Яндекс Метрики? <a href="/{PRIVACY}">Подробнее</a></p>
+  <p class="ck-btns"><button type="button" id="ck-yes">Принять</button><button type="button" id="ck-no">Отклонить</button></p>
 </div>
 <dialog id="lb" class="lb" aria-label="Снимок крупно"><button type="button" class="lb-x" data-close aria-label="Закрыть">×</button><img alt=""><p></p></dialog>
 <script>{js}</script>
@@ -373,11 +373,14 @@ footer{max-width:880px;margin:48px auto 0;padding-top:18px;border-top:1px solid 
 footer p{margin:0 0 6px}
 footer .legal{display:flex;flex-wrap:wrap;gap:6px 18px}
 .linkish{font:inherit;color:var(--gold-hi);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-.ck{position:fixed;z-index:20;left:16px;right:16px;bottom:16px;max-width:560px;margin:0 auto;padding:18px 20px;border-radius:20px;
-background:rgba(10,21,19,.94);border:1px solid rgba(214,178,102,.35);box-shadow:0 12px 40px rgba(0,0,0,.45);font-size:15px}
+.ck{position:fixed;z-index:20;left:0;right:0;bottom:0;padding:8px 16px calc(8px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;
+align-items:center;justify-content:center;gap:6px 14px;font-size:13px;line-height:1.4;color:var(--soft);background:rgba(5,8,10,.94);border-top:1px solid var(--line)}
 .ck p{margin:0}
-.ck .row{margin-top:14px!important}
-.ck button{font:inherit;cursor:pointer;border:0}
+.ck a{color:var(--soft)}
+.ck-btns{display:flex;gap:8px}
+@media (max-width:640px){.ck{flex-wrap:nowrap;justify-content:space-between;gap:10px;padding:7px 12px calc(7px + env(safe-area-inset-bottom,0px))}.ck button{padding:5px 10px}}
+.ck button{font:inherit;font-weight:600;padding:5px 12px;border-radius:999px;cursor:pointer;border:1px solid var(--line);background:none;color:var(--ivory)}
+.ck #ck-yes{background:var(--gold);border-color:var(--gold);color:#140f06}
 .legaltext .block p+p{margin-top:12px}
 .pubs li,.block p{overflow-wrap:anywhere}
 @media (min-width:720px){.gal{grid-template-columns:1fr 1fr}.cards{grid-template-columns:1fr 1fr}.block{padding:32px}}

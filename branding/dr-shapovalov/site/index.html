@@ -456,11 +456,17 @@
   .foot-legal a, .linkish{color:var(--soft); text-decoration:underline; text-underline-offset:3px}
   .linkish{font:inherit; background:none; border:0; padding:0; cursor:pointer}
   /* согласие на cookie: Метрика не грузится до «Принять»; отказ ничего на сайте не ломает */
-  .ck{position:fixed; z-index:60; left:16px; right:16px; bottom:calc(16px + env(safe-area-inset-bottom,0px)); max-width:560px; margin-inline:auto;
-    padding:18px 20px; border-radius:20px; display:flex; flex-direction:column; gap:14px; font-size:15px; line-height:1.5; color:var(--ivory)}
-  .ck a{color:var(--gold-hi); text-decoration:underline; text-underline-offset:3px}
-  .ck-btns{display:flex; flex-wrap:wrap; gap:10px}
-  @media (max-width:640px){ .ck{bottom:calc(84px + env(safe-area-inset-bottom,0px))} }
+  /* тонкая полоска у нижнего края: одна строка, не закрывает контент; после ответа исчезает навсегда */
+  .ck{position:fixed; z-index:60; left:0; right:0; bottom:0; padding:8px 16px calc(8px + env(safe-area-inset-bottom,0px));
+    display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:6px 14px; font-size:13px; line-height:1.4; color:var(--soft);
+    background:rgba(5,8,10,.92); border-top:1px solid var(--line); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px)}
+  .ck p{margin:0}
+  .ck a{color:var(--soft); text-decoration:underline; text-underline-offset:3px}
+  .ck-btns{display:flex; gap:8px}
+  .ck button{font:inherit; font-weight:600; padding:5px 12px; border-radius:999px; cursor:pointer; border:1px solid var(--line); background:none; color:var(--ivory)}
+  .ck #ck-yes{background:var(--gold); border-color:var(--gold); color:#140f06}
+  @media (max-width:640px){ .ck{bottom:calc(72px + env(safe-area-inset-bottom,0px)); padding:7px 12px; flex-wrap:nowrap; justify-content:space-between; gap:10px; background:rgba(5,8,10,.95)}
+    .ck button{padding:5px 10px} }
 
   @media (prefers-reduced-motion:no-preference){
     .tab-ink{transition:left .5s cubic-bezier(.2,.8,.2,1), width .5s cubic-bezier(.2,.8,.2,1)}
@@ -840,9 +846,9 @@
 </main>
 
 <div class="tip" id="tip" role="tooltip"></div>
-<div class="ck glass" id="ck" role="region" aria-label="Cookie-файлы" hidden>
-  <p id="ck-text">Сайт может считать посещения с помощью Яндекс Метрики: для этого нужны cookie-файлы. Метрика включится только с вашего согласия. Подробнее — в <a href="privacy/">политике конфиденциальности</a>.</p>
-  <div class="ck-btns"><button type="button" class="pill" id="ck-yes">Принять</button><button type="button" class="ghost" id="ck-no">Отклонить</button></div>
+<div class="ck" id="ck" role="region" aria-label="Cookie-файлы" hidden>
+  <p id="ck-text">Разрешить cookie Яндекс Метрики? <a href="privacy/">Подробнее</a></p>
+  <div class="ck-btns"><button type="button" id="ck-yes">Принять</button><button type="button" id="ck-no">Отклонить</button></div>
 </div>
 <span id="meta-desc" hidden></span>
 
@@ -912,7 +918,7 @@
     document.querySelector('meta[name="description"]')?.setAttribute('content', 'Pavel Shapovalov, MD, PhD, pediatric oral and maxillofacial surgeon in Moscow: mandibular distraction osteogenesis, clinical cases, research.');
     for (const id of ['lang-sw', 'menu-lang']) { const a = $(id); if (a) { a.href = location.pathname; a.hreflang = 'ru'; a.lang = 'ru'; } }
     $('lang-sw').textContent = 'RU'; $('lang-sw').setAttribute('aria-label', 'Русская версия');
-    $('ck-text').innerHTML = 'This site can count visits with Yandex Metrica, which needs cookies. It turns on only with your consent. Details: <a href="privacy/">privacy policy</a> (in Russian).';
+    $('ck-text').innerHTML = 'Allow Yandex Metrica cookies? <a href="privacy/">Details</a>';
     i18nDom(document.body);
   }
 
