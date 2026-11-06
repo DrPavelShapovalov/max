@@ -145,6 +145,7 @@ def seo_head(c):
             f'<meta property="og:image" content="{SITE}img/og-cover.jpg">\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">\n'
             '<meta name="twitter:card" content="summary_large_image">\n'
             '<meta name="theme-color" content="#05080a">\n'
+            '<link rel="icon" href="/favicon.ico" sizes="48x48">\n<link rel="icon" href="/favicon.svg" type="image/svg+xml">\n<link rel="apple-touch-icon" href="/apple-touch-icon.png">\n'
             f'<meta name="yandex-verification" content="{YANDEX_VERIFY}">\n'
             f'<meta name="google-site-verification" content="{GOOGLE_VERIFY}">\n'
             '<script type="application/ld+json">' + json.dumps(ld, ensure_ascii=False).replace('</', '<\\/') + '</script>\n')
@@ -180,6 +181,8 @@ def main():
     copy_images(HERE / 'img', DIST / 'img')
     shutil.copytree(HERE / 'vendor', DIST / 'vendor')
     shutil.copytree(HERE / 'fonts', DIST / 'fonts')            # шрифты на своём сайте (SIL OFL), без Google
+    for f in ('favicon.ico', 'favicon.svg', 'apple-touch-icon.png'):   # иконка сайта (знак «Ш.», script/make_favicon.cjs)
+        shutil.copy2(HERE / 'icons' / f, DIST / f)
     if (HERE / 'CNAME').exists():                          # свой домен для GitHub Pages (drshapovalov.ru)
         shutil.copy2(HERE / 'CNAME', DIST / 'CNAME')
     (DIST / 'robots.txt').write_text(f'User-agent: *\nAllow: /\nDisallow: /admin.html\nSitemap: {SITE}sitemap.xml\n', encoding='utf-8')

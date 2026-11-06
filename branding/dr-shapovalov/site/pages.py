@@ -118,9 +118,12 @@ def page(c, path, title, desc, body, crumbs, schema, cta=True):
 <meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}"><meta property="og:url" content="{SITE}{path}">
 <meta property="og:image" content="{SITE}img/og-cover.jpg"><meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#05080a">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
 <link rel="stylesheet" href="/pages.css">
-<link rel="icon" href="/img/og-cover.jpg">
+
 {ld(graph)}
 </head>
 <body>
