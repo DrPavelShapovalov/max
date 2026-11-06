@@ -11,3 +11,10 @@ node render.cjs frames               # 600 кадров → brag-output/work/fra
 # обложка (кадр 8,5 с) — нулевым кадром, затем ffmpeg (см. историю коммита)
 ```
 План — `brag-output/brag-plan.md`, подпись — `brag-output/share-copy.txt`.
+
+## Полный /brag (HyperFrames), 06.11.2026
+`make_full.py <папка запуска>` собирает композицию HyperFrames в `brag-output-2026-11-06-184050/composition/`:
+настоящая схема «Как растёт кость» и подпись с сайта, тексты из `content.json`, музыка Sascha Ende (CC BY 4.0),
+звуки Kenney (CC0), свечение фона реагирует на басы. Дальше:
+`cd <папка>/composition && npx hyperframes@0.8.223 check && npx hyperframes@0.8.223 render --quality delivery --output ../brag.mp4`.
+План, бриф и подпись лежат в папке запуска; видео и кадры в git не кладутся.
