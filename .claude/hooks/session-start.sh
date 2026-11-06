@@ -139,6 +139,7 @@ if [ "$(cat "$marker" 2>/dev/null)" != "$SHORTS_SHA" ]; then
   chmod +x "$SKILLS"/shorts/scripts/*.sh "$SKILLS"/shorts/scripts/*.py 2>/dev/null || true
   echo "$SHORTS_SHA" > "$marker"
 fi
+[ -x "$HOME/.shorts-skill/bin/python" ] || echo "shorts: зависимости не установлены — перед работой запустите: bash .claude/scripts/shorts-deps.sh"
 
 # Python-зависимости ghost-editor, которые ставятся из PyPI
 python3 -c "import numpy, cv2; from google import genai" 2>/dev/null \
