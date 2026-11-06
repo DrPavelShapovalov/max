@@ -29,7 +29,7 @@ CDN_TO_VENDOR = {
 }
 
 COMMON = ("default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; "
-          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; "
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; "
           "upgrade-insecure-requests")
 # Яндекс Метрика (https://yandex.ru/support/metrica/code/install-counter-csp.html): счётчик, отправка данных,
 # карты кликов в интерфейсе Метрики (blob:). Вебвизор выключен, поэтому mc.webvisor.com и wss:// не нужны.
@@ -179,6 +179,7 @@ def main():
         shutil.copy2(HERE / 'content.en.json', DIST / 'content.en.json')
     copy_images(HERE / 'img', DIST / 'img')
     shutil.copytree(HERE / 'vendor', DIST / 'vendor')
+    shutil.copytree(HERE / 'fonts', DIST / 'fonts')            # шрифты на своём сайте (SIL OFL), без Google
     if (HERE / 'CNAME').exists():                          # свой домен для GitHub Pages (drshapovalov.ru)
         shutil.copy2(HERE / 'CNAME', DIST / 'CNAME')
     (DIST / 'robots.txt').write_text(f'User-agent: *\nAllow: /\nDisallow: /admin.html\nSitemap: {SITE}sitemap.xml\n', encoding='utf-8')

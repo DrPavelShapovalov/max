@@ -1,0 +1,6 @@
+brag-output*/work/
+brag-output*/*.mp4
+brag-output*/*.jpg
+brag-output*/composition/
+composition/
+.current-run

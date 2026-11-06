@@ -22,7 +22,7 @@ jobs:
       - name: Сохранить изменения
         id: save
         run: |
-          git add -A lechenie kejsy pages.css sitemap.xml
+          git add -A lechenie kejsy privacy pages.css sitemap.xml
           if git diff --cached --quiet; then echo "changed=0" >> "$GITHUB_OUTPUT"; exit 0; fi
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -m "Страницы метода и кейсов обновлены из content.json"
