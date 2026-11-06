@@ -30,6 +30,8 @@ description: Before/after collages and post texts for Dr. Pavel Shapovalov's (@d
 
 ## Тексты
 
+Перед любым текстом или роликом прочитай `branding/dr-shapovalov/CONTENT-PLAYBOOK.md` (приёмы и чек-лист).
+
 Следуй POSTS.md. Факты о пациенте — только от доктора; общие научные утверждения —
 только с источником (дай ссылки доктору в ответе). Instagram ≤ 2200 символов с
 хэштегами; Telegram — без хэштегов, `**жирный**` / `__курсив__`, текст в блоке кода,
