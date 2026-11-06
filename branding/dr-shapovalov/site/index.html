@@ -1,8 +1,6 @@
 <title>Шаповалов Павел Игоревич — детский челюстно-лицевой хирург, к.м.н. | Москва</title>
 <meta name="description" content="Шаповалов Павел Игоревич — детский челюстно-лицевой хирург, к.м.н., ЦНИИСиЧЛХ, Москва. Дистракционный остеогенез нижней челюсти, сужение челюстей, кисты, костная пластика. Клинические случаи, статьи, запись на приём.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="fonts/fonts.css"><!-- Unbounded и Manrope (SIL OFL 1.1) лежат на сайте: посетители не обращаются к серверам Google -->
 <style>
   /* Layout: a dark clinical instrument. Emerald wave field behind the hero, slow emerald/gold light
      drifting under the whole page so every panel reads as liquid glass, gold for anything measured,
@@ -454,6 +452,15 @@
   .wordmark{font-family:var(--display); font-weight:300; text-align:center; white-space:nowrap; font-size:clamp(14px,4.6vw,60px);  color:var(--gold)}
   .foot{margin-top:28px; padding-top:20px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; font-size:14px; color:var(--mist)}
   .foot p{max-width:80ch}
+  .foot-legal{margin-top:14px; display:flex; flex-wrap:wrap; gap:6px 18px; align-items:baseline; font-size:13px; color:var(--mist)}
+  .foot-legal a, .linkish{color:var(--soft); text-decoration:underline; text-underline-offset:3px}
+  .linkish{font:inherit; background:none; border:0; padding:0; cursor:pointer}
+  /* согласие на cookie: Метрика не грузится до «Принять»; отказ ничего на сайте не ломает */
+  .ck{position:fixed; z-index:60; left:16px; right:16px; bottom:calc(16px + env(safe-area-inset-bottom,0px)); max-width:560px; margin-inline:auto;
+    padding:18px 20px; border-radius:20px; display:flex; flex-direction:column; gap:14px; font-size:15px; line-height:1.5; color:var(--ivory)}
+  .ck a{color:var(--gold-hi); text-decoration:underline; text-underline-offset:3px}
+  .ck-btns{display:flex; flex-wrap:wrap; gap:10px}
+  @media (max-width:640px){ .ck{bottom:calc(84px + env(safe-area-inset-bottom,0px))} }
 
   @media (prefers-reduced-motion:no-preference){
     .tab-ink{transition:left .5s cubic-bezier(.2,.8,.2,1), width .5s cubic-bezier(.2,.8,.2,1)}
@@ -826,11 +833,17 @@
   <footer>
     <div class="wordmark" aria-label="Shapovalov">S. H. A. P. O. V. A. L. O. V.</div>
     <div class="foot"><p id="foot-note"></p><span><a href="#top">Наверх ↑</a></span></div>
+    <p class="foot-legal" id="foot-legal"><span id="foot-warn">Имеются противопоказания. Необходима консультация специалиста.</span>
+      <a href="privacy/">Политика конфиденциальности</a> <button type="button" class="linkish" id="ck-open">Настройки cookie</button></p>
     <p class="foot-ym" id="foot-ym" hidden>Сайт считает посещения с помощью сервиса <a href="https://yandex.ru/legal/metrica_termsofuse/" target="_blank" rel="noopener">Яндекс Метрика</a>: страницы, источник перехода, город, устройство — без имён и контактов.</p>
   </footer>
 </main>
 
 <div class="tip" id="tip" role="tooltip"></div>
+<div class="ck glass" id="ck" role="region" aria-label="Cookie-файлы" hidden>
+  <p id="ck-text">Сайт может считать посещения с помощью Яндекс Метрики: для этого нужны cookie-файлы. Метрика включится только с вашего согласия. Подробнее — в <a href="privacy/">политике конфиденциальности</a>.</p>
+  <div class="ck-btns"><button type="button" class="pill" id="ck-yes">Принять</button><button type="button" class="ghost" id="ck-no">Отклонить</button></div>
+</div>
 <span id="meta-desc" hidden></span>
 
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-labelledby="lb-t" hidden>
@@ -882,7 +895,9 @@
     'Работа с ортодонтом': 'Work with orthodontists', 'Статьи': 'Papers', 'Доклады': 'Talks', 'Программы для ЭВМ': 'Software',
     'Кандидатская диссертация': 'PhD dissertation', 'Специальность': 'Specialty', 'Руководитель': 'Supervisor', 'Защита': 'Defence',
     'Открыть диссертацию →': 'Open the dissertation →', 'ЭВМ': 'SW', 'Читать ↗': 'Read ↗', 'Этап': 'Step', 'Страница: ': 'Page: ', 'Карта: ': 'Map: ',
-    'тело нижней челюсти': 'mandibular body', 'English version': 'Русская версия', 'Подробнее о случае': 'Case details (in Russian)', 'Фото из операционной. Нажмите, чтобы открыть': 'Operating-room photo. Tap to open', 'Читать отзывы ↗': 'Read reviews ↗'
+    'тело нижней челюсти': 'mandibular body', 'English version': 'Русская версия', 'Подробнее о случае': 'Case details (in Russian)',
+    'Имеются противопоказания. Необходима консультация специалиста.': 'Contraindications apply. Consult a specialist.', 'Политика конфиденциальности': 'Privacy policy (in Russian)',
+    'Настройки cookie': 'Cookie settings', 'Принять': 'Accept', 'Отклонить': 'Decline', 'Фото из операционной. Нажмите, чтобы открыть': 'Operating-room photo. Tap to open', 'Читать отзывы ↗': 'Read reviews ↗'
   };
   const tr = (ru) => (LANG === 'en' && EN[ru] != null ? EN[ru] : ru);
   // подписи интерфейса в HTML и в разметке, которую собирает render(): точное совпадение текста узла или атрибута
@@ -897,6 +912,7 @@
     document.querySelector('meta[name="description"]')?.setAttribute('content', 'Pavel Shapovalov, MD, PhD, pediatric oral and maxillofacial surgeon in Moscow: mandibular distraction osteogenesis, clinical cases, research.');
     for (const id of ['lang-sw', 'menu-lang']) { const a = $(id); if (a) { a.href = location.pathname; a.hreflang = 'ru'; a.lang = 'ru'; } }
     $('lang-sw').textContent = 'RU'; $('lang-sw').setAttribute('aria-label', 'Русская версия');
+    $('ck-text').innerHTML = 'This site can count visits with Yandex Metrica, which needs cookies. It turns on only with your consent. Details: <a href="privacy/">privacy policy</a> (in Russian).';
     i18nDom(document.body);
   }
 
@@ -1524,9 +1540,27 @@
   /* ---------- Яндекс Метрика: включается номером счётчика в content.json (meta.metrika) ----------
      Не грузится только в предпросмотре админки (#preview). Внутри фрейма грузится: так Метрика показывает
      на сайте карту ссылок, кликов и скроллинга. Вебвизор выключен: записи действий посетителей не ведутся. */
-  let YM = 0;
+  let YM = 0, YM_ID = '';
+  /* Согласие на cookie Метрики (письмо РКН: аналитика — только с согласия). Выбор хранится в localStorage этого
+     браузера: это технические данные, без них сайт не помнил бы ответ. До «Принять» скрипт Метрики не загружается. */
+  const CK_KEY = 'ck-consent';
+  const ckGet = () => { try { return localStorage.getItem(CK_KEY); } catch (e) { return null; } };
+  const ckSet = (v) => { try { localStorage.setItem(CK_KEY, v); } catch (e) {} };
+  const ckShow = (on) => { const b = $('ck'); if (b) b.hidden = !on; };
+  function ckDropYm() {   // при отказе после согласия: удалить cookie Метрики (_ym_*) этого сайта
+    document.cookie.split(';').map((c) => c.split('=')[0].trim()).filter((n) => n.startsWith('_ym')).forEach((n) => {
+      for (const d of ['', '; domain=' + location.hostname, '; domain=.' + location.hostname.replace(/^www\./, '')]) document.cookie = n + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/' + d;
+    });
+  }
+  function consentUi() {
+    if (PREVIEW || !/^\d{5,12}$/.test(YM_ID)) return ckShow(false);
+    const v = ckGet(); if (v === 'yes') metrika(YM_ID); else if (v !== 'no') ckShow(true);
+  }
+  $('ck-yes').addEventListener('click', () => { ckSet('yes'); ckShow(false); metrika(YM_ID); });
+  $('ck-no').addEventListener('click', () => { const was = YM; ckSet('no'); ckShow(false); ckDropYm(); if (was) location.reload(); });
+  $('ck-open').addEventListener('click', () => ckShow(true));
   function metrika(id) {
-    if (YM || PREVIEW || !/^\d{5,12}$/.test(String(id || ''))) return;
+    if (YM || PREVIEW || ckGet() !== 'yes' || !/^\d{5,12}$/.test(String(id || ''))) return;
     YM = +id;
     window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); }; window.ym.l = +new Date();
     // как в коде, который выдаёт Метрика для этого счётчика (tag.js?id=…, ssr, referrer, url); ecommerce и вебвизор не нужны
@@ -1544,7 +1578,7 @@
   }, true);
   // вкладки сайта считаются как отдельные страницы: видно, какие разделы смотрят
   const ymHit = (id) => { if (YM && window.ym) window.ym(YM, 'hit', location.pathname + '#' + id, { title: document.title + ' — ' + id }); };
-  function boot(c) { render(c); i18nDom(document.body); markMeta(); metrika((c.meta || {}).metrika); if (booted) return; booted = true; animate(); startDx(); startTabs(); writeSignature(); }
+  function boot(c) { render(c); i18nDom(document.body); markMeta(); YM_ID = String((c.meta || {}).metrika || '').trim(); consentUi(); if (booted) return; booted = true; animate(); startDx(); startTabs(); writeSignature(); }
   const ready = () => { if (parent !== window) parent.postMessage({ type: 'shapovalov:ready' }, '*'); };   // в сообщении нет ничего секретного
   const loadContent = (f) => fetch(f, { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
   (LANG === 'en' ? loadContent('content.en.json').catch(() => loadContent('content.json')) : loadContent('content.json')).then((c) => { boot(c); ready(); })
