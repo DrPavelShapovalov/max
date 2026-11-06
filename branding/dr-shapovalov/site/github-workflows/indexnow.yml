@@ -1,12 +1,13 @@
 # После каждого изменения сайта (в том числе публикации из админки):
 # 1) пересобирает отдельные страницы метода и кейсов и sitemap.xml из content.json (pages.py);
 # 2) если они изменились — сохраняет их в репозиторий и просит GitHub Pages выложить сайт заново;
-# 3) сообщает Яндексу и Bing (протокол IndexNow) все адреса из sitemap.xml.
+# 3) копирует сайт в Yandex Cloud Object Storage (бакет drshapovalov.ru; ключ — секрет YC_SA_KEY);
+# 4) если менялись тексты — сообщает Яндексу и Bing (протокол IndexNow) все адреса из sitemap.xml.
 name: Страницы и IndexNow
 on:
   push:
     branches: [main]
-    paths: ['index.html', 'content.json', 'content.en.json', 'pages.py']
+    paths-ignore: ['.github/**', 'README.md']
   workflow_dispatch:
 permissions:
   contents: write
@@ -17,6 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with: { fetch-depth: 2 }
+      - name: Что изменилось
+        id: what
+        run: |
+          if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -qE '^(index\.html|content\.json|content\.en\.json|pages\.py)$' \
+             || [ "${{ github.event_name }}" = workflow_dispatch ]; then echo "texts=1" >> "$GITHUB_OUTPUT"; else echo "texts=0" >> "$GITHUB_OUTPUT"; fi
       - name: Собрать отдельные страницы
         run: python3 pages.py .
       - name: Сохранить изменения
@@ -28,7 +35,7 @@ jobs:
             commit -m "Страницы метода и кейсов обновлены из content.json"
           git push
           echo "changed=1" >> "$GITHUB_OUTPUT"
-      - name: Выложить сайт заново
+      - name: Выложить сайт заново (GitHub Pages)
         if: steps.save.outputs.changed == '1'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -36,9 +43,34 @@ jobs:
           curl -s -o /dev/null -w 'pages build: HTTP %{http_code}\n' -X POST \
             -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${{ github.repository }}/pages/builds"
-      - name: Подождать выкладку GitHub Pages
+      - name: Выложить сайт в Yandex Cloud
+        env:
+          YC_SA_KEY: ${{ secrets.YC_SA_KEY }}
+        run: |
+          [ -n "$YC_SA_KEY" ] || { echo "секрета YC_SA_KEY нет — пропускаю"; exit 0; }
+          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i "$HOME/yc" -n >/dev/null
+          export PATH="$HOME/yc/bin:$PATH"
+          umask 077; printf '%s' "$YC_SA_KEY" > "$RUNNER_TEMP/key.json"
+          trap 'rm -f "$RUNNER_TEMP/key.json" "$RUNNER_TEMP/ak.json"' EXIT
+          yc config profile create site >/dev/null
+          yc config set service-account-key "$RUNNER_TEMP/key.json"
+          SA=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['service_account_id'])" "$RUNNER_TEMP/key.json")
+          yc config set folder-id "$(yc iam service-account get "$SA" --format json | python3 -c "import json,sys;print(json.load(sys.stdin)['folder_id'])")"
+          # временный статический ключ на время копирования, потом удаляется
+          yc iam access-key create --service-account-id "$SA" --description "deploy $GITHUB_RUN_ID" --format json > "$RUNNER_TEMP/ak.json"
+          KID=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['access_key']['id'])" "$RUNNER_TEMP/ak.json")
+          export AWS_ACCESS_KEY_ID=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['access_key']['key_id'])" "$RUNNER_TEMP/ak.json")
+          export AWS_SECRET_ACCESS_KEY=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['secret'])" "$RUNNER_TEMP/ak.json")
+          echo "::add-mask::$AWS_SECRET_ACCESS_KEY"; echo "::add-mask::$AWS_ACCESS_KEY_ID"
+          export AWS_DEFAULT_REGION=ru-central1
+          aws s3 sync . s3://drshapovalov.ru --endpoint-url https://storage.yandexcloud.net --delete --no-progress \
+            --exclude '.git/*' --exclude '.github/*' --exclude 'README.md' --exclude 'pages.py' --exclude 'CNAME'
+          yc iam access-key delete "$KID"
+      - name: Подождать выкладку
+        if: steps.what.outputs.texts == '1'
         run: sleep 150
       - name: Отправить адреса в IndexNow
+        if: steps.what.outputs.texts == '1'
         env:
           HOST: drshapovalov.ru
           KEY: 4b3c078de10cb0485816cd596851f717
