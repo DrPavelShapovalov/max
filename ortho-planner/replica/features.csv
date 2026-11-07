@@ -1,0 +1,36 @@
+feature,area,priority,original,clone,notes
+Загрузка боковой ТРГ,snapshot,must,yes,yes,JPG/PNG через файл или вставку
+Калибровка масштаба (мм/px),snapshot,must,yes,yes,по известному отрезку/линейке
+Данные пациента (ФИО/пол/дата),snapshot,should,yes,yes,для отчёта
+Расстановка цеф. точек с подсказками,tracing,must,yes,yes,скелетные точки
+Мягкотканные точки профиля,tracing,must,yes,yes,Gl Prn Sn Ls Li Pog' Me'
+Перетаскивание/правка точек,tracing,must,yes,yes,drag на канвасе
+Зум/панорама снимка,tracing,should,yes,yes,колесо/перетаскивание
+Анализ SNA/SNB/ANB,analysis,must,yes,yes,Steiner
+Wits-оценка,analysis,should,yes,yes,
+Угол плоскости НЧ (SN-MP / FMA),analysis,must,yes,yes,
+Наклон резцов U1-NA L1-NB,analysis,must,yes,yes,градусы и мм
+Межрезцовый угол,analysis,should,yes,yes,
+Носогубный угол,analysis,should,yes,yes,мягкие ткани
+Нормы и статус (норма/выше/ниже),analysis,must,yes,yes,цветовая отметка
+Скелетный класс по ANB,analysis,must,yes,yes,I/II/III
+Le Fort I — в/ч вперёд/назад,surgery,must,yes,yes,мм
+Le Fort I — импакция/опускание,surgery,must,yes,yes,мм вертикаль
+Le Fort I — питч/ротация,surgery,should,yes,yes,градусы
+BSSO — н/ч вперёд/назад,surgery,must,yes,yes,мм
+BSSO — ротация/вертикаль,surgery,should,yes,yes,
+Авторотация НЧ,surgery,could,yes,yes,при импакции в/ч
+Гениопластика — подбородок,surgery,must,yes,yes,вперёд/назад/вертикаль
+Схема линий остеотомии,surgery,should,yes,yes,Le Fort I / BSSO / гениопластика
+Прогноз мягких тканей,prediction,must,yes,yes,коэффициенты губы/pog'
+До/После оверлей,prediction,must,yes,yes,наложение профилей
+Ползунок прозрачности оверлея,prediction,should,yes,yes,
+Суперпозиция по основанию черепа (SN),prediction,should,yes,yes,
+Сводка перемещений (план операции),report,must,yes,yes,мм и °
+Значения анализа до/после,report,should,yes,yes,
+Экспорт PNG плана,report,must,yes,yes,
+Печать,report,could,yes,yes,
+Сохранение/загрузка плана,report,should,yes,yes,JSON локально
+3D-КТ планирование,3d,skip,yes,no,вне скопа — есть в OSSA
+Фотоморфинг лица,photo,skip,yes,no,вне скопа
+База пациентов/PACS,data,skip,yes,no,вне скопа

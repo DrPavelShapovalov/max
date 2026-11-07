@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ОРТО-планнер — планирование ортогнатических операций</title>
+<style>
+  :root{
+    --bg:#0c1620; --bg2:#0f1d28; --panel:#12242f; --panel2:#16303d; --line:#244152; --line2:#2f5468;
+    --ink:#eaf6f8; --soft:#9fc2cc; --faint:#6a8c98; --accent:#2fd6c6; --accent2:#4aa8ff;
+    --warn:#ffc24d; --good:#43d98a; --bad:#ff6b7a; --mono:ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:system-ui,'Segoe UI',sans-serif;display:flex;flex-direction:column;overflow:hidden}
+  .top{display:flex;align-items:center;gap:10px;padding:9px 14px;background:linear-gradient(180deg,#14303d,#0e212c);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .brand{font-weight:800;letter-spacing:.02em;display:flex;align-items:center;gap:8px;font-size:15px}
+  .brand .mk{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;background:linear-gradient(135deg,#14414a,#0e2a33);border:1px solid var(--line);color:var(--accent)}
+  .brand small{font-family:var(--mono);font-size:9px;color:var(--faint);font-weight:400;letter-spacing:.1em}
+  .tabs{display:flex;gap:3px;margin-left:8px;flex-wrap:wrap}
+  .tab{padding:7px 13px;font-size:12.5px;border-radius:8px;cursor:pointer;color:var(--soft);border:1px solid transparent;user-select:none}
+  .tab:hover{color:var(--ink);background:rgba(47,214,198,.06)}
+  .tab.on{background:linear-gradient(180deg,#2fd6c6,#20b6c8);color:#042;font-weight:700}
+  .top .sp{margin-left:auto}
+  .btn{background:linear-gradient(180deg,#2fd6c6,#20b6c8);color:#042018;border:none;border-radius:8px;padding:7px 13px;font-weight:700;cursor:pointer;font-size:12px}
+  .btn.ghost{background:var(--panel2);color:var(--soft);border:1px solid var(--line);font-weight:500}
+  .btn.ghost:hover{color:var(--accent);border-color:var(--accent)}
+  .main{flex:1;display:flex;min-height:0}
+  .stage{flex:1;position:relative;background:#06101a;min-width:0;overflow:hidden}
+  #cv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+  .side{width:320px;flex:0 0 320px;background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:13px}
+  .sect{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:4px 0 8px;display:flex;align-items:center;gap:6px}
+  .sect::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent)}
+  .hid{display:none}
+  .row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+  .row label{width:118px;font-size:11.5px;color:var(--soft);flex-shrink:0}
+  .row input[type=range]{flex:1;accent-color:var(--accent);min-width:0}
+  .row .v{width:52px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--ink)}
+  input[type=text],input[type=number],select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;width:100%}
+  .lm{display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--soft);border:1px solid transparent}
+  .lm:hover{background:rgba(47,214,198,.06)}
+  .lm.cur{background:rgba(255,194,77,.13);border-color:var(--warn);color:var(--ink)}
+  .lm.ok .ck{color:var(--good)}
+  .ck{width:14px;text-align:center;color:var(--faint)}
+  .lm .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hint{font-size:11.5px;color:var(--faint);line-height:1.5;margin-top:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px}
+  .hint b{color:var(--soft)}
+  .an{display:grid;grid-template-columns:1fr auto auto;gap:3px 9px;align-items:baseline;font-size:12px;padding:6px 0;border-bottom:1px solid var(--line)}
+  .an .k{color:var(--soft)} .an .val{font-family:var(--mono);font-weight:700;text-align:right}
+  .an .st{font-family:var(--mono);font-size:10.5px;text-align:right}
+  .an .nm2{grid-column:1/4;font-size:10px;color:var(--faint);font-family:var(--mono)}
+  .pill{display:inline-block;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);color:var(--soft)}
+  .note{font-size:10.5px;color:var(--faint);line-height:1.5;margin-top:9px}
+  .grp{border:1px solid var(--line);border-radius:9px;padding:9px;margin-bottom:10px;background:var(--panel2)}
+  .grp h4{font-size:11.5px;color:var(--accent);margin-bottom:8px;font-weight:700}
+  .drop{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--faint);font-size:13px;pointer-events:none;padding:20px;line-height:1.7}
+  .drop b{color:var(--accent)}
+  .chk{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--soft);margin-bottom:7px;cursor:pointer}
+  .chk input{accent-color:var(--accent)}
+  .toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#12303d;border:1px solid var(--line2);color:var(--ink);padding:9px 15px;border-radius:9px;font-size:12.5px;z-index:40;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.on{opacity:1}
+  @media(max-width:720px){ .side{width:100%;flex-basis:auto;max-height:44vh} .main{flex-direction:column} }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="brand"><span class="mk">⟟</span><div>ОРТО-планнер<br><small>ПЛАНИРОВАНИЕ ОРТОГНАТИЧЕСКИХ ОПЕРАЦИЙ</small></div></div>
+    <div class="tabs" id="tabs">
+      <div class="tab on" data-t="snapshot">1 · Снимок</div>
+      <div class="tab" data-t="trace">2 · Точки</div>
+      <div class="tab" data-t="analysis">3 · Анализ</div>
+      <div class="tab" data-t="surgery">4 · Хирургия</div>
+      <div class="tab" data-t="result">5 · До / После</div>
+      <div class="tab" data-t="report">6 · План</div>
+    </div>
+    <span class="sp"></span>
+    <button class="btn ghost" id="saveBtn" title="Сохранить план в файл">💾 Сохранить</button>
+    <button class="btn ghost" id="openBtn" title="Открыть план">📂 Открыть</button>
+    <input type="file" id="openFile" accept=".ortho,application/json" class="hid">
+  </div>
+
+  <div class="main">
+    <div class="stage">
+      <canvas id="cv"></canvas>
+      <div class="drop" id="drop">Открой вкладку <b>«1 · Снимок»</b> и загрузи боковую ТРГ (JPG/PNG).<br>Затем во вкладке <b>«2 · Точки»</b> расставь ориентиры, а в <b>«4 · Хирургия»</b> задай перемещения челюстей.</div>
+    </div>
+    <div class="side" id="side"></div>
+  </div>
+  <div class="toast" id="toast"></div>
+  <input type="file" id="imgFile" accept="image/*" class="hid">
+
+<script>
+const $=id=>document.getElementById(id);
+const cv=$('cv'), ctx=cv.getContext('2d');
+let img=null, scale=0;                 // scale = px на мм (0 = не откалибровано)
+let LM={};                             // ориентиры: id -> {x,y} в пикселях изображения
+let view={ox:0,oy:0,zoom:1};
+let tab='snapshot', pickId=null;
+let calib={a:null,b:null,mm:0};        // калибровка
+let plan={mxAdv:0,mxImp:0,mxPitch:0, mdAdv:0,mdRot:0, chAdv:0,chVert:0, autorot:false};
+let overlay=0.5;
+let patient={name:'',sex:'M',dob:''};
+
+// ---- определения ориентиров ----
+const HARD=[
+ ['S','S — Селла','центр турецкого седла (середина гипофизарной ямки)'],
+ ['N','N — Назион','передняя точка лобно-носового шва (переносье)'],
+ ['Or','Or — Орбитале','самая нижняя точка нижнего края глазницы'],
+ ['Po','Po — Порион','верхняя точка наружного слухового прохода'],
+ ['ANS','ANS — пер. нос. ость','вершина передней носовой ости'],
+ ['PNS','PNS — зад. нос. ость','задний край твёрдого нёба (задняя ость)'],
+ ['A','A — точка A','глубочайшая точка переднего контура верхней челюсти'],
+ ['U1t','U1 — край верх. резца','режущий край верхнего центрального резца'],
+ ['U1a','U1 — корень верх. резца','верхушка корня верхнего резца'],
+ ['B','B — точка B','глубочайшая точка переднего контура нижней челюсти'],
+ ['L1t','L1 — край ниж. резца','режущий край нижнего центрального резца'],
+ ['L1a','L1 — корень ниж. резца','верхушка корня нижнего резца'],
+ ['Pog','Pog — погонион','самая передняя точка костного подбородка'],
+ ['Gn','Gn — гнатион','передне-нижняя точка подбородка'],
+ ['Me','Me — ментон','самая нижняя точка симфиза нижней челюсти'],
+ ['Go','Go — гонион','угол нижней челюсти'],
+ ['Ar','Ar — артикуляре','пересечение заднего контура ветви и основания черепа (ось авторотации)'],
+];
+const SOFT=[
+ ['G',"G — глабелла (мягк.)",'самая выступающая точка лба (профиль)'],
+ ['Prn','Prn — кончик носа','самая передняя точка носа'],
+ ['Sn','Sn — субназале','точка перехода носа в верхнюю губу'],
+ ['Ls','Ls — верхняя губа','самая выступающая точка верхней губы'],
+ ['Li','Li — нижняя губа','самая выступающая точка нижней губы'],
+ ['Pog2',"Pog' — мягк. погонион",'самая передняя точка мягкого подбородка'],
+ ['Me2',"Me' — мягк. ментон",'нижняя точка мягкого подбородка'],
+];
+const ALL=HARD.concat(SOFT);
+const LBL=Object.fromEntries(ALL.map(x=>[x[0],x[1]]));
+const HINT=Object.fromEntries(ALL.map(x=>[x[0],x[2]]));
+// линии трассировки: [a,b,цвет]
+const LINES=[['S','N','#4aa8ff'],['Go','Me','#43d98a'],['Po','Or','#8b7bff'],['N','A','#ffc24d'],['N','B','#ff8a5c'],['U1t','U1a','#2fd6c6'],['L1t','L1a','#2fd6c6'],['ANS','PNS','#5a7d8a']];
+const PROFILE=['G','Prn','Sn','Ls','Li','Pog2','Me2'];
+
+// ---- вектор-помощники ----
+const sub=(a,b)=>({x:a.x-b.x,y:a.y-b.y}), add=(a,b)=>({x:a.x+b.x,y:a.y+b.y}), mul=(a,s)=>({x:a.x*s,y:a.y*s});
+const dot=(a,b)=>a.x*b.x+a.y*b.y, len=a=>Math.hypot(a.x,a.y), norm=a=>{const l=len(a)||1;return{x:a.x/l,y:a.y/l};};
+const d2r=d=>d*Math.PI/180, r2d=r=>r*180/Math.PI;
+function rot(p,piv,ang){const c=Math.cos(ang),s=Math.sin(ang),dx=p.x-piv.x,dy=p.y-piv.y;return{x:piv.x+dx*c-dy*s,y:piv.y+dx*s+dy*c};}
+function angAt(v,a,b){const v1=sub(a,v),v2=sub(b,v);return r2d(Math.acos(Math.max(-1,Math.min(1,dot(v1,v2)/((len(v1)*len(v2))||1)))));}
+function lineAng(a,b,c,d){const v1=sub(b,a),v2=sub(d,c);return r2d(Math.acos(Math.min(1,Math.abs(dot(v1,v2))/((len(v1)*len(v2))||1))));}
+function distMM(a,b){return scale? len(sub(a,b))/scale : null;}
+function ptLineMM(p,a,b){ if(!scale)return null; const d=sub(b,a),l=len(d)||1; return ((p.x-a.x)*d.y-(p.y-a.y)*d.x)/l/scale; }
+
+// ---- лицевые оси (анте-задняя H, вертикаль V) из трассировки ----
+function axes(){
+  let H;
+  if(LM.Po&&LM.Or) H=norm(sub(LM.Or,LM.Po));
+  else if(LM.A&&LM.PNS) H=norm(sub(LM.A,LM.PNS));
+  else H={x:1,y:0};
+  if(LM.A&&LM.S){ const want=Math.sign(LM.A.x-LM.S.x); if(want&&Math.sign(H.x)!==want) H={x:-H.x,y:-H.y}; }
+  let V={x:-H.y,y:H.x}; if(V.y<0) V={x:-V.x,y:-V.y};   // вниз = +y (инфериор)
+  return {H,V};
+}
+// ---- расчёт плановых (после операции) положений ----
+function planned(){
+  const {H,V}=axes(); const s=scale||1; const P={};
+  for(const k in LM) P[k]={x:LM[k].x,y:LM[k].y};
+  const mxT=add(mul(H,plan.mxAdv*s), mul(V,-plan.mxImp*s));
+  const mdT=mul(H,plan.mdAdv*s);
+  const chT=add(mul(H,plan.chAdv*s), mul(V,plan.chVert*s));
+  const mdRot=plan.autorot? (plan.mxImp*1.1) : plan.mdRot;    // авторотация ~ импакция
+  const pivMx=LM.PNS||LM.ANS||LM.A, pivMd=LM.Ar||LM.Go;
+  ['A','ANS','PNS','U1t','U1a'].forEach(k=>{ if(!LM[k])return; let q=pivMx?rot(LM[k],pivMx,d2r(plan.mxPitch)):LM[k]; P[k]=add(q,mxT); });
+  ['B','L1t','L1a','Pog','Gn','Me'].forEach(k=>{ if(!LM[k])return; let q=pivMd?rot(LM[k],pivMd,d2r(mdRot)):LM[k]; P[k]=add(q,mdT); });
+  ['Pog','Gn','Me'].forEach(k=>{ if(P[k]) P[k]=add(P[k],chT); });
+  // прогноз мягких тканей: мягкая точка следует за опорной костной с коэффициентами (h,v)
+  [['Prn','A',0.3,0.2],['Sn','A',0.5,0.5],['Ls','U1t',0.6,0.6],['Li','L1t',0.6,0.65],['Pog2','Pog',0.9,0.9],['Me2','Me',1.0,1.0]]
+   .forEach(([sk,src,rh,rv])=>{ if(!LM[sk]||!LM[src]||!P[src])return; const d=sub(P[src],LM[src]);
+     P[sk]=add(LM[sk], add(mul(H,dot(d,H)*rh), mul(V,dot(d,V)*rv))); });
+  return P;
+}
+
+// ---- цефалометрический анализ (из набора точек G) ----
+function analyse(G){
+  const has=(...k)=>k.every(x=>G[x]); const rows=[];
+  const add_=(key,val,lo,hi,norm,extra)=>{ let st='—'; if(val!=null&&!isNaN(val)) st=val<lo?'↓ ниже':(val>hi?'↑ выше':'норма'); rows.push({key,val,lo,hi,norm,st,extra}); };
+  add_('SNA, °', has('S','N','A')?angAt(G.N,G.S,G.A):null,80,84,'82±2');
+  add_('SNB, °', has('S','N','B')?angAt(G.N,G.S,G.B):null,78,82,'80±2');
+  let anb=null,cls=''; if(has('S','N','A','B')){ anb=angAt(G.N,G.S,G.A)-angAt(G.N,G.S,G.B); cls=anb>4?'скелетный II класс':(anb<0?'скелетный III класс':'I класс'); }
+  add_('ANB, °', anb,0,4,'2±2',cls);
+  add_('Wits, мм', has('A','B','U1t','L1t')?(()=>{const ao=ptLineMM(G.A,G.U1t,G.L1t),bo=ptLineMM(G.B,G.U1t,G.L1t);return ao==null?null:(ao-bo);})():null,-1,3,'−1…3');
+  add_('SN–MP, °', has('S','N','Go','Me')?lineAng(G.S,G.N,G.Go,G.Me):null,28,37,'32±5');
+  add_('FMA (Fr–MP), °', has('Po','Or','Go','Me')?lineAng(G.Po,G.Or,G.Go,G.Me):null,20,30,'25±5');
+  add_('U1–NA, °', has('U1a','U1t','N','A')?lineAng(G.U1a,G.U1t,G.N,G.A):null,18,26,'22±2');
+  add_('U1–NA, мм', has('U1t','N','A')?Math.abs(ptLineMM(G.U1t,G.N,G.A)):null,2,6,'4±2');
+  add_('L1–NB, °', has('L1a','L1t','N','B')?lineAng(G.L1a,G.L1t,G.N,G.B):null,21,29,'25±2');
+  add_('L1–NB, мм', has('L1t','N','B')?Math.abs(ptLineMM(G.L1t,G.N,G.B)):null,2,6,'4±2');
+  add_('Межрезцовый, °', has('U1a','U1t','L1a','L1t')?(180-lineAng(G.U1a,G.U1t,G.L1a,G.L1t)>90?lineAng2(G):null):null,124,138,'131±7');
+  add_('Носогубный, °', has('Prn','Sn','Ls')?angAt(G.Sn,G.Prn,G.Ls):null,90,110,'100±10');
+  return rows;
+}
+function lineAng2(G){ // межрезцовый угол как угол между осями резцов (тупой)
+  const v1=sub(G.U1t,G.U1a),v2=sub(G.L1t,G.L1a);
+  let a=r2d(Math.acos(Math.max(-1,Math.min(1,dot(v1,v2)/((len(v1)*len(v2))||1)))));
+  return 180-a;
+}
+
+// ---- отрисовка ----
+function fit(){ const r=cv.getBoundingClientRect(); const dpr=Math.min(devicePixelRatio||1,2); cv.width=r.width*dpr; cv.height=r.height*dpr; }
+function autoView(){ if(!img)return; const r=cv.getBoundingClientRect(); const dpr=Math.min(devicePixelRatio||1,2);
+  const z=Math.min(r.width*dpr/img.width, r.height*dpr/img.height)*0.94; view.zoom=z;
+  view.ox=(r.width*dpr-img.width*z)/2; view.oy=(r.height*dpr-img.height*z)/2; }
+const toS=p=>({x:view.ox+p.x*view.zoom, y:view.oy+p.y*view.zoom});
+const toI=(sx,sy)=>({x:(sx-view.ox)/view.zoom, y:(sy-view.oy)/view.zoom});
+function draw(){
+  fit(); ctx.fillStyle='#06101a'; ctx.fillRect(0,0,cv.width,cv.height);
+  if(img){ ctx.imageSmoothingEnabled=true; ctx.drawImage(img, view.ox,view.oy, img.width*view.zoom, img.height*view.zoom); }
+  $('drop').style.display=(img||Object.keys(LM).length)?'none':'';
+  const dpr=Math.min(devicePixelRatio||1,2);
+  // калибровка
+  if(tab==='snapshot'&&calib.a){ ctx.strokeStyle='#ffc24d'; ctx.lineWidth=2;
+    const A=toS(calib.a); ctx.beginPath(); ctx.arc(A.x,A.y,4,0,7); ctx.stroke();
+    if(calib.b){ const B=toS(calib.b); ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke(); ctx.beginPath(); ctx.arc(B.x,B.y,4,0,7); ctx.stroke(); } }
+  const showPlan=(tab==='surgery'||tab==='result'); const P=showPlan?planned():null;
+  // линии трассировки (исходные)
+  const drawLines=(src,col,wid,dash)=>{ ctx.lineWidth=wid; ctx.setLineDash(dash||[]);
+    LINES.forEach(([a,b,c])=>{ if(src[a]&&src[b]){ ctx.strokeStyle=col||c; const A=toS(src[a]),B=toS(src[b]); ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke(); } }); ctx.setLineDash([]); };
+  // профиль мягких тканей
+  const drawProfile=(src,col,wid,dash)=>{ ctx.strokeStyle=col; ctx.lineWidth=wid; ctx.setLineDash(dash||[]); ctx.beginPath(); let started=false;
+    PROFILE.forEach(k=>{ if(src[k]){ const S=toS(src[k]); if(!started){ctx.moveTo(S.x,S.y);started=true;} else ctx.lineTo(S.x,S.y); } }); ctx.stroke(); ctx.setLineDash([]); };
+  if(tab==='result'){
+    // наложение: исходное приглушённо, план ярко
+    ctx.globalAlpha=0.45; drawLines(LM,'#5a7d8a',1.4); drawProfile(LM,'#8fb0bc',2,[5,4]);
+    ctx.globalAlpha=1; if(P){ drawLines(P,null,1.6); drawProfile(P,'#2fd6c6',2.4); }
+  } else {
+    drawLines(LM,null,1.5);
+    if(tab!=='snapshot') drawProfile(LM,'#8fb0bc',1.8,[4,4]);
+    if(showPlan&&P){ ctx.globalAlpha=0.9; drawLines(P,'#ffd34d',1.4,[5,3]); drawProfile(P,'#2fd6c6',2.2); ctx.globalAlpha=1; drawOsteotomy(); }
+  }
+  // точки
+  const pts=(tab==='trace');
+  ALL.forEach(([k])=>{ if(!LM[k])return; const S=toS(LM[k]); const cur=(k===pickId);
+    ctx.fillStyle=cur?'#ffd34d':(SOFTSET.has(k)?'#4aa8ff':'#2fd6c6'); ctx.strokeStyle='#04140f'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(S.x,S.y,cur?5:3.6,0,7); ctx.fill(); ctx.stroke();
+    if(pts){ ctx.fillStyle='#eaf6f8'; ctx.font=(11*dpr/1)+'px '+'ui-monospace,monospace'; ctx.fillText(k,S.x+6,S.y-5); } });
+}
+const SOFTSET=new Set(SOFT.map(x=>x[0]));
+function drawOsteotomy(){ // схематичные линии распилов
+  ctx.save(); ctx.setLineDash([6,4]); ctx.lineWidth=1.3;
+  if(LM.ANS&&LM.PNS){ ctx.strokeStyle='#ff8a5c'; const A=toS(LM.ANS),B=toS(LM.PNS); // Le Fort I
+    ctx.beginPath(); ctx.moveTo(A.x,A.y-2); ctx.lineTo(B.x,B.y-2); ctx.stroke(); }
+  if(LM.B&&LM.Go){ ctx.strokeStyle='#43d98a'; const A=toS(LM.B),B=toS(LM.Go); // BSSO (схема)
+    ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke(); }
+  if(LM.Pog&&LM.Me){ ctx.strokeStyle='#8b7bff'; const A=toS(LM.Me),B=toS(LM.Pog); // гениопластика
+    ctx.beginPath(); ctx.moveTo(A.x,A.y-6); ctx.lineTo(B.x,B.y-6); ctx.stroke(); }
+  ctx.restore();
+}
+
+// ---- боковая панель по вкладкам ----
+function renderSide(){
+  const s=$('side');
+  if(tab==='snapshot'){
+    s.innerHTML=`<div class="sect">Снимок</div>
+      <button class="btn" id="loadImg" style="width:100%;margin-bottom:9px">📷 Загрузить боковую ТРГ</button>
+      <div class="grp"><h4>Калибровка масштаба</h4>
+        <div class="note" style="margin:0 0 7px">Нажми «Отметить отрезок», кликни 2 точки известного расстояния (напр. линейку 10 мм на снимке), впиши мм.</div>
+        <button class="btn ghost" id="calBtn" style="width:100%;margin-bottom:7px">📏 Отметить отрезок</button>
+        <div class="row"><label>Длина отрезка</label><input type="number" id="calMM" value="${calib.mm||10}" step="0.5" style="width:70px"><span class="v">мм</span></div>
+        <div class="note" id="calInfo">${scale?('Масштаб: '+scale.toFixed(2)+' px/мм ✓'):'Не откалибровано — углы считаются, линейные размеры (мм) — нет.'}</div>
+      </div>
+      <div class="grp"><h4>Пациент</h4>
+        <div class="row"><label>ФИО / №</label><input type="text" id="pName" value="${patient.name}"></div>
+        <div class="row"><label>Пол</label><select id="pSex"><option value="M"${patient.sex=='M'?' selected':''}>муж</option><option value="F"${patient.sex=='F'?' selected':''}>жен</option></select></div>
+        <div class="row"><label>Дата рожд.</label><input type="text" id="pDob" value="${patient.dob}" placeholder="дд.мм.гггг"></div>
+      </div>
+      <div class="note">Дальше — вкладка <b>«2 · Точки»</b>.</div>`;
+    $('loadImg').onclick=()=>$('imgFile').click();
+    $('calBtn').onclick=()=>{ calib={a:null,b:null,mm:+$('calMM').value||10}; toast('Кликни 2 точки известного расстояния на снимке'); };
+    $('calMM').onchange=e=>{ calib.mm=+e.target.value||10; if(calib.a&&calib.b) applyCalib(); };
+    $('pName').onchange=e=>patient.name=e.target.value; $('pSex').onchange=e=>patient.sex=e.target.value; $('pDob').onchange=e=>patient.dob=e.target.value;
+  }
+  else if(tab==='trace'){
+    const list=ALL.map(([k,nm])=>`<div class="lm${k===pickId?' cur':''}${LM[k]?' ok':''}" data-k="${k}"><span class="ck">${LM[k]?'✓':'○'}</span><span class="nm">${nm}</span></div>`).join('');
+    const sel=pickId||ALL.find(x=>!LM[x[0]])?.[0];
+    s.innerHTML=`<div class="sect">Костные и мягкотканные точки</div>
+      <div class="note" style="margin:0 0 8px">Выбери точку и кликни на снимке. Перетаскивай точку, чтобы поправить. Серые — ещё не поставлены.</div>
+      ${list}
+      <div class="hint" id="hint">${sel?('<b>'+LBL[sel]+'</b><br>'+HINT[sel]):'Все точки расставлены.'}</div>
+      <button class="btn ghost" id="clrPts" style="width:100%;margin-top:9px">Очистить все точки</button>`;
+    s.querySelectorAll('.lm').forEach(r=>r.onclick=()=>{ pickId=r.dataset.k; renderSide(); draw(); });
+    $('clrPts').onclick=()=>{ if(confirm('Убрать все точки?')){ LM={}; pickId=null; renderSide(); draw(); } };
+  }
+  else if(tab==='analysis'){
+    s.innerHTML=`<div class="sect">Цефалометрия</div><div id="anBox"></div>
+      <div class="note">Нормы ориентировочные (взрослые). Значения зависят от точности расстановки и калибровки. Линейные (мм) требуют калибровки масштаба.</div>`;
+    renderAnalysis($('anBox'), analyse(LM));
+  }
+  else if(tab==='surgery'){
+    s.innerHTML=`<div class="sect">Хирургическое перемещение</div>
+      <div class="grp"><h4>Верхняя челюсть — Le Fort I</h4>
+        ${slider('mxAdv','Выдвижение',-10,10,0.5,'мм')}
+        ${slider('mxImp','Импакция (+вверх)',-5,6,0.5,'мм')}
+        ${slider('mxPitch','Наклон (питч)',-8,8,0.5,'°')}</div>
+      <div class="grp"><h4>Нижняя челюсть — BSSO</h4>
+        ${slider('mdAdv','Выдвижение',-12,12,0.5,'мм')}
+        ${slider('mdRot','Ротация',-10,10,0.5,'°')}
+        <label class="chk"><input type="checkbox" id="autorot" ${plan.autorot?'checked':''}> Авторотация по импакции в/ч</label></div>
+      <div class="grp"><h4>Подбородок — гениопластика</h4>
+        ${slider('chAdv','Выдвижение',-10,10,0.5,'мм')}
+        ${slider('chVert','Вертикаль (+вниз)',-8,8,0.5,'мм')}</div>
+      <button class="btn ghost" id="resetPlan" style="width:100%">Сбросить перемещения</button>
+      <div class="note">Пунктир — плановое положение, бирюза — прогноз профиля. Схема распилов: оранж — Le Fort I, зелёный — BSSO, фиолет — гениопластика.</div>`;
+    bindSliders(); $('autorot').onchange=e=>{plan.autorot=e.target.checked; draw(); renderSide();};
+    $('resetPlan').onclick=()=>{ plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false}; renderSide(); draw(); };
+  }
+  else if(tab==='result'){
+    s.innerHTML=`<div class="sect">До / После</div>
+      <div class="note" style="margin:0 0 9px">Пунктир серый — исходный профиль, бирюза — прогноз после операции (наложение по основанию черепа S–N).</div>
+      ${slider2('overlay','Прозрачность исходного',0,1,0.05,'')}
+      <div class="grp"><h4>Сводка перемещений</h4><div id="mv" style="font-size:12px"></div></div>
+      <div class="grp"><h4>Прогноз мягких тканей</h4><div class="note" style="margin:0">Губы и подбородок рассчитаны по усреднённым коэффициентам отношения мягких тканей к костным (ориентировочно). Проверяйте клинически.</div></div>`;
+    $('overlay').oninput=e=>{overlay=+e.target.value; draw();}; renderMoves($('mv'));
+  }
+  else if(tab==='report'){
+    s.innerHTML=`<div class="sect">План операции</div>
+      <div class="grp"><h4>Пациент</h4><div style="font-size:12px" id="rpPat"></div></div>
+      <div class="grp"><h4>Перемещения</h4><div id="rpMv" style="font-size:12px"></div></div>
+      <div class="grp"><h4>Анализ: до → после</h4><div id="rpAn" style="font-size:11.5px"></div></div>
+      <button class="btn" id="expPng" style="width:100%;margin-bottom:7px">⬇ Снимок плана (PNG)</button>
+      <button class="btn ghost" id="prn" style="width:100%">🖨 Печать</button>`;
+    $('rpPat').innerHTML=`${patient.name||'—'} · ${patient.sex=='M'?'муж':'жен'} · ${patient.dob||'—'}`;
+    renderMoves($('rpMv')); renderBeforeAfter($('rpAn'));
+    $('expPng').onclick=exportPng; $('prn').onclick=()=>window.print();
+  }
+}
+function slider(k,label,mn,mx,st,unit){ return `<div class="row"><label>${label}</label><input type="range" id="s_${k}" min="${mn}" max="${mx}" step="${st}" value="${plan[k]}"><span class="v" id="v_${k}">${(+plan[k]).toFixed(1)}${unit}</span></div>`; }
+function slider2(k,label,mn,mx,st,unit){ return `<div class="row"><label>${label}</label><input type="range" id="${k}" min="${mn}" max="${mx}" step="${st}" value="${overlay}"><span class="v">${unit}</span></div>`; }
+function bindSliders(){ ['mxAdv','mxImp','mxPitch','mdAdv','mdRot','chAdv','chVert'].forEach(k=>{ const el=$('s_'+k); if(!el)return; const u=(k.includes('Pitch')||k.includes('Rot'))?'°':'мм';
+  el.oninput=e=>{ plan[k]=+e.target.value; $('v_'+k).textContent=(+plan[k]).toFixed(1)+u; draw(); }; }); }
+function renderAnalysis(box, rows){ box.innerHTML=rows.map(r=>{ const col=r.st==='норма'?'var(--good)':(r.st==='—'?'var(--faint)':'var(--warn)');
+  return `<div class="an"><span class="k">${r.key}</span><span class="val">${r.val!=null&&!isNaN(r.val)?r.val.toFixed(1):'—'}</span><span class="st" style="color:${col}">${r.st}</span><span class="nm2">норма ${r.norm}${r.extra?' · '+r.extra:''}</span></div>`; }).join(''); }
+function renderMoves(box){ const M=[['Верхняя челюсть (Le Fort I)',`выдв. ${f(plan.mxAdv)} мм · импакция ${f(plan.mxImp)} мм · питч ${f(plan.mxPitch)}°`],
+  ['Нижняя челюсть (BSSO)',`выдв. ${f(plan.mdAdv)} мм · ротация ${f(plan.autorot?plan.mxImp*1.1:plan.mdRot)}°${plan.autorot?' (авто)':''}`],
+  ['Подбородок (гениопластика)',`выдв. ${f(plan.chAdv)} мм · вертикаль ${f(plan.chVert)} мм`]];
+  box.innerHTML=M.map(([a,b])=>`<div style="margin-bottom:6px"><b style="color:var(--soft)">${a}</b><br><span style="font-family:var(--mono);color:var(--ink)">${b}</span></div>`).join(''); }
+function renderBeforeAfter(box){ const b=analyse(LM), a=analyse(planned()); const keep=['SNA, °','SNB, °','ANB, °','Wits, мм','U1–NA, мм','L1–NB, мм'];
+  box.innerHTML=keep.map(key=>{ const rb=b.find(x=>x.key===key), ra=a.find(x=>x.key===key); const vb=rb&&rb.val!=null?rb.val.toFixed(1):'—', va=ra&&ra.val!=null?ra.val.toFixed(1):'—';
+    return `<div class="an"><span class="k">${key}</span><span class="val">${vb} → ${va}</span><span class="st"></span></div>`; }).join(''); }
+const f=x=>(x>=0?'+':'')+(+x).toFixed(1);
+
+// ---- экспорт ----
+function exportPng(){ const a=document.createElement('a'); a.download='Ортоплан_'+(patient.name||'пациент')+'.png'; a.href=cv.toDataURL('image/png'); a.click(); }
+function serialize(){ return JSON.stringify({v:1,patient,scale,LM,plan,imgSrc:img?img.src:null}); }
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('on'),2200); }
+
+// ---- калибровка ----
+function applyCalib(){ if(calib.a&&calib.b&&calib.mm>0){ scale=len(sub(calib.a,calib.b))/calib.mm; toast('Масштаб: '+scale.toFixed(2)+' px/мм'); renderSide(); } }
+
+// ---- события канваса ----
+let drag=null, panning=null;
+cv.addEventListener('mousedown',e=>{ const r=cv.getBoundingClientRect(); const dpr=Math.min(devicePixelRatio||1,2);
+  const sx=(e.clientX-r.left)*dpr, sy=(e.clientY-r.top)*dpr; const ip=toI(sx,sy);
+  if(e.button===1||e.shiftKey){ panning={sx,sy,ox:view.ox,oy:view.oy}; return; }
+  if(tab==='snapshot'&&calib.mm>=0&&(calib.a==null||calib.b==null) && img){ if(!calib.a)calib.a=ip; else {calib.b=ip; applyCalib();} draw(); return; }
+  if(tab==='trace'&&img){ // перетащить ближайшую или поставить выбранную
+    let best=null,bd=14*dpr; ALL.forEach(([k])=>{ if(LM[k]){ const S=toS(LM[k]); const d=Math.hypot(S.x-sx,S.y-sy); if(d<bd){bd=d;best=k;} } });
+    if(best){ drag=best; pickId=best; renderSide(); draw(); return; }
+    const put=pickId||ALL.find(x=>!LM[x[0]])?.[0]; if(put){ LM[put]=ip; const i=ALL.findIndex(x=>x[0]===put); const nx=ALL.slice(i+1).find(x=>!LM[x[0]]); pickId=nx?nx[0]:null; renderSide(); draw(); }
+    return; }
+});
+window.addEventListener('mousemove',e=>{ const r=cv.getBoundingClientRect(); const dpr=Math.min(devicePixelRatio||1,2);
+  const sx=(e.clientX-r.left)*dpr, sy=(e.clientY-r.top)*dpr;
+  if(panning){ view.ox=panning.ox+(sx-panning.sx); view.oy=panning.oy+(sy-panning.sy); draw(); return; }
+  if(drag){ LM[drag]=toI(sx,sy); draw(); } });
+window.addEventListener('mouseup',()=>{ if(drag){drag=null; renderSide();} panning=null; });
+cv.addEventListener('wheel',e=>{ e.preventDefault(); const r=cv.getBoundingClientRect(); const dpr=Math.min(devicePixelRatio||1,2);
+  const sx=(e.clientX-r.left)*dpr, sy=(e.clientY-r.top)*dpr; const before=toI(sx,sy);
+  view.zoom*=e.deltaY<0?1.12:0.89; const after=toI(sx,sy); view.ox+=(after.x-before.x)*view.zoom; view.oy+=(after.y-before.y)*view.zoom; draw(); },{passive:false});
+
+// ---- загрузка изображения ----
+$('imgFile').addEventListener('change',e=>{ const file=e.target.files[0]; if(!file)return; const rd=new FileReader();
+  rd.onload=()=>{ const im=new Image(); im.onload=()=>{ img=im; autoView(); renderSide(); draw(); toast('Снимок загружен. Откалибруй масштаб и ставь точки.'); }; im.src=rd.result; }; rd.readAsDataURL(file); e.target.value=''; });
+// drag&drop
+cv.addEventListener('dragover',e=>e.preventDefault());
+cv.addEventListener('drop',e=>{ e.preventDefault(); const file=e.dataTransfer.files[0]; if(file&&file.type.startsWith('image')){ const rd=new FileReader(); rd.onload=()=>{ const im=new Image(); im.onload=()=>{img=im;autoView();draw();toast('Снимок загружен');}; im.src=rd.result; }; rd.readAsDataURL(file); } });
+
+// ---- сохранить / открыть ----
+$('saveBtn').onclick=()=>{ const a=document.createElement('a'); a.download=(patient.name||'план')+'.ortho'; a.href=URL.createObjectURL(new Blob([serialize()],{type:'application/json'})); a.click(); };
+$('openBtn').onclick=()=>$('openFile').click();
+$('openFile').addEventListener('change',e=>{ const file=e.target.files[0]; if(!file)return; const rd=new FileReader();
+  rd.onload=()=>{ try{ const o=JSON.parse(rd.result); patient=o.patient||patient; scale=o.scale||0; LM=o.LM||{}; plan=Object.assign(plan,o.plan||{});
+    if(o.imgSrc){ const im=new Image(); im.onload=()=>{img=im;autoView();renderSide();draw();}; im.src=o.imgSrc; } else {renderSide();draw();} toast('План загружен'); }catch(err){ alert('Не удалось открыть файл'); } }; rd.readAsDataURL? rd.readAsText(file):rd.readAsText(file); e.target.value=''; });
+
+// ---- вкладки ----
+$('tabs').addEventListener('click',e=>{ const t=e.target.closest('.tab'); if(!t)return; tab=t.dataset.t;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t)); pickId=null; renderSide(); draw(); });
+
+window.addEventListener('resize',()=>{ draw(); });
+renderSide(); fit(); draw();
+
+// тест-хук
+window.__ortho={ set:(k,x,y)=>{LM[k]={x,y};}, calibrate:(s)=>{scale=s;}, analyse:()=>analyse(LM), planned, setPlan:(p)=>{Object.assign(plan,p);}, state:()=>({scale,n:Object.keys(LM).length}) };
+</script>
+</body>
+</html>
