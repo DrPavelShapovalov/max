@@ -34,3 +34,6 @@ BSSO — ротация/вертикаль,surgery,should,yes,yes,
 3D-КТ планирование,3d,skip,yes,no,вне скопа — есть в OSSA
 Фотоморфинг лица,photo,skip,yes,no,вне скопа
 База пациентов/PACS,data,skip,yes,no,вне скопа
+Загрузка МСКТ (DICOM) → ТРГ (DRR),snapshot,must,no,yes,несжатый DICOM разбирается в приложении
+Масштаб из DICOM (без калибровки),snapshot,should,no,yes,px/мм из PixelSpacing/Thickness
+Авторасстановка точек (черновик),tracing,should,no,yes,шаблон по bbox головы, правка вручную
