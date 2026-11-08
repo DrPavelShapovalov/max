@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ОРТОС — планировщик ортогнатической хирургии</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="bg-blobs"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span></div>
+
+  <div class="app">
+    <header class="header">
+      <div class="brand">
+        <div class="logo">
+          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 22a9 7 0 0 1 18-1" opacity=".55"/><path d="M11 22c2 2.4 9 2.4 11 0"/>
+            <path d="M16 22v5M13 27h6" opacity=".9"/><circle cx="21" cy="13" r="1.4" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <div><div class="name">ОРТОС</div><div class="sub">Orthognathic Surgery Planner</div></div>
+      </div>
+      <nav class="steps" id="steps">
+        <div class="step on" data-s="patient"><span class="dot">1</span>Пациент</div>
+        <div class="step" data-s="trg"><span class="dot">2</span>МСКТ → ТРГ</div>
+        <div class="step" data-s="points"><span class="dot">3</span>Точки</div>
+        <div class="step" data-s="photo"><span class="dot">4</span>Фото</div>
+        <div class="step" data-s="analysis"><span class="dot">5</span>Анализ</div>
+        <div class="step" data-s="plan"><span class="dot">6</span>План</div>
+      </nav>
+      <div class="hbtns">
+        <button class="btn ghost sm" id="saveBtn">💾 Сохранить</button>
+        <button class="btn ghost sm" id="openBtn">📂 Открыть</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <div class="stage" id="stage">
+        <canvas id="cv"></canvas>
+        <div class="stage-badge" id="badge"></div>
+        <div class="empty" id="empty">
+          <div class="inner">
+            <div class="ic">
+              <svg width="40" height="40" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 22a9 7 0 0 1 18-1" opacity=".5"/><path d="M11 22c2 2.4 9 2.4 11 0"/><circle cx="21" cy="13" r="1.4" fill="currentColor" stroke="none"/>
+              </svg>
+            </div>
+            <h2>Планирование ортогнатической операции</h2>
+            <p>Загрузите <b>МСКТ (DICOM)</b> — программа построит боковую ТРГ, вы расставите точки с подсказками, добавите фото пациента и спланируете перемещения челюстей.</p>
+            <button class="btn" id="emptyLoad">🧊 Загрузить МСКТ (DICOM)</button>
+          </div>
+        </div>
+      </div>
+      <aside class="panel" id="panel"></aside>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <input type="file" id="dcmInput" webkitdirectory directory multiple class="hidden">
+  <input type="file" id="imgInput" accept="image/*" class="hidden">
+  <input type="file" id="photoInput" accept="image/*" class="hidden">
+  <input type="file" id="openInput" accept=".orthos,application/json" class="hidden">
+
+  <script src="skull.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
