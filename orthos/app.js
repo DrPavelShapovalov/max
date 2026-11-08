@@ -49,6 +49,18 @@ function analyse(G){
   a_('Носогубный, °',has('Prn','Sn','Ls')?angAt(G.Sn,G.Prn,G.Ls):null,90,110,'100±10');
   return rows;
 }
+// Прогноз мягких тканей: средние коэффициенты «движение мягкой точки / движение
+// опорной костной точки», раздельно по горизонтали (H) и вертикали (V). Значения —
+// усреднённые по литературе ориентиры для ортогнатики (не копия источника):
+//   [мягкая, костная_опора, kH, kV]
+const ST_RATIO=[
+  ['Prn','ANS',0.30,0.15],   // кончик носа: проекция от в/ч (адв. в/ч приподнимает/выдвигает нос)
+  ['Sn','A',   0.55,0.45],   // субназале ← точка A
+  ['Ls','U1t', 0.65,0.55],   // верхняя губа ← режущий край U1 (адв. в/ч + ретракция резца)
+  ['Li','L1t', 0.70,0.55],   // нижняя губа ← режущий край L1
+  ['Pog2','Pog',0.95,0.90],  // мягк. погонион ← костный погонион
+  ['Me2','Me', 0.95,1.00],   // мягк. ментон ← костный ментон
+];
 function planned(){
   const {H,V}=axes();const s=scale||1;const P={};for(const k in LM)P[k]={x:LM[k].x,y:LM[k].y};
   const mxT=add(mul(H,plan.mxAdv*s),mul(V,-plan.mxImp*s)),mdT=mul(H,plan.mdAdv*s),chT=add(mul(H,plan.chAdv*s),mul(V,plan.chVert*s));
@@ -56,11 +68,142 @@ function planned(){
   ['A','ANS','PNS','U1t','U1a'].forEach(k=>{if(!LM[k])return;let q=pivMx?rot(LM[k],pivMx,d2r(plan.mxPitch)):LM[k];P[k]=add(q,mxT);});
   ['B','L1t','L1a','Pog','Gn','Me'].forEach(k=>{if(!LM[k])return;let q=pivMd?rot(LM[k],pivMd,d2r(mdRot)):LM[k];P[k]=add(q,mdT);});
   ['Pog','Gn','Me'].forEach(k=>{if(P[k])P[k]=add(P[k],chT);});
-  [['Prn','A',0.3,0.2],['Sn','A',0.5,0.5],['Ls','U1t',0.6,0.6],['Li','L1t',0.6,0.65],['Pog2','Pog',0.9,0.9],['Me2','Me',1,1]]
-   .forEach(([sk,src,rh,rv])=>{if(!LM[sk]||!LM[src]||!P[src])return;const d=sub(P[src],LM[src]);P[sk]=add(LM[sk],add(mul(H,dot(d,H)*rh),mul(V,dot(d,V)*rv)));});
+  // мягкие ткани — по опорным костным точкам с раздельными H/V коэффициентами
+  ST_RATIO.forEach(([sk,src,rh,rv])=>{if(!LM[sk]||!LM[src]||!P[src])return;const d=sub(P[src],LM[src]);
+    P[sk]=add(LM[sk],add(mul(H,dot(d,H)*rh),mul(V,dot(d,V)*rv)));});
+  // верхняя губа дополнительно укорачивается/выворачивается при импакции в/ч (верт. связь)
+  if(LM.Ls&&P.Ls&&plan.mxImp){P.Ls=add(P.Ls,mul(V,-plan.mxImp*s*0.25));}
   return P;
 }
 const fmt=x=>(x>=0?'+':'')+(+x).toFixed(1);
+const anyMove=()=>['mxAdv','mxImp','mxPitch','mdAdv','mdRot','chAdv','chVert'].some(k=>Math.abs(plan[k])>1e-6)||(plan.autorot&&Math.abs(plan.mxImp)>1e-6);
+
+// ═══ Сегментация ТРГ: линии остеотомий по ориентирам ═══
+function osteotomy(){
+  if(!img)return[];const {H,V}=axes();const s=scale||1;const down=V,up=mul(V,-1);const out=[];
+  // Le Fort I — параллельно нёбной плоскости (ANS–PNS), приподнята к апексам
+  if(LM.ANS&&LM.PNS){const a=add(LM.ANS,mul(up,3*s)),b=add(LM.PNS,mul(up,3*s));out.push({a,b,col:'#5b6cff',label:'Le Fort I'});}
+  // BSSO — косая линия в области ветви (Ar→Go)
+  if(LM.Ar&&LM.Go){const a=add(LM.Ar,mul(H,2*s)),b=add(LM.Go,mul(H,7*s));out.push({a,b,col:'#18c3b6',label:'BSSO'});}
+  // Гениопластика — ниже апексов нижних резцов, параллельно нижнему краю
+  if(LM.Me&&(LM.B||LM.Pog)){const dir=LM.Go?norm(sub(LM.Me,LM.Go)):norm(sub(LM.Me,LM.Pog||LM.B));
+    const base=LM.L1a?add(LM.L1a,mul(down,7*s)):mul(add(LM.B||LM.Me,LM.Me),0.5);
+    const a=add(base,mul(dir,-15*s)),b=add(base,mul(dir,17*s));out.push({a,b,col:'#a05bff',label:'Гениопластика'});}
+  return out;
+}
+
+// ═══ Триангуляция Делоне (Bowyer–Watson) ═══
+function delaunay(P){
+  const n=P.length;if(n<3)return[];
+  let mnx=1/0,mny=1/0,mxx=-1/0,mxy=-1/0;for(const p of P){mnx=Math.min(mnx,p.x);mny=Math.min(mny,p.y);mxx=Math.max(mxx,p.x);mxy=Math.max(mxy,p.y);}
+  const dmax=Math.max(mxx-mnx,mxy-mny)||1,cx=(mnx+mxx)/2,cy=(mny+mxy)/2;
+  const pts=P.concat([{x:cx-20*dmax,y:cy-dmax},{x:cx,y:cy+20*dmax},{x:cx+20*dmax,y:cy-dmax}]);
+  const inCirc=(a,b,c,p)=>{const d=2*(a.x*(b.y-c.y)+b.x*(c.y-a.y)+c.x*(a.y-b.y));if(Math.abs(d)<1e-9)return false;
+    const a2=a.x*a.x+a.y*a.y,b2=b.x*b.x+b.y*b.y,c2=c.x*c.x+c.y*c.y;
+    const ux=(a2*(b.y-c.y)+b2*(c.y-a.y)+c2*(a.y-b.y))/d,uy=(a2*(c.x-b.x)+b2*(a.x-c.x)+c2*(b.x-a.x))/d;
+    return (p.x-ux)**2+(p.y-uy)**2<=(a.x-ux)**2+(a.y-uy)**2+1e-6;};
+  let tris=[[n,n+1,n+2]];
+  for(let i=0;i<n;i++){const p=pts[i],bad=[],edges=[];
+    tris=tris.filter(t=>{if(inCirc(pts[t[0]],pts[t[1]],pts[t[2]],p)){bad.push(t);return false;}return true;});
+    for(const t of bad){const es=[[t[0],t[1]],[t[1],t[2]],[t[2],t[0]]];
+      for(const e of es){const d=edges.findIndex(f=>(f[0]===e[0]&&f[1]===e[1])||(f[0]===e[1]&&f[1]===e[0]));if(d>=0)edges.splice(d,1);else edges.push(e);}}
+    for(const e of edges)tris.push([e[0],e[1],i]);}
+  return tris.filter(t=>t[0]<n&&t[1]<n&&t[2]<n);
+}
+// аффинное отображение src-треугольника → dst-треугольник
+function affTri(g,src,a0,a1,a2,b0,b1,b2){
+  g.save();g.beginPath();g.moveTo(b0.x,b0.y);g.lineTo(b1.x,b1.y);g.lineTo(b2.x,b2.y);g.closePath();g.clip();
+  const den=(a1.x-a0.x)*(a2.y-a0.y)-(a2.x-a0.x)*(a1.y-a0.y)||1e-6;
+  const m11=((b1.x-b0.x)*(a2.y-a0.y)-(b2.x-b0.x)*(a1.y-a0.y))/den,
+        m12=((b2.x-b0.x)*(a1.x-a0.x)-(b1.x-b0.x)*(a2.x-a0.x))/den,
+        m21=((b1.y-b0.y)*(a2.y-a0.y)-(b2.y-b0.y)*(a1.y-a0.y))/den,
+        m22=((b2.y-b0.y)*(a1.x-a0.x)-(b1.y-b0.y)*(a2.x-a0.x))/den;
+  g.setTransform(m11,m21,m12,m22,b0.x-m11*a0.x-m12*a0.y,b0.y-m21*a0.x-m22*a0.y);
+  g.drawImage(src,0,0);g.restore();
+}
+// Кусочно-аффинная деформация ТРГ: ориентиры (до)→(после), каркас по рамке закреплён
+let warpCv=null,warpDirty=true;
+const invalidateWarp=()=>{warpDirty=true;};
+function buildWarp(){
+  if(!img)return null;const W=img.width,H=img.height,P=planned();const B=[],A=[];
+  for(const id in LM){if(!P[id])continue;B.push({x:LM[id].x,y:LM[id].y});A.push({x:P[id].x,y:P[id].y});}
+  [[0,0],[W/2,0],[W,0],[W,H/2],[W,H],[W/2,H],[0,H],[0,H/2]].forEach(([x,y])=>{B.push({x,y});A.push({x,y});});
+  if(B.length<3)return null;
+  const tris=delaunay(B),out=document.createElement('canvas');out.width=W;out.height=H;
+  const g=out.getContext('2d');g.drawImage(img,0,0);
+  for(const[i,j,k]of tris)affTri(g,img,B[i],B[j],B[k],A[i],A[j],A[k]);
+  return out;
+}
+
+// ═══ Хирургический шаблон (окклюзионный сплинт) — параметрическая 3D-модель ═══
+let wafer={type:'final',archW:52,archD:40,height:11,band:11,teeth:12};
+let waferMesh=null,waferYaw=0.6,waferPitch=0.5,waferRAF=null;
+function waferStepAP(){ // сагиттальный шаг нижней дуги относительно верхней (мм), из плана
+  return wafer.type==='final' ? (plan.mdAdv-plan.mxAdv) : (-plan.mxAdv);
+}
+function buildWaferMesh(){
+  const aw=wafer.archW/2,ad=wafer.archD,bw=wafer.band,half=wafer.height/2;
+  const N=72,M=8,Dt=3,Db=3,sig=bw*0.34,nt=Math.max(6,wafer.teeth|0);
+  const stepU=Math.max(-0.5,Math.min(0.5,waferStepAP()/(ad||1))); // смещение нижних лож (доля параметра)
+  const gaussO=o=>Math.exp(-(o*o)/(2*sig*sig));
+  const scal=u=>0.55+0.45*(0.5+0.5*Math.cos(nt*Math.PI*u)); // модуляция по зубам
+  const C=u=>({x:aw*u,y:ad*u*u}); // параболическая дуга (u∈[-1,1])
+  const Nrm=u=>{const dx=aw,dy=2*ad*u;const nx=dy,ny=-dx;const l=Math.hypot(nx,ny)||1;let r={x:nx/l,y:ny/l};
+    if(r.y<0)r={x:-r.x,y:-r.y};return r;}; // наружу (буккально, +y)
+  const VT=[],VB=[];
+  for(let i=0;i<=N;i++){const u=-1+2*i/N,c=C(u),nr=Nrm(u);VT.push([]);VB.push([]);
+    for(let j=0;j<=M;j++){const o=(j/M-0.5)*bw,Fx=c.x+o*nr.x,Fy=c.y+o*nr.y;
+      const gt=Dt*gaussO(o)*scal(u), gb=Db*gaussO(o)*scal(u-stepU);
+      VT[i].push({x:Fx,y:Fy,z:half-gt});VB[i].push({x:Fx,y:Fy,z:-half+gb});}}
+  const T=[];const q=(p0,p1,p2,p3)=>{T.push([p0,p1,p2]);T.push([p0,p2,p3]);};
+  for(let i=0;i<N;i++)for(let j=0;j<M;j++){
+    q(VT[i][j],VT[i][j+1],VT[i+1][j+1],VT[i+1][j]);        // верх (нормаль вверх)
+    q(VB[i][j],VB[i+1][j],VB[i+1][j+1],VB[i][j+1]);        // низ (нормаль вниз)
+  }
+  for(let i=0;i<N;i++){                                    // стенки: внутр.(j=0) и наруж.(j=M)
+    q(VT[i][0],VT[i+1][0],VB[i+1][0],VB[i][0]);
+    q(VT[i][M],VB[i][M],VB[i+1][M],VT[i+1][M]);
+  }
+  for(let j=0;j<M;j++){                                    // торцы (концы подковы)
+    q(VT[0][j],VB[0][j],VB[0][j+1],VT[0][j+1]);
+    q(VT[N][j],VT[N][j+1],VB[N][j+1],VB[N][j]);
+  }
+  return T;
+}
+function waferSTL(T){
+  const n=T.length,buf=new ArrayBuffer(84+n*50),dv=new DataView(buf);dv.setUint32(80,n,true);let o=84;
+  for(const[a,b,c]of T){const ux=b.x-a.x,uy=b.y-a.y,uz=b.z-a.z,vx=c.x-a.x,vy=c.y-a.y,vz=c.z-a.z;
+    let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;const L=Math.hypot(nx,ny,nz)||1;
+    dv.setFloat32(o,nx/L,true);dv.setFloat32(o+4,ny/L,true);dv.setFloat32(o+8,nz/L,true);o+=12;
+    for(const p of[a,b,c]){dv.setFloat32(o,p.x,true);dv.setFloat32(o+4,p.y,true);dv.setFloat32(o+8,p.z,true);o+=12;}
+    dv.setUint16(o,0,true);o+=2;}
+  return buf;
+}
+function drawWafer3D(T,yaw,pitch){
+  fit();ctx.clearRect(0,0,cv.width,cv.height);
+  // фон
+  const g=ctx.createLinearGradient(0,0,0,cv.height);g.addColorStop(0,'#f7f8ff');g.addColorStop(1,'#eef0fb');ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);
+  if(!T||!T.length)return;
+  const cY=Math.cos(yaw),sY=Math.sin(yaw),cP=Math.cos(pitch),sP=Math.sin(pitch);
+  const R=v=>{const x1=v.x*cY-v.y*sY,y1=v.x*sY+v.y*cY,z1=v.z;const y2=y1*cP-z1*sP,z2=y1*sP+z1*cP;return{x:x1,y:y2,z:z2};};
+  let mnx=1/0,mxx=-1/0,mnz=1/0,mxz=-1/0;const RT=[];
+  for(const t of T){const r=[R(t[0]),R(t[1]),R(t[2])];RT.push(r);for(const p of r){mnx=Math.min(mnx,p.x);mxx=Math.max(mxx,p.x);mnz=Math.min(mnz,p.z);mxz=Math.max(mxz,p.z);}}
+  const sc=Math.min(cv.width/(mxx-mnx||1),cv.height/(mxz-mnz||1))*0.72;
+  const ox=cv.width/2-(mnx+mxx)/2*sc,oz=cv.height/2+(mnz+mxz)/2*sc;
+  const idx=RT.map((r,i)=>[i,(r[0].y+r[1].y+r[2].y)/3]).sort((a,b)=>a[1]-b[1]);
+  const Lt={x:-0.35,y:-0.5,z:0.79};
+  for(const[i]of idx){const r=RT[i];
+    let nx=(r[1].x-r[0].x)*(r[2].z-r[0].z)-(r[1].z-r[0].z)*(r[2].x-r[0].x);
+    let ny=(r[1].z-r[0].z)*(r[2].y-r[0].y)-(r[1].y-r[0].y)*(r[2].z-r[0].z);
+    let nz=(r[1].x-r[0].x)*(r[2].y-r[0].y)-(r[1].y-r[0].y)*(r[2].x-r[0].x);
+    const l=Math.hypot(nx,ny,nz)||1;const dif=Math.abs((nx*Lt.x+ny*Lt.y+nz*Lt.z)/l);
+    const sh=Math.round(150+95*dif),g2=Math.round(140+100*dif);
+    ctx.fillStyle=`rgb(${Math.round(120+90*dif)},${g2},${Math.min(255,sh+20)})`;
+    ctx.beginPath();ctx.moveTo(ox+r[0].x*sc,oz-r[0].z*sc);ctx.lineTo(ox+r[1].x*sc,oz-r[1].z*sc);ctx.lineTo(ox+r[2].x*sc,oz-r[2].z*sc);ctx.closePath();ctx.fill();}
+}
+function waferAnim(){if(step!=='wafer'){waferRAF=null;return;}waferYaw+=0.011;if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);waferRAF=requestAnimationFrame(waferAnim);}
+function exportSTL(){const buf=waferSTL(waferMesh||buildWaferMesh());const a=document.createElement('a');
+  a.download='ОРТОС_сплинт_'+(patient.name||'пациент')+'.stl';a.href=URL.createObjectURL(new Blob([buf],{type:'model/stl'}));a.click();}
 
 // ── DICOM → ТРГ ──
 function parseDcm(buf){
@@ -126,12 +269,18 @@ function autoView(){if(!img)return;const r=cv.getBoundingClientRect(),dpr=Math.m
 const toS=p=>({x:view.ox+p.x*view.zoom,y:view.oy+p.y*view.zoom});
 const toI=(x,y)=>({x:(x-view.ox)/view.zoom,y:(y-view.oy)/view.zoom});
 function render(){
+  if(step==='wafer'){ fit(); if(!waferMesh)waferMesh=buildWaferMesh(); drawWafer3D(waferMesh,waferYaw,waferPitch);
+    $('empty').style.display='none'; updateBadge(); if(!waferRAF)waferRAF=requestAnimationFrame(waferAnim); return; }
   fit();ctx.clearRect(0,0,cv.width,cv.height);
   const showPhoto=(step==='photo'&&photo);
   const pic=showPhoto?photo:img;
+  const planWarp=(step==='plan'&&img&&anyMove());
   if(pic){ctx.imageSmoothingEnabled=true;
     if(showPhoto){const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);const z=Math.min(r.width*dpr/photo.width,r.height*dpr/photo.height)*0.92;
       ctx.drawImage(photo,(cv.width-photo.width*z)/2,(cv.height-photo.height*z)/2,photo.width*z,photo.height*z);}
+    else if(planWarp){ if(warpDirty||!warpCv){warpCv=buildWarp();warpDirty=false;}
+      ctx.globalAlpha=overlay;ctx.drawImage(img,view.ox,view.oy,img.width*view.zoom,img.height*view.zoom);ctx.globalAlpha=1; // «до» — ghost
+      if(warpCv)ctx.drawImage(warpCv,view.ox,view.oy,img.width*view.zoom,img.height*view.zoom); } // «после» — деформация
     else ctx.drawImage(img,view.ox,view.oy,img.width*view.zoom,img.height*view.zoom);}
   $('empty').style.display=(img||photo||building)?'none':'';
   $('shimmerWrap')&&0;
@@ -144,8 +293,15 @@ function render(){
   const dProf=(src,col,wid,dash,alpha)=>{ctx.save();ctx.globalAlpha=alpha==null?1:alpha;ctx.strokeStyle=col;ctx.lineWidth=wid;ctx.setLineDash(dash||[]);ctx.beginPath();let st=false;
     PROFILE.forEach(k=>{if(src[k]){const S=toS(src[k]);if(!st){ctx.moveTo(S.x,S.y);st=true;}else ctx.lineTo(S.x,S.y);}});ctx.stroke();ctx.restore();};
   if(step==='plan'){
+    // линии остеотомий (сегментация ТРГ)
+    const seg=osteotomy();ctx.save();ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.font='700 11px Inter,sans-serif';
+    seg.forEach(sg=>{const A=toS(sg.a),B=toS(sg.b);ctx.strokeStyle=sg.col;ctx.globalAlpha=0.9;
+      ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.stroke();
+      ctx.setLineDash([]);ctx.globalAlpha=1;ctx.fillStyle=sg.col;const mx=(A.x+B.x)/2,my=(A.y+B.y)/2;
+      ctx.fillText(sg.label,mx+6,my-5);ctx.setLineDash([7,5]);});
+    ctx.restore();
     dLines(LM,1.5,[],0.4); dProf(LM,'#9aa3c2',2,[5,4],0.6);
-    if(P){dLines(P,1.8,[]); dProf(P,'#18c3b6',2.6);}
+    if(P){dLines(P,1.8,[]); dProf(P,'#18c3b6',2.8);}
   } else if(step==='analysis'){ dLines(LM,1.8,[]); dProf(LM,'#8a94b8',1.8,[4,4]); }
   else if(step==='points'){ dLines(LM,1.4,[],0.8); }
   // точки
@@ -239,11 +395,40 @@ function renderPanel(){
         <div class="slider-row"><label>Исходный профиль</label><input type="range" id="ov" min="0" max="1" step="0.05" value="${overlay}"><span class="val">прозр.</span></div>
         <button class="btn ghost" id="resetPlan">Сбросить перемещения</button></div>
       <div class="card view"><div class="sect-label">Сводка и анализ до → после</div><div id="rep"></div>
-        <div class="btn-row"><button class="btn sm" id="expPng" style="width:100%">⬇ План (PNG)</button></div></div>`;
-    bindSliders(); if($('autorot'))$('autorot').onchange=e=>{plan.autorot=e.target.checked;render();renderPanel();};
+        <div class="btn-row"><button class="btn" id="toWafer" style="width:100%">🖨️ Сформировать шаблон (сплинт) →</button></div>
+        <div class="btn-row"><button class="btn sm ghost" id="expPng" style="width:100%">⬇ План (PNG)</button></div></div>`;
+    bindSliders(); if($('autorot'))$('autorot').onchange=e=>{plan.autorot=e.target.checked;invalidateWarp();waferMesh=null;render();renderPanel();};
     $('ov').oninput=e=>{overlay=+e.target.value;render();};
-    $('resetPlan').onclick=()=>{plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};renderPanel();render();};
+    $('resetPlan').onclick=()=>{plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};invalidateWarp();waferMesh=null;renderPanel();render();};
+    $('toWafer').onclick=()=>setStep('wafer');
     $('expPng').onclick=exportPng; renderReport($('rep'));
+  }
+  else if(step==='wafer'){
+    if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ, расставьте точки и спланируйте перемещения.'); return; }
+    const stepAP=waferStepAP();
+    const wsl=(k,label,mn,mx,st,u)=>`<div class="slider-row"><label>${label}</label><input type="range" id="w_${k}" min="${mn}" max="${mx}" step="${st}" value="${wafer[k]}"><span class="val" id="wv_${k}">${wafer[k]}${u}</span></div>`;
+    p.innerHTML=`<div class="card view"><h3>🖨️ Хирургический шаблон</h3>
+        <div class="desc">Окклюзионный сплинт по итогам планирования: надевается на зубы в запланированном смыкании и служит интраоперационным <b>ключом окклюзии</b>. Печать на 3D-принтере, формат <b>STL</b>.</div>
+        <div class="grp2"><h4>Тип шаблона</h4>
+          <div class="seg-toggle">
+            <button class="seg-btn${wafer.type==='inter'?' on':''}" data-t="inter">Промежуточный</button>
+            <button class="seg-btn${wafer.type==='final'?' on':''}" data-t="final">Финальный</button></div>
+          <div class="note" style="margin-top:6px">${wafer.type==='final'?'Индексирует обе челюсти в итоговом положении (ключ финальной окклюзии).':'Индексирует перемещённую в/ч к исходной н/ч (ставится после Le Fort I).'}</div></div>
+        <div class="grp2"><h4>Геометрия дуги</h4>
+          ${wsl('archW','Ширина дуги',38,64,1,' мм')}${wsl('archD','Глубина (перёд→моляр)',30,52,1,' мм')}
+          ${wsl('height','Высота блока',7,16,0.5,' мм')}${wsl('teeth','Зубных лож',8,16,1,'')}</div>
+        <button class="btn" id="dlStl" style="margin-top:4px">⬇ Скачать STL (для 3D-печати)</button>
+        <div class="btn-row"><button class="btn ghost sm" id="snapStl" style="width:100%">⬇ Вид шаблона (PNG)</button></div></div>
+      <div class="card view"><div class="sect-label">Параметры из плана</div>
+        <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Сагиттальный шаг н/дуги</span><span class="v" style="color:var(--accent)">${fmt(stepAP)} мм</span></div>
+        <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Выдвижение в/ч (Le Fort I)</span><span class="v">${fmt(plan.mxAdv)} мм</span></div>
+        <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Выдвижение н/ч (BSSO)</span><span class="v">${fmt(plan.mdAdv)} мм</span></div>
+        <div class="note">Размеры дуги — параметрические (в ОРТОС нет внутриротового скана): подгоните под гипсовую/цифровую модель пациента. Межчелюстное соотношение шаблон берёт из плана. Инструмент планирования, не мед. изделие — проверяйте клинически.</div></div>`;
+    p.querySelectorAll('.seg-btn').forEach(b=>b.onclick=()=>{wafer.type=b.dataset.t;waferMesh=null;renderPanel();render();});
+    ['archW','archD','height','teeth'].forEach(k=>{const el=$('w_'+k);if(!el)return;const u=k==='teeth'?'':' мм';
+      el.oninput=e=>{wafer[k]=+e.target.value;$('wv_'+k).textContent=wafer[k]+u;waferMesh=null;};});
+    $('dlStl').onclick=exportSTL;
+    $('snapStl').onclick=()=>{const a=document.createElement('a');a.download='ОРТОС_шаблон.png';a.href=cv.toDataURL('image/png');a.click();};
   }
 }
 function lmRow(id){const l=LBL[id];return `<div class="lm${id===pickId?' cur':''}${LM[id]?' ok':''}" data-k="${id}"><span class="ck">${LM[id]?'✓':'○'}</span><span class="t">${l.abbr} <small>· ${l.ru}</small></span></div>`;}
@@ -251,7 +436,7 @@ function anRow(r){const col=r.st==='норма'?'var(--good)':(r.st==='—'?'var
   return `<div class="an-row"><span class="k">${r.key}</span><span class="v">${r.val!=null&&!isNaN(r.val)?r.val.toFixed(1):'—'}</span><span class="s" style="color:${col}">${r.st}</span><span class="n">норма ${r.norm}${r.extra?' · '+r.extra:''}</span></div>`;}
 function sl(k,label,mn,mx,st,u){return `<div class="slider-row"><label>${label}</label><input type="range" id="s_${k}" min="${mn}" max="${mx}" step="${st}" value="${plan[k]}"><span class="val" id="v_${k}">${fmt(plan[k])}${u}</span></div>`;}
 function bindSliders(){['mxAdv','mxImp','mxPitch','mdAdv','mdRot','chAdv','chVert'].forEach(k=>{const el=$('s_'+k);if(!el)return;const u=(k.includes('Pitch')||k.includes('Rot'))?'°':'мм';
-  el.oninput=e=>{plan[k]=+e.target.value;$('v_'+k).textContent=fmt(plan[k])+u;render();renderReport($('rep'));};});}
+  el.oninput=e=>{plan[k]=+e.target.value;$('v_'+k).textContent=fmt(plan[k])+u;invalidateWarp();waferMesh=null;render();renderReport($('rep'));};});}
 function renderReport(box){if(!box)return;const mdR=plan.autorot?plan.mxImp*1.1:plan.mdRot;
   const mv=[['Верхняя челюсть (Le Fort I)',`выдв. ${fmt(plan.mxAdv)} · импакция ${fmt(plan.mxImp)} · питч ${fmt(plan.mxPitch)}°`],
     ['Нижняя челюсть (BSSO)',`выдв. ${fmt(plan.mdAdv)} · ротация ${fmt(mdR)}°${plan.autorot?' (авто)':''}`],
@@ -265,7 +450,8 @@ function emptyStepCard(t,d){return `<div class="card view"><h3>${t}</h3><div cla
 function esc(s){return(s||'').replace(/"/g,'&quot;');}
 
 // ── шаги ──
-function setStep(s){ step=s; document.querySelectorAll('.step').forEach(x=>{x.classList.toggle('on',x.dataset.s===s);});
+function setStep(s){ if(s==='plan')invalidateWarp(); if(s==='wafer')waferMesh=null; step=s;
+  document.querySelectorAll('.step').forEach(x=>{x.classList.toggle('on',x.dataset.s===s);});
   markDone(); renderPanel(); render(); }
 function markDone(){ document.querySelectorAll('.step').forEach(x=>{const s=x.dataset.s;let done=false;
   if(s==='patient')done=!!patient.name; if(s==='trg')done=!!img; if(s==='points')done=HARD.every(k=>LM[k]); if(s==='photo')done=!!photo;
@@ -314,5 +500,7 @@ window.addEventListener('resize',render);
 renderPanel(); render();
 
 // тест-хук
-window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};}, calib:s=>{scale=s;}, analyse:()=>analyse(LM), planned, setPlan:p=>Object.assign(plan,p),
-  step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasVol:!!vol}) };
+window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};}, calib:s=>{scale=s;}, analyse:()=>analyse(LM), planned, setPlan:p=>{Object.assign(plan,p);invalidateWarp();waferMesh=null;},
+  setWafer:o=>{Object.assign(wafer,o);waferMesh=null;}, stl:()=>waferSTL(buildWaferMesh()), waferTris:()=>buildWaferMesh().length,
+  warpInfo:()=>{const w=buildWarp();return{ok:!!w,w:w&&w.width,h:w&&w.height};}, osteotomy:()=>osteotomy().map(s=>s.label),
+  step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasVol:!!vol,stepAP:waferStepAP()}) };
