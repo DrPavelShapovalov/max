@@ -138,9 +138,13 @@ function buildWarp(){
 // ═══ Хирургический шаблон (окклюзионный сплинт) — параметрическая 3D-модель ═══
 let wafer={type:'final',archW:52,archD:40,height:11,band:11,teeth:12,ct:true,src:'param',ctDiag:null};
 let waferMesh=null,waferYaw=0.6,waferPitch=0.5,waferRAF=null;
-function waferStepAP(){ // сагиттальный шаг нижней дуги относительно верхней (мм), из плана
-  return wafer.type==='final' ? (plan.mdAdv-plan.mxAdv) : (-plan.mxAdv);
-}
+// Относительное положение зубных дуг, которое фиксирует шаблон (мм):
+//  • ФИНАЛЬНЫЙ — обе челюсти в итоговом положении: AP = mdAdv−mxAdv, вертикаль ~0;
+//  • ПРОМЕЖУТОЧНЫЙ — в/ч перемещена, н/ч ИСХОДНАЯ (BSSO ещё не выполнен):
+//    AP = −mxAdv (только выдвижение в/ч), вертикаль = импакция в/ч (меняет зазор
+//    против неподвижной н/ч — шаблон получается клиновидным/толще).
+function waferStepAP(){ return wafer.type==='final' ? (plan.mdAdv-plan.mxAdv) : (-plan.mxAdv); }
+function waferVert(){ return wafer.type==='inter' ? plan.mxImp : 0; } // + импакция → зазор больше
 // сетка (N+1)×(M+1) верх/низ → замкнутый солид (верх, низ, стенки, торцы)
 function gridToSolid(VT,VB){
   const N=VT.length-1,M=VT[0].length-1,T=[];
@@ -158,7 +162,7 @@ const WAFER={bandW:15, trough:0.30, wallH:4.5, sockT:2.8, sockB:2.8, sig:2.8, mi
 const wallProfile=(o,W)=>{const Wc=W*WAFER.trough,t=Math.max(0,Math.min(1,(Math.abs(o)-Wc)/(W/2-Wc||1)));return WAFER.wallH*t*t*(3-2*t);};
 // параметрический сплинт (обобщённая дуга — запасной режим / нет КТ-дентиции)
 function buildWaferParam(){
-  const aw=wafer.archW/2,ad=wafer.archD,half=wafer.height/2,W=WAFER.bandW;
+  const aw=wafer.archW/2,ad=wafer.archD,half=wafer.height/2,W=WAFER.bandW,vert=waferVert();
   const N=84,M=14,nt=Math.max(6,wafer.teeth|0);
   const stepU=Math.max(-0.5,Math.min(0.5,waferStepAP()/(ad||1)));
   const sock=o=>Math.exp(-(o*o)/(2*WAFER.sig*WAFER.sig));           // форма центрального ложа
@@ -167,7 +171,7 @@ function buildWaferParam(){
   const VT=[],VB=[];
   for(let i=0;i<=N;i++){const u=-1+2*i/N,c=C(u),nr=Nrm(u);VT.push([]);VB.push([]);
     for(let j=0;j<=M;j++){const o=(j/M-0.5)*W,Fx=c.x+o*nr.x,Fy=c.y+o*nr.y,w=wallProfile(o,W);
-      const occT=half-WAFER.sockT*sock(o)*scal(u), occB=-half+WAFER.sockB*sock(o)*scal(u-stepU);
+      const occT=half-WAFER.sockT*sock(o)*scal(u)+vert, occB=-half+WAFER.sockB*sock(o)*scal(u-stepU);
       VT[i].push({x:Fx,y:Fy,z:occT+w});VB[i].push({x:Fx,y:Fy,z:occB-w});}}
   return gridToSolid(VT,VB);
 }
@@ -223,7 +227,7 @@ function buildWaferCT(){
   const depth=ymax-ymin;
   if(depth<7||depth>42||vtx<xmin-6||vtx>xmax+6){wafer.ctDiag={ok:false,reason:'форма не похожа на зубную дугу (глубина '+depth.toFixed(0)+' мм) — нужен дентальный CBCT',span:+span.toFixed(0),depth:+depth.toFixed(0)};return null;}
   xmin+=span*0.05;xmax-=span*0.05;
-  const N=60,M=16,fy=x=>a*x*x+b*x+c,dfy=x=>2*a*x+b,antY=a>0?-1:1,stepAP=waferStepAP(),WALLT=1.8;
+  const N=60,M=16,fy=x=>a*x*x+b*x+c,dfy=x=>2*a*x+b,antY=a>0?-1:1,stepAP=waferStepAP(),vertG=waferVert(),WALLT=1.8;
   const rad=Math.max(sx,sy)*1.7,r2=rad*rad,cs=Math.max(rad,1.2);
   const frame=si=>{const x=xmin+(xmax-xmin)*si/N,cy=fy(x),dd=dfy(x),nl=Math.hypot(-dd,1)||1;return{x,cy,ndx:-dd/nl,ndy:1/nl};};
   // пространственный индекс (ячейки ~rad) для быстрой выборки окклюзии
@@ -264,7 +268,7 @@ function buildWaferCT(){
   const VT=[],VB=[];
   for(let i=0;i<=N;i++){const bandHalf=HW[i]+WALLT;VT.push([]);VB.push([]);
     for(let j=0;j<=M;j++){const o=(j/M-0.5)*2*bandHalf,t=Math.max(0,Math.min(1,(Math.abs(o)-HW[i])/(WALLT||1))),e=t*t*(3-2*t);
-      let zt=OT[i][j].z,zb=OB[i][j].z;
+      let zt=OT[i][j].z+vertG,zb=OB[i][j].z;
       if(zt<zb+WAFER.minTh){const m=(zt+zb)/2;zt=m+WAFER.minTh/2;zb=m-WAFER.minTh/2;}
       VT[i].push({x:OT[i][j].x,y:OT[i][j].y,z:zt+WU[i]*e});VB[i].push({x:OB[i][j].x,y:OB[i][j].y,z:zb-WL[i]*e});}}
   const meanW=((WU.reduce((p,q)=>p+q,0)+WL.reduce((p,q)=>p+q,0))/(2*(N+1)));
@@ -529,10 +533,16 @@ function renderPanel(){
         <button class="btn" id="dlStl" style="margin-top:4px">⬇ Скачать STL (для 3D-печати)</button>
         <div class="btn-row"><button class="btn ghost sm" id="snapStl" style="width:100%">⬇ Вид шаблона (PNG)</button></div></div>
       <div class="card view"><div class="sect-label">Параметры из плана</div>
-        <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Сагиттальный шаг н/дуги</span><span class="v" style="color:var(--accent)">${fmt(stepAP)} мм</span></div>
+        <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Логика</span><span class="v" style="font-size:12px">${wafer.type==='inter'?'в/ч перемещена, н/ч исходная':'обе челюсти в итоге'}</span></div>
+        <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Сагиттальный шаг дуг</span><span class="v" style="color:var(--accent)">${fmt(stepAP)} мм</span></div>
         <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Выдвижение в/ч (Le Fort I)</span><span class="v">${fmt(plan.mxAdv)} мм</span></div>
-        <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Выдвижение н/ч (BSSO)</span><span class="v">${fmt(plan.mdAdv)} мм</span></div>
-        <div class="note">${isCT?'Окклюзионные поверхности в/ч и н/ч сегментированы из МСКТ по плотности; нижняя дуга смещена на межчелюстной шаг из плана. Для клинической точности детализацию проверяйте по дентальному CBCT/внутриротовому скану.':'Размеры дуги параметрические (КТ-дентиция не распозналась): подгоните под гипсовую/цифровую модель. Межчелюстное соотношение берётся из плана.'} Инструмент планирования, не мед. изделие — проверяйте клинически.</div></div>`;
+        ${wafer.type==='inter'
+          ? `<div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Вертик. зазор (импакция в/ч)</span><span class="v" style="color:var(--accent)">${fmt(waferVert())} мм</span></div>
+             <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Нижняя челюсть</span><span class="v" style="font-size:12px">исходная (BSSO не выполнен)</span></div>`
+          : `<div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Выдвижение н/ч (BSSO)</span><span class="v">${fmt(plan.mdAdv)} мм</span></div>`}
+        <div class="note">${wafer.type==='inter'
+          ? 'Промежуточный: в/ч в запланированном положении, н/ч — в исходном. Фиксируется только выдвижение в/ч; импакция в/ч открывает/закрывает прикус против неподвижной н/ч (шаблон клиновидный). Ставится интраоперационно для позиционирования в/ч после Le Fort I.'
+          : 'Финальный: обе челюсти в итоговом положении — ключ финальной окклюзии.'} ${isCT?'Окклюзионные поверхности сегментированы из МСКТ по плотности.':'Размеры дуги параметрические — подгоните под модель пациента.'} Инструмент планирования, не мед. изделие — проверяйте клинически.</div></div>`;
     $('wCt').onchange=e=>{wafer.ct=e.target.checked;waferMesh=null;renderPanel();render();};
     p.querySelectorAll('.seg-btn').forEach(b=>b.onclick=()=>{wafer.type=b.dataset.t;waferMesh=null;renderPanel();render();});
     ['archW','archD','height','teeth'].forEach(k=>{const el=$('w_'+k);if(!el)return;const u=k==='teeth'?'':' мм';
@@ -614,4 +624,4 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};}, calib:
   setWafer:o=>{Object.assign(wafer,o);waferMesh=null;}, stl:()=>waferSTL(buildWaferMesh()), waferTris:()=>buildWaferMesh().length,
   ctDiag:()=>{buildWaferMesh();return{src:wafer.src,diag:wafer.ctDiag};}, injectVol:v=>{vol=v;waferMesh=null;},
   warpInfo:()=>{const w=buildWarp();return{ok:!!w,w:w&&w.width,h:w&&w.height};}, osteotomy:()=>osteotomy().map(s=>s.label),
-  step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasVol:!!vol,stepAP:waferStepAP()}) };
+  step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasVol:!!vol,stepAP:waferStepAP(),vert:waferVert(),wtype:wafer.type}) };
