@@ -152,18 +152,23 @@ function gridToSolid(VT,VB){
   for(let j=0;j<M;j++){q(VT[0][j],VB[0][j],VB[0][j+1],VT[0][j+1]);q(VT[N][j],VT[N][j+1],VB[N][j+1],VB[N][j]);}
   return T;
 }
+// функциональный сплинт: центральные ложа под зубы + буккальные/язычные
+// ретенционные стенки (надевается на зубы и удерживается).
+const WAFER={bandW:15, trough:0.30, wallH:4.5, sockT:2.8, sockB:2.8, sig:2.8, minTh:2.5};
+const wallProfile=(o,W)=>{const Wc=W*WAFER.trough,t=Math.max(0,Math.min(1,(Math.abs(o)-Wc)/(W/2-Wc||1)));return WAFER.wallH*t*t*(3-2*t);};
 // параметрический сплинт (обобщённая дуга — запасной режим / нет КТ-дентиции)
 function buildWaferParam(){
-  const aw=wafer.archW/2,ad=wafer.archD,bw=wafer.band,half=wafer.height/2;
-  const N=72,M=8,Dt=3,Db=3,sig=bw*0.34,nt=Math.max(6,wafer.teeth|0);
+  const aw=wafer.archW/2,ad=wafer.archD,half=wafer.height/2,W=WAFER.bandW;
+  const N=84,M=14,nt=Math.max(6,wafer.teeth|0);
   const stepU=Math.max(-0.5,Math.min(0.5,waferStepAP()/(ad||1)));
-  const gaussO=o=>Math.exp(-(o*o)/(2*sig*sig));
-  const scal=u=>0.55+0.45*(0.5+0.5*Math.cos(nt*Math.PI*u));
+  const sock=o=>Math.exp(-(o*o)/(2*WAFER.sig*WAFER.sig));           // форма центрального ложа
+  const scal=u=>0.5+0.5*Math.cos(nt*Math.PI*u);                     // ложе на каждый зуб (1 — бугор)
   const C=u=>({x:aw*u,y:ad*u*u}),Nrm=u=>{const nx=2*ad*u,ny=-aw,l=Math.hypot(nx,ny)||1;let r={x:nx/l,y:ny/l};if(r.y<0)r={x:-r.x,y:-r.y};return r;};
   const VT=[],VB=[];
   for(let i=0;i<=N;i++){const u=-1+2*i/N,c=C(u),nr=Nrm(u);VT.push([]);VB.push([]);
-    for(let j=0;j<=M;j++){const o=(j/M-0.5)*bw,Fx=c.x+o*nr.x,Fy=c.y+o*nr.y;
-      VT[i].push({x:Fx,y:Fy,z:half-Dt*gaussO(o)*scal(u)});VB[i].push({x:Fx,y:Fy,z:-half+Db*gaussO(o)*scal(u-stepU)});}}
+    for(let j=0;j<=M;j++){const o=(j/M-0.5)*W,Fx=c.x+o*nr.x,Fy=c.y+o*nr.y,w=wallProfile(o,W);
+      const occT=half-WAFER.sockT*sock(o)*scal(u), occB=-half+WAFER.sockB*sock(o)*scal(u-stepU);
+      VT[i].push({x:Fx,y:Fy,z:occT+w});VB[i].push({x:Fx,y:Fy,z:occB-w});}}
   return gridToSolid(VT,VB);
 }
 // МНК-парабола Y=aX²+bX+c
@@ -218,23 +223,34 @@ function buildWaferCT(){
   const depth=ymax-ymin;
   if(depth<7||depth>42||vtx<xmin-6||vtx>xmax+6){wafer.ctDiag={ok:false,reason:'форма не похожа на зубную дугу (глубина '+depth.toFixed(0)+' мм) — нужен дентальный CBCT',span:+span.toFixed(0),depth:+depth.toFixed(0)};return null;}
   xmin+=span*0.05;xmax-=span*0.05;
-  const N=64,M=8,bandW=Math.max(8,Math.min(15,span*0.22)),fy=x=>a*x*x+b*x+c,dfy=x=>2*a*x+b,antY=a>0?-1:1,stepAP=waferStepAP();
-  const rad=Math.max(sx,sy)*1.7,r2=rad*rad;
-  const sampleZ=(fx,fyy,upper)=>{let best=upper?1e9:-1e9,hit=false;
-    for(let i=0;i<n;i++){if(upper?(KZ[i]<z0):(KZ[i]>=z0))continue;const dx=KX[i]-fx,dy=KY[i]-fyy;
-      if(dx*dx+dy*dy<=r2){hit=true;if(upper){if(KZ[i]<best)best=KZ[i];}else{if(KZ[i]>best)best=KZ[i];}}}return hit?best:null;};
-  const VT=[],VB=[];let nUp=0,nLo=0;
+  const N=60,M=14,bandW=WAFER.bandW,fy=x=>a*x*x+b*x+c,dfy=x=>2*a*x+b,antY=a>0?-1:1,stepAP=waferStepAP();
+  const rad=Math.max(sx,sy)*1.7,r2=rad*rad,cs=Math.max(rad,1.2);
+  // пространственный индекс (ячейки ~rad) для быстрой выборки окклюзии
+  const gx0=Math.min(...KX),gy0=Math.min(...KY),buckets=new Map(),bkey=(cx,cy)=>cx*100003+cy;
+  for(let i=0;i<n;i++){const k=bkey(Math.floor((KX[i]-gx0)/cs),Math.floor((KY[i]-gy0)/cs));let arr=buckets.get(k);if(!arr){arr=[];buckets.set(k,arr);}arr.push(i);}
+  const sampleZ=(fx,fyy,upper)=>{let best=upper?1e9:-1e9,hit=false;const cx=Math.floor((fx-gx0)/cs),cy=Math.floor((fyy-gy0)/cs);
+    for(let ax=cx-1;ax<=cx+1;ax++)for(let ay=cy-1;ay<=cy+1;ay++){const arr=buckets.get(bkey(ax,ay));if(!arr)continue;
+      for(const i of arr){if(upper?(KZ[i]<z0):(KZ[i]>=z0))continue;const dx=KX[i]-fx,dy=KY[i]-fyy;
+        if(dx*dx+dy*dy<=r2){hit=true;if(upper){if(KZ[i]<best)best=KZ[i];}else if(KZ[i]>best)best=KZ[i];}}}
+    return hit?best:null;};
+  // окклюзионные поверхности в/ч (OT) и н/ч (OB) — негативный оттиск; н/ч смещена на шаг из плана
+  const OT=[],OB=[];let nUpC=0,nLoC=0,ncC=0,troughHW=bandW*WAFER.trough;
   for(let i=0;i<=N;i++){const x=xmin+(xmax-xmin)*i/N,cy=fy(x),dd=dfy(x),nl=Math.hypot(-dd,1)||1,ndx=-dd/nl,ndy=1/nl;
-    VT.push([]);VB.push([]);
+    OT.push([]);OB.push([]);
     for(let j=0;j<=M;j++){const o=(j/M-0.5)*bandW,fx=x+o*ndx,fyy=cy+o*ndy;
-      const tz=sampleZ(fx,fyy,true),bz=sampleZ(fx,fyy+antY*stepAP,false);if(tz!=null)nUp++;if(bz!=null)nLo++;
-      VT[i].push({x:fx,y:fyy,z:tz});VB[i].push({x:fx,y:fyy,z:bz});}}
-  const tot=(N+1)*(M+1),cov=Math.min(nUp,nLo)/tot;
-  if(cov<0.35){wafer.ctDiag={ok:false,reason:'не распознаны обе зубные дуги (покрытие '+(cov*100|0)+'%) — вероятно КТ грубая/обрезана',enamel:n,span:+span.toFixed(0)};return null;}
-  fillSmooth(VT,z0+2);fillSmooth(VB,z0-2);
-  const minTh=2.5;
-  for(let i=0;i<=N;i++)for(let j=0;j<=M;j++){if(VT[i][j].z<VB[i][j].z+minTh){const m=(VT[i][j].z+VB[i][j].z)/2;VT[i][j].z=m+minTh/2;VB[i][j].z=m-minTh/2;}}
-  wafer.ctDiag={ok:true,enamel:n,span:+span.toFixed(0),coverage:+(cov*100).toFixed(0),threshold:T,z0:+z0.toFixed(0)};
+      const tz=sampleZ(fx,fyy,true),bz=sampleZ(fx,fyy+antY*stepAP,false);
+      if(Math.abs(o)<troughHW){ncC++;if(tz!=null)nUpC++;if(bz!=null)nLoC++;}
+      OT[i].push({x:fx,y:fyy,z:tz});OB[i].push({x:fx,y:fyy,z:bz});}}
+  const cov=Math.min(nUpC,nLoC)/Math.max(1,ncC);
+  if(cov<0.5){wafer.ctDiag={ok:false,reason:'не распознаны обе зубные дуги (покрытие '+(cov*100|0)+'%) — вероятно КТ грубая/обрезана',enamel:n,span:+span.toFixed(0)};return null;}
+  fillSmooth(OT,z0+1.5);fillSmooth(OB,z0-1.5);
+  // солид: центр = ложе под зубы (окклюзия из КТ), края = ретенционные стенки (надевается на зубы)
+  const VT=[],VB=[];
+  for(let i=0;i<=N;i++){VT.push([]);VB.push([]);
+    for(let j=0;j<=M;j++){const o=(j/M-0.5)*bandW,w=wallProfile(o,bandW);let zt=OT[i][j].z,zb=OB[i][j].z;
+      if(zt<zb+WAFER.minTh){const m=(zt+zb)/2;zt=m+WAFER.minTh/2;zb=m-WAFER.minTh/2;}
+      VT[i].push({x:OT[i][j].x,y:OT[i][j].y,z:zt+w});VB[i].push({x:OB[i][j].x,y:OB[i][j].y,z:zb-w});}}
+  wafer.ctDiag={ok:true,enamel:n,span:+span.toFixed(0),coverage:+(cov*100).toFixed(0),threshold:T,z0:+z0.toFixed(0),mode:'функц.'};
   return gridToSolid(VT,VB);
 }
 function buildWaferMesh(){let m=null;if(wafer.ct!==false&&vol)m=buildWaferCT();wafer.src=m?'ct':'param';return m||buildWaferParam();}
@@ -480,7 +496,7 @@ function renderPanel(){
       ? `<div class="mode-chip ok">✓ Дуга и ложа — <b>по МСКТ</b> (сегментация эмали/кости, порог ${dg.threshold} HU; дуга ${dg.span} мм; покрытие ${dg.coverage}%)</div>`
       : `<div class="mode-chip warn">⚠ Параметрическая дуга${dg.reason?' — '+dg.reason:''}. На дентальном CBCT (≤0.4 мм) дуга строится по реальным окклюзионным поверхностям.</div>`;
     p.innerHTML=`<div class="card view"><h3>🖨️ Хирургический шаблон</h3>
-        <div class="desc">Окклюзионный сплинт по итогам планирования: надевается на зубы в запланированном смыкании и служит интраоперационным <b>ключом окклюзии</b>. Печать на 3D-принтере, формат <b>STL</b>.</div>
+        <div class="desc">Функциональный окклюзионный сплинт: центральные <b>ложа под зубы</b> + буккальные/язычные <b>ретенционные стенки</b> — надевается на зубы в запланированном смыкании и служит интраоперационным <b>ключом окклюзии</b>. Печать на 3D-принтере, формат <b>STL</b>.</div>
         ${modeChip}
         <label class="chk" style="margin-top:8px"><input type="checkbox" id="wCt" ${wafer.ct!==false?'checked':''}> Адаптировать дугу по МСКТ (сегментация зубов)</label>
         <div class="grp2" style="margin-top:12px"><h4>Тип шаблона</h4>
