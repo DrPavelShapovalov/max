@@ -15,6 +15,10 @@ let vol=null, img=null, scale=0, photo=null;
 let LM={}, pickId=null, view={ox:0,oy:0,zoom:1};
 let plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};
 let overlay=0.5, building=false;
+// фото-морф: привязка фото к мягкотканным ориентирам ТРГ и прогноз профиля
+let photoLM={}, photoPick=null, photoOverlay=0.5, photoView={z:1,ox:0,oy:0}, photoDrag=null, photoWarpCv=null, photoWarpDirty=true;
+const PHOTO_SET=['G','Prn','Sn','Ls','Li','Pog2','Me2'];
+const invalidatePhotoWarp=()=>{photoWarpDirty=true;};
 
 const cv=$('cv'), ctx=cv.getContext('2d');
 
@@ -134,6 +138,37 @@ function buildWarp(){
   for(const[i,j,k]of tris)affTri(g,img,B[i],B[j],B[k],A[i],A[j],A[k]);
   return out;
 }
+
+// ═══ Фото-морф: прогноз профиля пациента по плану (привязка к мягкотканным точкам ТРГ) ═══
+// МНК-подобие src→dst (scale+поворот+сдвиг), ≥2 соответствия
+function fitSim(src,dst){
+  const n=src.length;let msx=0,msy=0,mdx=0,mdy=0;
+  for(let i=0;i<n;i++){msx+=src[i].x;msy+=src[i].y;mdx+=dst[i].x;mdy+=dst[i].y;}
+  msx/=n;msy/=n;mdx/=n;mdy/=n;let a=0,b=0,d=0;
+  for(let i=0;i<n;i++){const sx=src[i].x-msx,sy=src[i].y-msy,dx=dst[i].x-mdx,dy=dst[i].y-mdy;a+=sx*dx+sy*dy;b+=sx*dy-sy*dx;d+=sx*sx+sy*sy;}
+  d=d||1;const cos=a/d,sin=b/d; // включают масштаб: s·cosθ, s·sinθ
+  return{cos,sin,tx:mdx-(cos*msx-sin*msy),ty:mdy-(sin*msx+cos*msy),
+    applyVec:v=>({x:cos*v.x-sin*v.y,y:sin*v.x+cos*v.y})};
+}
+function photoCorr(){ const src=[],dst=[],ids=[];
+  PHOTO_SET.forEach(id=>{if(LM[id]&&photoLM[id]){src.push(LM[id]);dst.push(photoLM[id]);ids.push(id);}});
+  return{src,dst,ids}; }
+function photoAfter(){ const {src,dst,ids}=photoCorr(); if(src.length<2)return null;
+  const T=fitSim(src,dst),P=planned(),after={};
+  ids.forEach(id=>{ if(!P[id])return; after[id]=add(photoLM[id],T.applyVec(sub(P[id],LM[id]))); });
+  return{ids:ids.filter(id=>after[id]),after,before:photoLM}; }
+function buildPhotoWarp(){
+  if(!photo)return null;const W=photo.naturalWidth||photo.width,H=photo.naturalHeight||photo.height;
+  const pa=photoAfter(); if(!pa||pa.ids.length<2)return null;
+  const B=[],A=[];
+  pa.ids.forEach(id=>{B.push(photoLM[id]);A.push(pa.after[id]);});
+  [[0,0],[W/2,0],[W,0],[W,H/2],[W,H],[W/2,H],[0,H],[0,H/2]].forEach(([x,y])=>{B.push({x,y});A.push({x,y});});
+  if(B.length<3)return null;
+  const tris=delaunay(B),out=document.createElement('canvas');out.width=W;out.height=H;const g=out.getContext('2d');g.drawImage(photo,0,0);
+  for(const[i,j,k]of tris)affTri(g,photo,B[i],B[j],B[k],A[i],A[j],A[k]);
+  return out;
+}
+function advancePhotoPick(){const i=PHOTO_SET.indexOf(photoPick);const nx=PHOTO_SET.slice(i+1).find(id=>!photoLM[id]);photoPick=nx||PHOTO_SET[(i+1)%PHOTO_SET.length];renderPanel();render();}
 
 // ═══ Хирургический шаблон (окклюзионный сплинт) — параметрическая 3D-модель ═══
 let wafer={type:'final',archW:52,archD:40,height:11,band:11,teeth:12,ct:true,src:'param',ctDiag:null};
@@ -448,8 +483,13 @@ function render(){
   const pic=showPhoto?photo:img;
   const planWarp=(step==='plan'&&img&&anyMove());
   if(pic){ctx.imageSmoothingEnabled=true;
-    if(showPhoto){const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);const z=Math.min(r.width*dpr/photo.width,r.height*dpr/photo.height)*0.92;
-      ctx.drawImage(photo,(cv.width-photo.width*z)/2,(cv.height-photo.height*z)/2,photo.width*z,photo.height*z);}
+    if(showPhoto){const pw=photo.naturalWidth||photo.width,ph=photo.naturalHeight||photo.height;
+      const z=Math.min(cv.width/pw,cv.height/ph)*0.92;photoView={z,ox:(cv.width-pw*z)/2,oy:(cv.height-ph*z)/2};
+      const morph=anyMove()&&photoCorr().src.length>=2;
+      if(morph){ if(photoWarpDirty||!photoWarpCv){photoWarpCv=buildPhotoWarp();photoWarpDirty=false;}
+        ctx.globalAlpha=photoOverlay;ctx.drawImage(photo,photoView.ox,photoView.oy,pw*z,ph*z);ctx.globalAlpha=1; // «до»
+        if(photoWarpCv)ctx.drawImage(photoWarpCv,photoView.ox,photoView.oy,pw*z,ph*z);                        // «после» (прогноз)
+      } else ctx.drawImage(photo,photoView.ox,photoView.oy,pw*z,ph*z); }
     else if(planWarp){ if(warpDirty||!warpCv){warpCv=buildWarp();warpDirty=false;}
       ctx.globalAlpha=overlay;ctx.drawImage(img,view.ox,view.oy,img.width*view.zoom,img.height*view.zoom);ctx.globalAlpha=1; // «до» — ghost
       if(warpCv)ctx.drawImage(warpCv,view.ox,view.oy,img.width*view.zoom,img.height*view.zoom); } // «после» — деформация
@@ -458,7 +498,16 @@ function render(){
   $('shimmerWrap')&&0;
   // шиммер при построении
   let sh=document.querySelector('.shimmer'); if(building&&!sh){sh=document.createElement('div');sh.className='shimmer';$('stage').appendChild(sh);} if(!building&&sh)sh.remove();
-  if(showPhoto||!img) { updateBadge(); return; }
+  if(showPhoto){
+    const toP=p=>({x:photoView.ox+p.x*photoView.z,y:photoView.oy+p.y*photoView.z});
+    const pa=anyMove()?photoAfter():null;
+    if(pa)pa.ids.forEach(id=>{const S=toP(photoLM[id]),A=toP(pa.after[id]);ctx.strokeStyle='#18c3b6';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(S.x,S.y);ctx.lineTo(A.x,A.y);ctx.stroke();
+      ctx.beginPath();ctx.arc(A.x,A.y,3,0,7);ctx.fillStyle='#18c3b6';ctx.fill();});
+    PHOTO_SET.forEach(id=>{ if(!photoLM[id])return; const S=toP(photoLM[id]),cur=(id===photoPick);
+      ctx.beginPath();ctx.arc(S.x,S.y,cur?6:4,0,7);ctx.fillStyle=cur?'#ffb020':'#8a63ff';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.stroke();
+      ctx.fillStyle='#fff';ctx.font='700 12px Inter,sans-serif';ctx.save();ctx.strokeStyle='#1a1f33';ctx.lineWidth=3;ctx.strokeText(LBL[id].abbr,S.x+7,S.y-6);ctx.fillText(LBL[id].abbr,S.x+7,S.y-6);ctx.restore();});
+    updateBadge(); return; }
+  if(!img) { updateBadge(); return; }
   const P=(step==='plan')?planned():null;
   const dLines=(src,wid,dash,alpha)=>{ctx.save();ctx.globalAlpha=alpha==null?1:alpha;ctx.lineWidth=wid;ctx.setLineDash(dash||[]);
     LINES.forEach(([a,b,c])=>{if(src[a]&&src[b]){ctx.strokeStyle=c;const A=toS(src[a]),B=toS(src[b]);ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.stroke();}});ctx.restore();};
@@ -540,13 +589,39 @@ function renderPanel(){
     p.querySelectorAll('.lm').forEach(r=>r.onclick=()=>{pickId=r.dataset.k;renderPanel();render();});
   }
   else if(step==='photo'){
-    p.innerHTML=`<div class="card view"><h3>📷 Фото пациента</h3>
-      <div class="desc">${photo?'Фото загружено. Используется для документации и сопоставления профиля.':'Загрузите фотографию профиля пациента (в естественном положении головы).'}</div>
-      <button class="btn" id="loadPhoto">📷 Загрузить фото</button>
-      ${photo?'<button class="btn ghost" id="delPhoto" style="margin-top:9px">Удалить фото</button>':''}
-      <div class="note">Фото сохраняется в проекте и попадает в план. Планирование перемещений ведётся на ТРГ.</div></div>`;
-    $('loadPhoto').onclick=()=>$('photoInput').click();
-    if($('delPhoto'))$('delPhoto').onclick=()=>{photo=null;renderPanel();render();};
+    if(!photo){
+      p.innerHTML=`<div class="card view"><h3>📷 Фото профиля</h3>
+        <div class="desc">Загрузите фотографию <b>профиля</b> пациента (естественное положение головы, та же сторона, что и ТРГ — лицом вправо). По ней построим прогноз профиля после операции.</div>
+        <button class="btn" id="loadPhoto">📷 Загрузить фото профиля</button>
+        <div class="note">Затем вы отметите на фото мягкотканные точки (те же, что на ТРГ) — программа привяжет фото к плану и покажет «до → после».</div></div>`;
+      $('loadPhoto').onclick=()=>$('photoInput').click(); return;
+    }
+    if(!photoPick) photoPick = PHOTO_SET.find(id=>!photoLM[id]) || PHOTO_SET[0];
+    const l=LBL[photoPick], idx=PHOTO_SET.indexOf(photoPick)+1, nPlaced=PHOTO_SET.filter(id=>photoLM[id]).length;
+    const onTrg=PHOTO_SET.filter(id=>LM[id]).length, corr=photoCorr().src.length, moved=anyMove();
+    const rows=PHOTO_SET.map(id=>{const L=LBL[id];return `<div class="lm${id===photoPick?' cur':''}${photoLM[id]?' ok':''}" data-k="${id}"><span class="ck">${photoLM[id]?'✓':'○'}</span><span class="t">${L.abbr} <small>· ${L.ru.replace(' (мягк. ткани)','')}</small></span></div>`;}).join('');
+    p.innerHTML=`<div class="hint-card view">
+        <div class="hint-ill">${window.skullSVG(photoPick)}</div>
+        <div class="hint-body"><div class="pt">${l.abbr} <span class="ru">— ${l.ru}</span></div>
+          <div class="txt">${l.hint}</div>
+          <div class="nav"><button class="btn ghost sm" id="prevPh">← Назад</button><button class="btn sm" id="nextPh" style="width:auto">Пропустить →</button><span class="idx">${idx} / ${PHOTO_SET.length}</span></div>
+        </div></div>
+      <div class="card view"><div class="sect-label">Мягкотканные точки на фото (${nPlaced}/${PHOTO_SET.length})</div>
+        <div class="lm-list">${rows}</div>
+        <div class="slider-row" style="margin-top:12px"><label>Исходное ↔ прогноз</label><input type="range" id="phOv" min="0" max="1" step="0.05" value="${photoOverlay}"><span class="val">${moved?'морф':'—'}</span></div>
+        <div class="${corr>=2&&moved?'mode-chip ok':'mode-chip warn'}" style="margin-top:4px">${
+          corr>=2&&moved ? '✓ Прогноз профиля построен по плану ('+corr+ ' опорных точек). Двигайте «до ↔ прогноз».'
+          : (corr<2 ? 'Отметьте ≥2 точек и на фото, и на ТРГ (сейчас: фото '+nPlaced+', ТРГ '+onTrg+').' : 'Задайте перемещения на шаге «План» — и профиль на фото изменится.')}</div>
+        <div class="btn-row"><button class="btn sm" id="phPng" style="width:100%">⬇ Фото до→после (PNG)</button></div>
+        <div class="btn-row"><button class="btn ghost sm" id="clrPh" style="width:49%">Очистить точки</button><button class="btn ghost sm" id="delPhoto" style="width:49%">Удалить фото</button></div>
+        <div class="note">Кликните точку слева, затем поставьте её на фото (можно перетащить). Прогноз = перемещения мягких тканей из плана, перенесённые на фото по вашим опорным точкам.</div></div>`;
+    $('prevPh').onclick=()=>{const i=PHOTO_SET.indexOf(photoPick);photoPick=PHOTO_SET[(i-1+PHOTO_SET.length)%PHOTO_SET.length];renderPanel();render();};
+    $('nextPh').onclick=()=>advancePhotoPick();
+    $('phOv').oninput=e=>{photoOverlay=+e.target.value;render();};
+    $('clrPh').onclick=()=>{photoLM={};photoPick=PHOTO_SET[0];invalidatePhotoWarp();renderPanel();render();};
+    $('delPhoto').onclick=()=>{photo=null;photoLM={};renderPanel();render();};
+    $('phPng').onclick=()=>{const a=document.createElement('a');a.download='ОРТОС_профиль_до-после.png';a.href=cv.toDataURL('image/png');a.click();};
+    p.querySelectorAll('.lm').forEach(rw=>rw.onclick=()=>{photoPick=rw.dataset.k;renderPanel();render();});
   }
   else if(step==='analysis'){
     if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ и расставьте точки.'); return; }
@@ -569,9 +644,9 @@ function renderPanel(){
       <div class="card view"><div class="sect-label">Сводка и анализ до → после</div><div id="rep"></div>
         <div class="btn-row"><button class="btn" id="toWafer" style="width:100%">🖨️ Сформировать шаблон (сплинт) →</button></div>
         <div class="btn-row"><button class="btn sm ghost" id="expPng" style="width:100%">⬇ План (PNG)</button></div></div>`;
-    bindSliders(); if($('autorot'))$('autorot').onchange=e=>{plan.autorot=e.target.checked;invalidateWarp();waferMesh=null;render();renderPanel();};
+    bindSliders(); if($('autorot'))$('autorot').onchange=e=>{plan.autorot=e.target.checked;invalidateWarp();invalidatePhotoWarp();waferMesh=null;render();renderPanel();};
     $('ov').oninput=e=>{overlay=+e.target.value;render();};
-    $('resetPlan').onclick=()=>{plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};invalidateWarp();waferMesh=null;renderPanel();render();};
+    $('resetPlan').onclick=()=>{plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};invalidateWarp();invalidatePhotoWarp();waferMesh=null;renderPanel();render();};
     $('toWafer').onclick=()=>setStep('wafer');
     $('expPng').onclick=exportPng; renderReport($('rep'));
   }
@@ -623,7 +698,7 @@ function anRow(r){const col=r.st==='норма'?'var(--good)':(r.st==='—'?'var
   return `<div class="an-row"><span class="k">${r.key}</span><span class="v">${r.val!=null&&!isNaN(r.val)?r.val.toFixed(1):'—'}</span><span class="s" style="color:${col}">${r.st}</span><span class="n">норма ${r.norm}${r.extra?' · '+r.extra:''}</span></div>`;}
 function sl(k,label,mn,mx,st,u){return `<div class="slider-row"><label>${label}</label><input type="range" id="s_${k}" min="${mn}" max="${mx}" step="${st}" value="${plan[k]}"><span class="val" id="v_${k}">${fmt(plan[k])}${u}</span></div>`;}
 function bindSliders(){['mxAdv','mxImp','mxPitch','mdAdv','mdRot','chAdv','chVert'].forEach(k=>{const el=$('s_'+k);if(!el)return;const u=(k.includes('Pitch')||k.includes('Rot'))?'°':'мм';
-  el.oninput=e=>{plan[k]=+e.target.value;$('v_'+k).textContent=fmt(plan[k])+u;invalidateWarp();waferMesh=null;render();renderReport($('rep'));};});}
+  el.oninput=e=>{plan[k]=+e.target.value;$('v_'+k).textContent=fmt(plan[k])+u;invalidateWarp();invalidatePhotoWarp();waferMesh=null;render();renderReport($('rep'));};});}
 function renderReport(box){if(!box)return;const mdR=plan.autorot?plan.mxImp*1.1:plan.mdRot;
   const mv=[['Верхняя челюсть (Le Fort I)',`выдв. ${fmt(plan.mxAdv)} · импакция ${fmt(plan.mxImp)} · питч ${fmt(plan.mxPitch)}°`],
     ['Нижняя челюсть (BSSO)',`выдв. ${fmt(plan.mdAdv)} · ротация ${fmt(mdR)}°${plan.autorot?' (авто)':''}`],
@@ -657,6 +732,10 @@ let drag=null,pan=null;
 cv.addEventListener('mousedown',e=>{const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
   const sx=(e.clientX-r.left)*dpr,sy=(e.clientY-r.top)*dpr;
   if(step==='wafer'){waferSpin=false;waferDrag={sx,sy,yaw:waferYaw,pitch:waferPitch};return;}
+  if(step==='photo'&&photo){const ip={x:(sx-photoView.ox)/photoView.z,y:(sy-photoView.oy)/photoView.z};
+    let b2=null,bd2=14*dpr;PHOTO_SET.forEach(id=>{if(photoLM[id]){const S={x:photoView.ox+photoLM[id].x*photoView.z,y:photoView.oy+photoLM[id].y*photoView.z};const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd2){bd2=d;b2=id;}}});
+    if(b2){photoDrag=b2;photoPick=b2;renderPanel();render();return;}
+    if(photoPick){photoLM[photoPick]={x:ip.x,y:ip.y};invalidatePhotoWarp();popAt(sx,sy);advancePhotoPick();}return;}
   if(e.button===1||e.shiftKey){pan={sx,sy,ox:view.ox,oy:view.oy};return;}
   if(step!=='points'||!img)return;const ip=toI(sx,sy);
   let best=null,bd=14*dpr;LM_DEF.forEach(l=>{if(LM[l.id]){const S=toS(LM[l.id]);const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd){bd=d;best=l.id;}}});
@@ -664,9 +743,10 @@ cv.addEventListener('mousedown',e=>{const r=cv.getBoundingClientRect(),dpr=Math.
   if(pickId){LM[pickId]=ip;popAt(sx,sy);advancePick();}});
 window.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);const sx=(e.clientX-r.left)*dpr,sy=(e.clientY-r.top)*dpr;
   if(waferDrag){waferYaw=waferDrag.yaw+(sx-waferDrag.sx)*0.006;waferPitch=Math.max(-1.45,Math.min(1.45,waferDrag.pitch+(sy-waferDrag.sy)*0.006));if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);return;}
+  if(photoDrag){photoLM[photoDrag]={x:(sx-photoView.ox)/photoView.z,y:(sy-photoView.oy)/photoView.z};invalidatePhotoWarp();render();return;}
   if(pan){view.ox=pan.ox+(sx-pan.sx);view.oy=pan.oy+(sy-pan.sy);render();return;}
   if(drag){LM[drag]=toI(sx,sy);render();}});
-window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}pan=null;waferDrag=null;});
+window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}if(photoDrag){photoDrag=null;renderPanel();}pan=null;waferDrag=null;});
 cv.addEventListener('wheel',e=>{if(step==='photo')return;
   if(step==='wafer'){e.preventDefault();waferZoom=Math.max(0.4,Math.min(3,waferZoom*(e.deltaY<0?1.1:0.9)));if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);return;}
   if(!img)return;e.preventDefault();const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
@@ -686,10 +766,10 @@ $('photoInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)re
 $('emptyLoad').onclick=()=>$('dcmInput').click();
 $('steps').addEventListener('click',e=>{const s=e.target.closest('.step');if(s)setStep(s.dataset.s);});
 $('saveBtn').onclick=save; $('openBtn').onclick=()=>$('openInput').click();
-$('openInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const o=JSON.parse(rd.result);patient=o.patient||patient;scale=o.scale||0;LM=o.LM||{};plan=Object.assign(plan,o.plan||{});
+$('openInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const o=JSON.parse(rd.result);patient=o.patient||patient;scale=o.scale||0;LM=o.LM||{};plan=Object.assign(plan,o.plan||{});photoLM=o.photoLM||{};
   const done=()=>{setStep('points');};if(o.img){const im=new Image();im.onload=()=>{img=im;autoView();done();};im.src=o.img;}else done();if(o.photo){const pm=new Image();pm.onload=()=>{photo=pm;};pm.src=o.photo;}toast('Проект открыт.');}catch(err){alert('Не удалось открыть файл');}};rd.readAsText(f);e.target.value='';});
 
-function save(){const o={v:1,patient,scale,LM,plan,img:img?img.src:null,photo:photo?photo.src:null};
+function save(){const o={v:1,patient,scale,LM,plan,photoLM,img:img?img.src:null,photo:photo?photo.src:null};
   const a=document.createElement('a');a.download=(patient.name||'план')+'.orthos';a.href=URL.createObjectURL(new Blob([JSON.stringify(o)],{type:'application/json'}));a.click();}
 function exportPng(){const a=document.createElement('a');a.download='ОРТОС_план_'+(patient.name||'пациент')+'.png';a.href=cv.toDataURL('image/png');a.click();}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),2400);}
@@ -698,9 +778,13 @@ window.addEventListener('resize',render);
 renderPanel(); render();
 
 // тест-хук
-window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};}, calib:s=>{scale=s;}, analyse:()=>analyse(LM), planned, setPlan:p=>{Object.assign(plan,p);invalidateWarp();waferMesh=null;},
+window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};}, calib:s=>{scale=s;}, analyse:()=>analyse(LM), planned, setPlan:p=>{Object.assign(plan,p);invalidateWarp();invalidatePhotoWarp();waferMesh=null;},
   setWafer:o=>{Object.assign(wafer,o);waferMesh=null;}, stl:()=>waferSTL(buildWaferMesh()), waferTris:()=>buildWaferMesh().length,
   ctDiag:()=>{buildWaferMesh();return{src:wafer.src,diag:wafer.ctDiag};}, injectVol:v=>{vol=v;waferMesh=null;},
   warpInfo:()=>{const w=buildWarp();return{ok:!!w,w:w&&w.width,h:w&&w.height};}, osteotomy:()=>osteotomy().map(s=>s.label),
   waferView:()=>({yaw:+waferYaw.toFixed(3),pitch:+waferPitch.toFixed(3),zoom:+waferZoom.toFixed(2),spin:waferSpin}),
+  loadPhotoUrl:url=>new Promise(res=>{const im=new Image();im.onload=()=>{photo=im;res({w:im.naturalWidth||im.width,h:im.naturalHeight||im.height});};im.src=url;}),
+  photoSet:(id,x,y)=>{photoLM[id]={x,y};invalidatePhotoWarp();}, photoWarp:()=>{const c=buildPhotoWarp();return{ok:!!c,w:c&&c.width,h:c&&c.height};},
+  photoState:()=>{const pa=anyMove()?photoAfter():null;return{hasPhoto:!!photo,placed:Object.keys(photoLM).length,corr:photoCorr().src.length,
+    after:pa?pa.ids.map(id=>({id,dx:+(pa.after[id].x-photoLM[id].x).toFixed(1),dy:+(pa.after[id].y-photoLM[id].y).toFixed(1)})):null};},
   step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasVol:!!vol,stepAP:waferStepAP(),vert:waferVert(),wtype:wafer.type}) };
