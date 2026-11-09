@@ -162,6 +162,14 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 .lb-track{height:10px;border-radius:999px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line)}
 .lb-fill{height:100%;width:0;background:var(--grad);border-radius:999px;transition:width .25s ease}
 .lb-pct{margin-top:10px;font:700 13px Inter,sans-serif;color:var(--accent);font-variant-numeric:tabular-nums}
+/* живая цефалометрия в плане */
+.norm-row{display:grid;grid-template-columns:1fr auto 18px;align-items:center;gap:8px;padding:5px 8px;border-radius:9px;transition:background .25s}
+.norm-row .nk{font-size:12px;color:var(--ink-soft)} .norm-row .nk small{color:var(--ink-faint);font-size:10.5px;margin-left:4px}
+.norm-row .nv{font-size:13px;font-variant-numeric:tabular-nums;text-align:right} .norm-row .nv b{font-weight:800}
+.norm-row .ns{font-weight:800;font-size:13px;text-align:center}
+.norm-row.hit{background:rgba(24,195,182,.12)} .norm-row.hit .nk{color:var(--ink)}
+@keyframes normpulse{0%{background:rgba(24,195,182,.42)}100%{background:rgba(24,195,182,.12)}}
+.norm-row.hit{animation:normpulse .5s ease}
 
 /* дропзона/пусто */
 .empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:40px;z-index:2}

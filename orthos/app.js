@@ -137,7 +137,7 @@ function buildWarp(){
 
 // ═══ Хирургический шаблон (окклюзионный сплинт) — параметрическая 3D-модель ═══
 let wafer={type:'final',archW:52,archD:40,height:11,band:11,teeth:12,ct:true,src:'param',ctDiag:null};
-let waferMesh=null,waferYaw=0.6,waferPitch=0.5,waferRAF=null;
+let waferMesh=null,waferYaw=0.6,waferPitch=0.5,waferRAF=null,waferDrag=null,waferSpin=true,waferZoom=1;
 // Относительное положение зубных дуг, которое фиксирует шаблон (мм):
 //  • ФИНАЛЬНЫЙ — обе челюсти в итоговом положении: AP = mdAdv−mxAdv, вертикаль ~0;
 //  • ПРОМЕЖУТОЧНЫЙ — в/ч перемещена, н/ч ИСХОДНАЯ (BSSO ещё не выполнен):
@@ -294,7 +294,7 @@ function drawWafer3D(T,yaw,pitch){
   const R=v=>{const x1=v.x*cY-v.y*sY,y1=v.x*sY+v.y*cY,z1=v.z;const y2=y1*cP-z1*sP,z2=y1*sP+z1*cP;return{x:x1,y:y2,z:z2};};
   let mnx=1/0,mxx=-1/0,mnz=1/0,mxz=-1/0;const RT=[];
   for(const t of T){const r=[R(t[0]),R(t[1]),R(t[2])];RT.push(r);for(const p of r){mnx=Math.min(mnx,p.x);mxx=Math.max(mxx,p.x);mnz=Math.min(mnz,p.z);mxz=Math.max(mxz,p.z);}}
-  const sc=Math.min(cv.width/(mxx-mnx||1),cv.height/(mxz-mnz||1))*0.72;
+  const sc=Math.min(cv.width/(mxx-mnx||1),cv.height/(mxz-mnz||1))*0.72*waferZoom;
   const ox=cv.width/2-(mnx+mxx)/2*sc,oz=cv.height/2+(mnz+mxz)/2*sc;
   const idx=RT.map((r,i)=>[i,(r[0].y+r[1].y+r[2].y)/3]).sort((a,b)=>a[1]-b[1]);
   const Lt={x:-0.35,y:-0.5,z:0.79};
@@ -307,7 +307,7 @@ function drawWafer3D(T,yaw,pitch){
     ctx.fillStyle=`rgb(${Math.round(120+90*dif)},${g2},${Math.min(255,sh+20)})`;
     ctx.beginPath();ctx.moveTo(ox+r[0].x*sc,oz-r[0].z*sc);ctx.lineTo(ox+r[1].x*sc,oz-r[1].z*sc);ctx.lineTo(ox+r[2].x*sc,oz-r[2].z*sc);ctx.closePath();ctx.fill();}
 }
-function waferAnim(){if(step!=='wafer'){waferRAF=null;return;}waferYaw+=0.011;if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);waferRAF=requestAnimationFrame(waferAnim);}
+function waferAnim(){if(step!=='wafer'){waferRAF=null;return;}if(waferSpin&&!waferDrag)waferYaw+=0.009;if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);waferRAF=requestAnimationFrame(waferAnim);}
 function exportSTL(){const buf=waferSTL(waferMesh||buildWaferMesh());const a=document.createElement('a');
   a.download='ОРТОС_сплинт_'+(patient.name||'пациент')+'.stl';a.href=URL.createObjectURL(new Blob([buf],{type:'model/stl'}));a.click();}
 
@@ -587,7 +587,8 @@ function renderPanel(){
           ${wsl('height','Высота блока',7,16,0.5,' мм')}${wsl('teeth','Зубных лож',8,16,1,'')}
           ${isCT?'<div class="note" style="margin-top:4px">В режиме МСКТ форма дуги и ложа берутся из КТ; эти ползунки — для запасного режима.</div>':''}</div>
         <button class="btn" id="dlStl" style="margin-top:4px">⬇ Скачать STL (для 3D-печати)</button>
-        <div class="btn-row"><button class="btn ghost sm" id="snapStl" style="width:100%">⬇ Вид шаблона (PNG)</button></div></div>
+        <div class="btn-row"><button class="btn ghost sm" id="snapStl" style="width:100%">⬇ Вид шаблона (PNG)</button></div>
+        <div class="note" style="margin-top:6px">🖱 Повернуть — тяните мышью по модели · зум — колесо мыши.</div></div>
       <div class="card view"><div class="sect-label">Параметры из плана</div>
         <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Логика</span><span class="v" style="font-size:12px">${wafer.type==='inter'?'в/ч перемещена, н/ч исходная':'обе челюсти в итоге'}</span></div>
         <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Сагиттальный шаг дуг</span><span class="v" style="color:var(--accent)">${fmt(stepAP)} мм</span></div>
@@ -617,10 +618,17 @@ function renderReport(box){if(!box)return;const mdR=plan.autorot?plan.mxImp*1.1:
   const mv=[['Верхняя челюсть (Le Fort I)',`выдв. ${fmt(plan.mxAdv)} · импакция ${fmt(plan.mxImp)} · питч ${fmt(plan.mxPitch)}°`],
     ['Нижняя челюсть (BSSO)',`выдв. ${fmt(plan.mdAdv)} · ротация ${fmt(mdR)}°${plan.autorot?' (авто)':''}`],
     ['Подбородок',`выдв. ${fmt(plan.chAdv)} · вертикаль ${fmt(plan.chVert)}`]];
-  const b=analyse(LM),a=analyse(planned());const keep=['SNA, °','SNB, °','ANB, °','Wits, мм','U1–NA, мм','L1–NB, мм'];
+  const b=analyse(LM),a=analyse(planned());const keep=['SNA, °','SNB, °','ANB, °','Wits, мм','U1–NA, мм','L1–NB, мм','SN–MP, °'];
   box.innerHTML=mv.map(([t,v])=>`<div style="margin-bottom:7px"><div style="font-size:12px;font-weight:700;color:var(--ink)">${t}</div><div style="font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums">${v}</div></div>`).join('')
-    +'<div class="sep"></div>'+keep.map(key=>{const rb=b.find(x=>x.key===key),ra=a.find(x=>x.key===key);const vb=rb&&rb.val!=null?rb.val.toFixed(1):'—',va=ra&&ra.val!=null?ra.val.toFixed(1):'—';
-      return `<div class="an-row" style="grid-template-columns:1fr auto"><span class="k">${key}</span><span class="v" style="font-size:13px">${vb} → <span style="color:var(--accent)">${va}</span></span></div>`;}).join('');
+    +'<div class="sep"></div><div class="sect-label" style="margin:2px 0 8px">Цефалометрия: до → после · норма</div>'
+    +keep.map(key=>{const rb=b.find(x=>x.key===key),ra=a.find(x=>x.key===key);
+      const vb=rb&&rb.val!=null?rb.val.toFixed(1):'—',va=ra&&ra.val!=null?ra.val.toFixed(1):'—';
+      const ok=ra&&ra.st==='норма', na=!ra||ra.val==null;
+      const col=na?'var(--ink-faint)':(ok?'var(--good)':'var(--warn)');
+      const tag=na?'':(ok?'✓':(ra.st==='ниже'?'↑':'↓'));
+      return `<div class="norm-row${ok?' hit':''}"><span class="nk">${key} <small>${ra?ra.norm:''}</small></span>`
+        +`<span class="nv">${vb} <span style="color:var(--ink-faint)">→</span> <b style="color:${col}">${va}</b></span>`
+        +`<span class="ns" style="color:${col}">${tag}</span></div>`;}).join('');
 }
 function emptyStepCard(t,d){return `<div class="card view"><h3>${t}</h3><div class="desc">${d}</div><button class="btn" onclick="document.getElementById('dcmInput').click()">🧊 Загрузить МСКТ</button></div>`;}
 function esc(s){return(s||'').replace(/"/g,'&quot;');}
@@ -638,16 +646,20 @@ function advancePick(){const i=ORDER.indexOf(pickId);const nx=ORDER.slice(i+1).f
 let drag=null,pan=null;
 cv.addEventListener('mousedown',e=>{const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
   const sx=(e.clientX-r.left)*dpr,sy=(e.clientY-r.top)*dpr;
+  if(step==='wafer'){waferSpin=false;waferDrag={sx,sy,yaw:waferYaw,pitch:waferPitch};return;}
   if(e.button===1||e.shiftKey){pan={sx,sy,ox:view.ox,oy:view.oy};return;}
   if(step!=='points'||!img)return;const ip=toI(sx,sy);
   let best=null,bd=14*dpr;LM_DEF.forEach(l=>{if(LM[l.id]){const S=toS(LM[l.id]);const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd){bd=d;best=l.id;}}});
   if(best){drag=best;pickId=best;renderPanel();render();return;}
   if(pickId){LM[pickId]=ip;popAt(sx,sy);advancePick();}});
 window.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);const sx=(e.clientX-r.left)*dpr,sy=(e.clientY-r.top)*dpr;
+  if(waferDrag){waferYaw=waferDrag.yaw+(sx-waferDrag.sx)*0.006;waferPitch=Math.max(-1.45,Math.min(1.45,waferDrag.pitch+(sy-waferDrag.sy)*0.006));if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);return;}
   if(pan){view.ox=pan.ox+(sx-pan.sx);view.oy=pan.oy+(sy-pan.sy);render();return;}
   if(drag){LM[drag]=toI(sx,sy);render();}});
-window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}pan=null;});
-cv.addEventListener('wheel',e=>{if(!img||step==='photo')return;e.preventDefault();const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
+window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}pan=null;waferDrag=null;});
+cv.addEventListener('wheel',e=>{if(step==='photo')return;
+  if(step==='wafer'){e.preventDefault();waferZoom=Math.max(0.4,Math.min(3,waferZoom*(e.deltaY<0?1.1:0.9)));if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);return;}
+  if(!img)return;e.preventDefault();const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
   const sx=(e.clientX-r.left)*dpr,sy=(e.clientY-r.top)*dpr,bef=toI(sx,sy);view.zoom*=e.deltaY<0?1.12:0.89;const af=toI(sx,sy);view.ox+=(af.x-bef.x)*view.zoom;view.oy+=(af.y-bef.y)*view.zoom;render();},{passive:false});
 cv.addEventListener('dragover',e=>e.preventDefault());
 cv.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image')){const rd=new FileReader();rd.onload=()=>{const im=new Image();im.onload=()=>{img=im;scale=0;autoView();setStep('points');toast('Снимок загружен. Откалибруйте при необходимости.');};im.src=rd.result;};rd.readAsDataURL(f);}});
@@ -680,4 +692,5 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};}, calib:
   setWafer:o=>{Object.assign(wafer,o);waferMesh=null;}, stl:()=>waferSTL(buildWaferMesh()), waferTris:()=>buildWaferMesh().length,
   ctDiag:()=>{buildWaferMesh();return{src:wafer.src,diag:wafer.ctDiag};}, injectVol:v=>{vol=v;waferMesh=null;},
   warpInfo:()=>{const w=buildWarp();return{ok:!!w,w:w&&w.width,h:w&&w.height};}, osteotomy:()=>osteotomy().map(s=>s.label),
+  waferView:()=>({yaw:+waferYaw.toFixed(3),pitch:+waferPitch.toFixed(3),zoom:+waferZoom.toFixed(2),spin:waferSpin}),
   step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasVol:!!vol,stepAP:waferStepAP(),vert:waferVert(),wtype:wafer.type}) };
