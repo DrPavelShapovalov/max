@@ -115,8 +115,8 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 /* карточка-подсказка с иллюстрацией */
 .hint-card{background:linear-gradient(160deg,#ffffff,#f7f8ff);border:1px solid var(--line);border-radius:var(--radius);
   box-shadow:var(--shadow);overflow:hidden;animation:rise .35s both}
-.hint-ill{background:linear-gradient(160deg,#eef1ff,#f6f1ff);padding:10px;border-bottom:1px solid var(--line)}
-.hint-ill svg{width:100%;height:auto;aspect-ratio:320/300;display:block;border-radius:12px}
+.hint-ill{background:linear-gradient(160deg,#1b2138,#11162a);padding:8px;border-bottom:1px solid var(--line);display:flex;justify-content:center}
+.hint-ill svg{width:auto;height:auto;max-width:100%;max-height:360px;aspect-ratio:460/520;display:block;border-radius:12px}
 .hint-body{padding:14px 16px 16px}
 .hint-body .pt{font-size:16px;font-weight:800;color:var(--accent)}
 .hint-body .pt .ru{color:var(--ink);font-weight:700;font-size:14px}
