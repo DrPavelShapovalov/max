@@ -1,0 +1,41 @@
+{
+  "name": "orthos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ОРТОС — планировщик ортогнатической хирургии (ТРГ, МСКТ, фото)",
+  "author": "Шаповалов П.И.",
+  "main": "electron-main.cjs",
+  "repository": { "type": "git", "url": "https://github.com/DrPavelShapovalov/max.git" },
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "^31.7.6",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "ru.cniis.orthos",
+    "productName": "ORTHOS",
+    "artifactName": "ORTHOS-Setup-${version}.${ext}",
+    "directories": { "output": "release" },
+    "files": [
+      "electron-main.cjs",
+      "index.html",
+      "styles.css",
+      "skull.js",
+      "app.js",
+      "vendor/**",
+      "build/**"
+    ],
+    "win": { "target": ["nsis"], "icon": "build/icon.png" },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ОРТОС"
+    }
+  }
+}
