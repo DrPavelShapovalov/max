@@ -321,22 +321,39 @@ function parseDcm(buf){
     const g=dv.getUint16(o,true),e=dv.getUint16(o+2,true);o+=4;const explicit=(g===0x0002)?true:!implicit;let vr=null,len;
     if(explicit){vr=String.fromCharCode(dv.getUint8(o),dv.getUint8(o+1));o+=2;if(['OB','OW','OF','SQ','UT','UN','UC','UR'].includes(vr)){o+=2;len=dv.getUint32(o,true);o+=4;}else{len=dv.getUint16(o,true);o+=2;}}
     else{len=dv.getUint32(o,true);o+=4;}
-    if(len===0xFFFFFFFF){while(o+8<=N){const dg=dv.getUint16(o,true),de=dv.getUint16(o+2,true),dl=dv.getUint32(o+4,true);o+=8;if(dg===0xFFFE&&de===0xE0DD)break;if(dg===0xFFFE&&de===0xE000&&dl!==0xFFFFFFFF)o+=dl;}continue;}
+    if(len===0xFFFFFFFF){
+      if(g===0x7FE0&&e===0x0010){ // инкапсулированные (сжатые) пиксели: таблица смещений + фрагменты
+        let dg=dv.getUint16(o,true),de=dv.getUint16(o+2,true),dl=dv.getUint32(o+4,true);o+=8;
+        if(dg===0xFFFE&&de===0xE000)o+=dl; // пропустить Basic Offset Table
+        const frags=[];
+        while(o+8<=N){ dg=dv.getUint16(o,true);de=dv.getUint16(o+2,true);dl=dv.getUint32(o+4,true);o+=8;
+          if(dg===0xFFFE&&de===0xE0DD)break; if(dg===0xFFFE&&de===0xE000){frags.push(new Uint8Array(buf,o,dl));o+=dl;} else break; }
+        let tot=0;frags.forEach(fr=>tot+=fr.length);const enc=new Uint8Array(tot);let p=0;frags.forEach(fr=>{enc.set(fr,p);p+=fr.length;});
+        T.encoded=enc;break;
+      }
+      while(o+8<=N){const dg=dv.getUint16(o,true),de=dv.getUint16(o+2,true),dl=dv.getUint32(o+4,true);o+=8;if(dg===0xFFFE&&de===0xE0DD)break;if(dg===0xFFFE&&de===0xE000&&dl!==0xFFFFFFFF)o+=dl;}continue;}
     const off=o;o+=len;const tag=((g<<16)|e)>>>0;
-    if(g===0x0002&&e===0x0010){const ts=rs(off,len);implicit=(ts==='1.2.840.10008.1.2');}
+    if(g===0x0002&&e===0x0010){T.ts=rs(off,len);implicit=(T.ts==='1.2.840.10008.1.2');}
     else if(tag===0x00280010)T.rows=dv.getUint16(off,true);else if(tag===0x00280011)T.cols=dv.getUint16(off,true);
+    else if(tag===0x00280002)T.samples=dv.getUint16(off,true);
     else if(tag===0x00280030)T.ps=rs(off,len).split('\\').map(Number);else if(tag===0x00180050)T.thick=parseFloat(rs(off,len))||0;
     else if(tag===0x00200032)T.ipp=rs(off,len).split('\\').map(Number);else if(tag===0x00281053)T.slope=parseFloat(rs(off,len))||1;
     else if(tag===0x00281052)T.intercept=parseFloat(rs(off,len))||0;else if(tag===0x00280100)T.bits=dv.getUint16(off,true);
     else if(tag===0x00280103)T.rep=dv.getUint16(off,true);else if(tag===0x00200013)T.inst=parseInt(rs(off,len))||0;
+    else if(tag===0x0020000E)T.series=rs(off,len);else if(tag===0x00181210)T.kernel=rs(off,len);else if(tag===0x0008103E)T.desc=rs(off,len);
     else if(tag===0x7FE00010){T.pixOff=off;T.pixLen=len;break;}
   }
-  if(!T.rows||!T.cols||T.pixOff==null)return null;
-  const n=T.rows*T.cols,bits=T.bits||16,rep=T.rep||0,px=new Int16Array(n);
-  if(bits<=8){for(let i=0;i<n;i++)px[i]=dv.getUint8(T.pixOff+i);}
-  else if(rep===1){for(let i=0;i<n;i++)px[i]=dv.getInt16(T.pixOff+i*2,true);}
-  else{for(let i=0;i<n;i++)px[i]=dv.getUint16(T.pixOff+i*2,true);}
-  return{rows:T.rows,cols:T.cols,ps:T.ps||[1,1],thick:T.thick||1,ipp:T.ipp||[0,0,T.inst||0],slope:T.slope||1,intercept:T.intercept||0,inst:T.inst||0,px};
+  if(!T.rows||!T.cols)return null;
+  const n=T.rows*T.cols,bits=T.bits||16,rep=T.rep||0,sm=T.samples||1;
+  const meta={rows:T.rows,cols:T.cols,ps:T.ps||[1,1],thick:T.thick||1,ipp:T.ipp||[0,0,T.inst||0],slope:T.slope||1,intercept:T.intercept||0,inst:T.inst||0,
+    series:T.series||'',kernel:T.kernel||'',desc:T.desc||''};
+  if(T.encoded){ return {...meta,compressed:true,ts:T.ts,encoded:T.encoded,bits,rep,samples:sm}; } // декодируется в loadDicom (async)
+  if(T.pixOff==null)return null;
+  const px=new Int16Array(n);
+  if(bits<=8){for(let i=0;i<n;i++)px[i]=dv.getUint8(T.pixOff+i*sm);}
+  else if(rep===1){for(let i=0;i<n;i++)px[i]=dv.getInt16(T.pixOff+i*sm*2,true);}
+  else{for(let i=0;i<n;i++)px[i]=dv.getUint16(T.pixOff+i*sm*2,true);}
+  return {...meta,px};
 }
 function assembleVolume(sl){
   sl=sl.filter(Boolean);if(sl.length<3)return null;sl.sort((a,b)=>(a.ipp[2]-b.ipp[2])||(a.inst-b.inst));
@@ -355,17 +372,56 @@ function buildLateralDRR(v){
   for(let i=0;i<acc.length;i++){let g=Math.pow(acc[i]*inv,0.6)*255;g=g>255?255:g;const o=i*4;P[o]=P[o+1]=P[o+2]=g;P[o+3]=255;}
   off.getContext('2d').putImageData(im,0,0);return{canvas:off,W,H,mpp};
 }
-function loadDicom(files){
-  const arr=[...files].filter(f=>/\.dcm$/i.test(f.name)||!/\./.test(f.name));
+// прогресс-бар загрузки
+function loadBar(frac,label){let el=$('loadbar');
+  if(!el){el=document.createElement('div');el.id='loadbar';el.className='loadbar';
+    el.innerHTML='<div class="lb-card"><div class="lb-title"></div><div class="lb-track"><div class="lb-fill"></div></div><div class="lb-pct"></div></div>';
+    $('stage').appendChild(el);}
+  if(frac==null){el.remove();return;}
+  el.querySelector('.lb-title').textContent=label||'Загрузка…';
+  el.querySelector('.lb-fill').style.width=Math.round(frac*100)+'%';
+  el.querySelector('.lb-pct').textContent=Math.round(frac*100)+'%';
+}
+// выбор одной серии (без смешивания костного/мягкотканного кернелов → без полос)
+function pickSeries(slices){
+  const groups={}; slices.forEach(s=>{(groups[s.series||'_']=groups[s.series||'_']||[]).push(s);});
+  const keys=Object.keys(groups); if(keys.length<=1)return{sl:slices,multi:false,info:''};
+  const bone=k=>/bone|sharp|lung|b[6-8]\d|h[6-8]\d|y[6-8]\d|edge|детал|кост/i.test((groups[k][0].kernel||'')+' '+(groups[k][0].desc||''));
+  // предпочесть НЕ костную серию с наибольшим числом срезов
+  keys.sort((a,b)=>(bone(a)-bone(b))||(groups[b].length-groups[a].length));
+  const best=keys[0],g=groups[best];
+  return{sl:g,multi:true,info:(g[0].desc||g[0].kernel||'серия')+' · '+g.length+' срезов (из '+keys.length+' серий)'};
+}
+async function loadDicom(files){
+  const arr=[...files].filter(f=>/\.dcm$/i.test(f.name)||!/\.[a-z0-9]+$/i.test(f.name));
   if(!arr.length){toast('В папке нет файлов DICOM (.dcm).');return;}
-  building=true; render(); toast('Читаю '+arr.length+' срезов DICOM…');
-  Promise.all(arr.map(f=>f.arrayBuffer().then(b=>{try{return parseDcm(b);}catch(e){return null;}}))).then(sl=>{
-    vol=assembleVolume(sl); building=false;
-    if(!vol){ alert('Не удалось собрать объём. Возможно, DICOM сжатый (JPEG/JPEG2000) — тогда выгрузите несжатую серию.'); render(); return; }
-    const drr=buildLateralDRR(vol);const im=new Image();
-    im.onload=()=>{ img=im; scale=1/drr.mpp; autoView(); setStep('points'); toast('ТРГ построена из МСКТ ('+vol.dims[2]+' срезов). Масштаб '+scale.toFixed(2)+' px/мм.'); };
-    im.src=drr.canvas.toDataURL('image/png');
-  });
+  building=true; loadBar(0,'Чтение DICOM… 0/'+arr.length); render();
+  const slices=[]; const codec={}; let done=0, bad=0;
+  for(const f of arr){
+    try{ const b=await f.arrayBuffer(); const s=parseDcm(b);
+      if(s&&s.compressed){ // сжатый кадр — декодируем (RLE/JPEG/JPEG-LS/JPEG2000)
+        try{ s.px=await DCMDecode.decodeFrame(s.ts,s.encoded,{rows:s.rows,cols:s.cols,bitsAllocated:s.bits,pixelRep:s.rep,samples:s.samples});
+          delete s.encoded; slices.push(s); }
+        catch(e2){ codec[(window.DCMDecode?DCMDecode.codecName(s.ts):s.ts)||'сжатие']=1; bad++; } }
+      else if(s)slices.push(s); else bad++;
+    }catch(err){ bad++; }
+    done++; if(done%2===0||done===arr.length){ loadBar(0.85*done/arr.length,'Чтение DICOM… '+done+'/'+arr.length); await new Promise(r=>setTimeout(r)); }
+  }
+  if(slices.length<3){ building=false; loadBar(null);
+    const cn=Object.keys(codec);
+    if(cn.length) alert('Не удалось декодировать сжатую серию ('+cn.join(', ')+'). Попробуйте выгрузить серию без сжатия из ВИДАР/RadiAnt.');
+    else alert('Не удалось собрать объём из этой серии ('+slices.length+' валидных срезов из '+arr.length+').');
+    render(); return; }
+  loadBar(0.88,'Выбор серии…'); await new Promise(r=>setTimeout(r));
+  const chosen=pickSeries(slices);
+  loadBar(0.92,'Сборка объёма…'); await new Promise(r=>setTimeout(r));
+  vol=assembleVolume(chosen.sl); building=false;
+  if(!vol){ loadBar(null); alert('Не удалось собрать объём из серии.'); render(); return; }
+  loadBar(0.97,'Построение ТРГ…'); await new Promise(r=>setTimeout(r));
+  const drr=buildLateralDRR(vol);const im=new Image();
+  im.onload=()=>{ img=im; scale=1/drr.mpp; loadBar(null); autoView(); setStep('points');
+    toast('ТРГ построена ('+vol.dims[2]+' срезов'+(chosen.multi?', 1 серия':'')+'). Масштаб '+scale.toFixed(2)+' px/мм.'+(chosen.multi?' · '+chosen.info:'')); };
+  im.src=drr.canvas.toDataURL('image/png');
 }
 
 // ── вид / отрисовка ──

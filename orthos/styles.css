@@ -155,6 +155,13 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 .mode-chip.ok{background:rgba(24,195,182,.12);color:#0f8a7f;border:1px solid rgba(24,195,182,.3)}
 .mode-chip.warn{background:rgba(240,166,61,.12);color:#b4791c;border:1px solid rgba(240,166,61,.32)}
 .mode-chip b{font-weight:700}
+/* прогресс загрузки КТ */
+.loadbar{position:absolute;inset:0;display:grid;place-items:center;z-index:8;background:rgba(244,245,252,.72);backdrop-filter:blur(3px);animation:pop .25s both}
+.lb-card{width:min(420px,78%);background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px 24px;box-shadow:0 24px 60px rgba(60,70,130,.18);text-align:center}
+.lb-title{font:600 14px Inter,sans-serif;color:var(--ink);margin-bottom:14px}
+.lb-track{height:10px;border-radius:999px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line)}
+.lb-fill{height:100%;width:0;background:var(--grad);border-radius:999px;transition:width .25s ease}
+.lb-pct{margin-top:10px;font:700 13px Inter,sans-serif;color:var(--accent);font-variant-numeric:tabular-nums}
 
 /* дропзона/пусто */
 .empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:40px;z-index:2}

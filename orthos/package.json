@@ -25,6 +25,7 @@
       "styles.css",
       "skull.js",
       "app.js",
+      "vendor/**",
       "build/**"
     ],
     "win": { "target": ["nsis"], "icon": "build/icon.png" },
