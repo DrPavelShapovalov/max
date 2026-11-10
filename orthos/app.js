@@ -322,20 +322,57 @@ function buildWaferCT(){
   const zs=[...KZ].sort((p,q)=>p-q),z0=zs[zs.length>>1];
   return waferFromCloud(KX,KY,KZ,n,z0,Math.max(sx,sy)*1.25,{ctHint:true,mode:'сегм. коронок',diag:d=>{d.enamel=n;d.threshold=T;wafer.ctDiag=d;}});
 }
-// STL-сплинт: ложа строятся по РЕАЛЬНЫМ окклюзионным поверхностям из внутриротовых сканов
+// собственные значения/векторы симметричной 3×3 (вращения Якоби) — для PCA
+function eig3sym(M){
+  const a=[M[0].slice(),M[1].slice(),M[2].slice()],V=[[1,0,0],[0,1,0],[0,0,1]],off=[[0,1],[0,2],[1,2]];
+  for(let it=0;it<60;it++){let p=0,q=1,mx=-1;for(const[i,j]of off)if(Math.abs(a[i][j])>mx){mx=Math.abs(a[i][j]);p=i;q=j;}
+    if(mx<1e-11)break;const th=0.5*Math.atan2(2*a[p][q],a[p][p]-a[q][q]),c=Math.cos(th),s=Math.sin(th);
+    for(let k=0;k<3;k++){const kp=a[k][p],kq=a[k][q];a[k][p]=c*kp-s*kq;a[k][q]=s*kp+c*kq;}
+    for(let k=0;k<3;k++){const pk=a[p][k],qk=a[q][k];a[p][k]=c*pk-s*qk;a[q][k]=s*pk+c*qk;}
+    for(let k=0;k<3;k++){const kp=V[k][p],kq=V[k][q];V[k][p]=c*kp-s*kq;V[k][q]=s*kp+c*kq;}}
+  const ev=[{v:a[0][0],e:[V[0][0],V[1][0],V[2][0]]},{v:a[1][1],e:[V[0][1],V[1][1],V[2][1]]},{v:a[2][2],e:[V[0][2],V[1][2],V[2][2]]}];
+  ev.sort((p,q)=>q.v-p.v);return ev; // по убыванию дисперсии: [ширина, глубина, нормаль]
+}
+// автоориентация сканов: PCA-оси → X(ширина)·Y(глубина)·Z(нормаль окклюзии),
+// знак Z так, чтобы верхняя дуга была сверху. Возвращает оси e1,e2,e3 и центр.
+function orientScans(X,Y,Z,uN,n){
+  let cx=0,cy=0,cz=0;for(let i=0;i<n;i++){cx+=X[i];cy+=Y[i];cz+=Z[i];}cx/=n;cy/=n;cz/=n;
+  let xx=0,yy=0,zz=0,xy=0,xz=0,yz=0;
+  for(let i=0;i<n;i++){const dx=X[i]-cx,dy=Y[i]-cy,dz=Z[i]-cz;xx+=dx*dx;yy+=dy*dy;zz+=dz*dz;xy+=dx*dy;xz+=dx*dz;yz+=dy*dz;}
+  const ev=eig3sym([[xx,xy,xz],[xy,yy,yz],[xz,yz,zz]]),e1=ev[0].e,e2=ev[1].e,e3=ev[2].e;
+  // знак нормали: проекция верхней дуги должна быть больше нижней
+  const proj=i=>(X[i]-cx)*e3[0]+(Y[i]-cy)*e3[1]+(Z[i]-cz)*e3[2];
+  let su=0,sl=0;for(let i=0;i<uN;i++)su+=proj(i);for(let i=uN;i<n;i++)sl+=proj(i);
+  const sg=(su/Math.max(1,uN))<(sl/Math.max(1,n-uN))?-1:1;
+  return {cx,cy,cz,e1,e2,e3:[e3[0]*sg,e3[1]*sg,e3[2]*sg]};
+}
+// STL-сплинт: ложа строятся по РЕАЛЬНЫМ окклюзионным поверхностям из внутриротовых сканов.
+// Пробуем ориентацию «как есть», затем автоориентацию по PCA (и с перестановкой ширина/глубина) —
+// берём первую, прошедшую проверку физиологичности дуги в waferFromCloud.
 function buildWaferSTL(){
   if(!scanU||!scanL){wafer.stlDiag={ok:false,reason:'нет STL-моделей'};return null;}
-  const KX=[],KY=[],KZ=[];let step=1;
+  const X=[],Y=[],Z=[];let step=1;
   const nvU=scanU.tris.length*3,nvL=scanL.tris.length*3;
   if(nvU+nvL>90000)step=Math.ceil((nvU+nvL)/90000); // подвыборка плотного скана для скорости
-  let c=0;for(const t of scanU.tris)for(const v of t){if(c++%step===0){KX.push(v.x);KY.push(v.y);KZ.push(v.z);}}
-  const uN=KX.length;c=0;for(const t of scanL.tris)for(const v of t){if(c++%step===0){KX.push(v.x);KY.push(v.y);KZ.push(v.z);}}
-  const n=KX.length;if(n<200){wafer.stlDiag={ok:false,reason:'STL пустые/битые'};return null;}
-  // окклюзионная плоскость между дугами: низ верхней vs верх нижней
-  let uMin=1e9;for(let i=0;i<uN;i++)if(KZ[i]<uMin)uMin=KZ[i];
-  let lMax=-1e9;for(let i=uN;i<n;i++)if(KZ[i]>lMax)lMax=KZ[i];
-  const z0=(uMin+lMax)/2;
-  return waferFromCloud(KX,KY,KZ,n,z0,0.7,{ctHint:false,mode:'STL-скан',diag:d=>{d.verts=n;wafer.stlDiag=d;}});
+  let c=0;for(const t of scanU.tris)for(const v of t){if(c++%step===0){X.push(v.x);Y.push(v.y);Z.push(v.z);}}
+  const uN=X.length;c=0;for(const t of scanL.tris)for(const v of t){if(c++%step===0){X.push(v.x);Y.push(v.y);Z.push(v.z);}}
+  const n=X.length;if(n<200){wafer.stlDiag={ok:false,reason:'STL пустые/битые'};return null;}
+  // кандидаты преобразований (world → ориентированное)
+  const cands=[{name:'как есть',T:i=>[X[i],Y[i],Z[i]]}];
+  const o=orientScans(X,Y,Z,uN,n),pr=(i,a)=>(X[i]-o.cx)*a[0]+(Y[i]-o.cy)*a[1]+(Z[i]-o.cz)*a[2];
+  cands.push({name:'авто',T:i=>[pr(i,o.e1),pr(i,o.e2),pr(i,o.e3)]});
+  cands.push({name:'авто·поворот',T:i=>[pr(i,o.e2),pr(i,o.e1),pr(i,o.e3)]}); // ширина↔глубина
+  let lastDiag=null;
+  for(const cand of cands){
+    const KX=new Array(n),KY=new Array(n),KZ=new Array(n);
+    for(let i=0;i<n;i++){const p=cand.T(i);KX[i]=p[0];KY[i]=p[1];KZ[i]=p[2];}
+    let uMin=1e9;for(let i=0;i<uN;i++)if(KZ[i]<uMin)uMin=KZ[i];
+    let lMax=-1e9;for(let i=uN;i<n;i++)if(KZ[i]>lMax)lMax=KZ[i];
+    const z0=(uMin+lMax)/2;let got=null;
+    const m=waferFromCloud(KX,KY,KZ,n,z0,0.7,{ctHint:false,mode:'STL-скан',diag:d=>{d.verts=n;d.orient=cand.name;got=d;}});
+    if(m){wafer.stlDiag=got;return m;} lastDiag=got;
+  }
+  wafer.stlDiag=lastDiag||{ok:false,reason:'STL не распознан как зубные ряды'};return null;
 }
 function buildWaferMesh(){let m=null;
   if(scanU&&scanL){m=buildWaferSTL();if(m){wafer.src='stl';return m;}}
@@ -868,7 +905,7 @@ function renderPanel(){
     const dg = isSTL?(wafer.stlDiag||{}):(wafer.ctDiag||{});
     const wsl=(k,label,mn,mx,st,u)=>`<div class="slider-row"><label>${label}</label><input type="range" id="w_${k}" min="${mn}" max="${mx}" step="${st}" value="${wafer[k]}"><span class="val" id="wv_${k}">${wafer[k]}${u}</span></div>`;
     const modeChip = isSTL
-      ? `<div class="mode-chip ok">✓ Ложа и стенки — <b>по STL-сканам</b> (реальные окклюзионные поверхности зубов: бугры/фиссуры/режущие края; дуга ${dg.span} мм; стенки ≈${dg.wall} мм; покрытие ${dg.coverage}%)</div>`
+      ? `<div class="mode-chip ok">✓ Ложа и стенки — <b>по STL-сканам</b> (реальные окклюзионные поверхности зубов: бугры/фиссуры/режущие края; дуга ${dg.span} мм; стенки ≈${dg.wall} мм; покрытие ${dg.coverage}%)${dg.orient&&dg.orient!=='как есть'?' · <b>сканы автоматически сориентированы</b>':''}</div>`
       : isCT
       ? `<div class="mode-chip ok">✓ Дуга, ложа и <b>стенки — по МСКТ</b> (сегментация эмали + боковых поверхностей коронок; дуга ${dg.span} мм; стенки ≈${dg.wall} мм; покрытие ${dg.coverage}%)</div>`
       : `<div class="mode-chip warn">⚠ Параметрическая дуга${dg.reason?' — '+dg.reason:''}. Для точного отпечатка загрузите STL-сканы зубных рядов или дентальный CBCT.</div>`;
