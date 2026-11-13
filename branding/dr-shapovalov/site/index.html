@@ -359,7 +359,7 @@
   /* science */
   .sci{display:grid; grid-template-columns:.95fr 1.05fr; gap:16px; align-items:start}
   .sci > *{min-width:0}
-  .diss{padding:34px; display:flex; flex-direction:column; gap:18px; align-items:flex-start; position:sticky; top:110px}
+  .diss{padding:34px; display:flex; flex-direction:column; gap:18px; align-items:flex-start; position:sticky; top:var(--diss-top,110px)}
   .diss-top{display:flex; justify-content:space-between; align-items:flex-start; gap:18px; width:100%}
   .diss-top .thumb{width:92px; flex:none}
   .diss .deg{font-family:var(--mono); font-size:14px; font-weight:600;  color:var(--gold)}
@@ -368,6 +368,32 @@
   .diss dl{margin:0; display:grid; grid-template-columns:max-content 1fr; gap:8px 18px; font-size:16px}
   .diss dt{color:var(--mist); font-family:var(--mono); font-size:14px;  padding-top:2px}
   .diss dd{margin:0}
+  /* диплом кандидата наук: обложка раскрывается как книжка, по развороту проходит золотой блик */
+  .dipl{margin:4px 0 0; width:100%; display:flex; flex-direction:column; gap:10px}
+  .dipl-btn{position:relative; display:block; width:100%; padding:0; border:0; background:none; cursor:zoom-in; perspective:1600px; border-radius:6px}
+  .dipl-book{position:relative; display:flex; width:100%; aspect-ratio:2000/1368; transform-style:preserve-3d}
+  .dipl-half{position:relative; width:50%; height:100%}
+  .dipl-face{position:absolute; inset:0; overflow:hidden; background:#fff; box-shadow:0 26px 50px -24px rgba(0,0,0,.85); backface-visibility:hidden; -webkit-backface-visibility:hidden}
+  .dipl-face img{position:absolute; top:0; width:200%; height:100%; max-width:none; object-fit:cover; pointer-events:none}
+  .dipl-l{transform-origin:100% 50%; transform-style:preserve-3d; z-index:2}
+  .dipl-l .dipl-face{border-radius:6px 0 0 6px} .dipl-l img{left:0}
+  .dipl-r .dipl-face{border-radius:0 6px 6px 0} .dipl-r img{right:0}
+  .dipl-face::after{content:""; position:absolute; inset:0; pointer-events:none}
+  .dipl-l .dipl-face::after{background:linear-gradient(90deg,rgba(0,0,0,0) 80%,rgba(0,0,0,.14))}
+  .dipl-r .dipl-face::after{background:linear-gradient(90deg,rgba(0,0,0,.16),rgba(0,0,0,0) 20%)}
+  .dipl-cover{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7%; transform:rotateY(180deg);
+    backface-visibility:hidden; -webkit-backface-visibility:hidden; background:radial-gradient(120% 90% at 40% 30%,#7d1730,#4a0b1c 70%,#2c0611); color:#e2c27a;
+    font-family:var(--display); font-weight:600; text-align:center; letter-spacing:.06em; font-size:clamp(8px,1.1vw,13px); line-height:1.4; border-radius:6px 0 0 6px;
+    box-shadow:0 26px 50px -24px rgba(0,0,0,.85), inset 0 0 0 1px rgba(226,194,122,.25)}
+  .dipl-cover i{display:block; width:32%; aspect-ratio:1; border:2px solid rgba(226,194,122,.75); border-radius:50%; box-shadow:inset 0 0 0 6px rgba(226,194,122,.16)}
+  .dipl-shine{position:absolute; inset:0; z-index:3; pointer-events:none; border-radius:6px; overflow:hidden; opacity:0}
+  .dipl-shine::after{content:""; position:absolute; top:-20%; bottom:-20%; left:-45%; width:30%; transform:skewX(-18deg);
+    background:linear-gradient(90deg,rgba(255,236,170,0),rgba(255,236,170,.5),rgba(255,255,255,.7),rgba(255,236,170,.5),rgba(255,236,170,0)); mix-blend-mode:screen}
+  .dipl-shine.go{opacity:1} .dipl-shine.go::after{animation:dipl-sweep 1.3s cubic-bezier(.45,0,.2,1) forwards}
+  @keyframes dipl-sweep{to{left:125%}}
+  .dipl-btn:focus-visible{outline:2px solid var(--gold); outline-offset:4px}
+  @media (hover:hover) and (pointer:fine){ .dipl-book{transition:transform .5s cubic-bezier(.23,1,.32,1)} .dipl-btn:hover .dipl-book{transform:translateY(-3px) rotateX(4deg)} }
+  .dipl figcaption{font-size:14px; color:var(--mist)}
   .pubs{display:flex; flex-direction:column; gap:12px}
   .pub{padding:24px 26px; display:grid; grid-template-columns:auto 1fr; align-items:start; gap:18px; transition:transform .45s cubic-bezier(.2,.7,.2,1)}
   /* миниатюра титульной страницы у публикации */
@@ -1049,6 +1075,15 @@
       const k = addLb({ img: safeUrl(d.image), title: d.title, sub: [d.degree, d.specialty].filter(Boolean).join(' · '), url: safeUrl(d.link), panel: 'diss', id: 'diss', fan: true });
       $('diss-page').innerHTML = thumb(k);
     }
+    // фото диплома под карточкой диссертации
+    if (safeUrl(d.diploma)) {
+      const dt = LANG === 'en' ? 'Candidate of Medical Sciences diploma' : 'Диплом кандидата медицинских наук';
+      const k = addLb({ img: safeUrl(d.diploma), title: dt, sub: d.year || '', panel: 'diss', id: 'diss', clean: true });
+      const src = esc(card(LB[k].img)), full = esc(LB[k].img);
+      $('diss').insertAdjacentHTML('beforeend', `<figure class="dipl" id="dipl"><button class="dipl-btn" type="button" data-lb="${k}" aria-label="${esc((LANG === 'en' ? 'Open the diploma: ' : 'Открыть диплом целиком: ') + dt)}">
+        <span class="dipl-book"><span class="dipl-half dipl-l"><span class="dipl-face"><img src="${src}" data-full="${full}" alt="" loading="lazy"></span><span class="dipl-cover" aria-hidden="true"><i></i>${LANG === 'en' ? 'DIPLOMA' : 'ДИПЛОМ<br>КАНДИДАТА НАУК'}</span></span><span class="dipl-half dipl-r"><span class="dipl-face"><img src="${src}" data-full="${full}" alt="" loading="lazy"></span></span></span>
+        <span class="dipl-shine"></span></button><figcaption>${esc(dt)}</figcaption></figure>`);
+    }
     // веер: диссертация, статьи по порядку списка, затем свидетельство о регистрации программы
     const rank = (it) => (it.panel === 'diss' ? 0 : it.panel === 'soft' ? 2 : 1);
     const fanItems = LB.map((it, k) => [it, k]).filter(([it]) => it.fan).sort((a, b) => rank(a[0]) - rank(b[0]));
@@ -1256,6 +1291,10 @@
     t.forEach((o) => { o.c.dataset.y = o.y; });
   }
   addEventListener('resize', () => layoutFan(false));
+  // карточка диссертации липкая; если она выше экрана (с фото диплома), прилипает нижним краем, чтобы диплом был виден
+  const dissTop = () => { const d = $('diss'); if (d && d.offsetHeight) d.style.setProperty('--diss-top', Math.min(110, innerHeight - d.offsetHeight - 24) + 'px'); };
+  addEventListener('resize', dissTop);
+  if (window.ResizeObserver && $('diss')) new ResizeObserver(dissTop).observe($('diss'));
   $('fan').addEventListener('pointerover', (e) => {
     const c = e.target.closest('.fan-card'); if (!c || e.pointerType !== 'mouse' || !window.gsap || reduce) return;
     c.style.zIndex = 60; gsap.to(c, { y: +c.dataset.y - 34, scale: 1.08, duration: 0.28, ease: 'power3.out', overwrite: 'auto' });
@@ -1268,6 +1307,22 @@
     if (!window.gsap || reduce) return;
     gsap.fromTo(root.querySelectorAll('.thumb'), { autoAlpha: 0, y: 26, rotation: -14, scale: 0.7 },
       { autoAlpha: 1, y: 0, rotation: 0, scale: 1, duration: 0.7, stagger: 0.06, delay: 0.45, ease: 'power3.out', clearProps: 'transform' });
+  }
+  // диплом: обложка раскрывается, затем по развороту проходит золотой блик; при «уменьшить движение» — сразу открыт
+  let diplST = null;
+  function diplomaFx() {
+    const f = $('dipl'); if (!f || !window.gsap || reduce) return;
+    const l = f.querySelector('.dipl-l'), book = f.querySelector('.dipl-book'), sh = f.querySelector('.dipl-shine');
+    if (diplST) diplST.kill();
+    gsap.set(l, { rotationY: -180 }); gsap.set(book, { autoAlpha: 0, y: 40, scale: 0.92, rotationX: 16 }); sh.classList.remove('go');
+    const play = () => gsap.timeline()
+      .to(book, { autoAlpha: 1, y: 0, scale: 1, rotationX: 0, duration: 0.8, ease: 'power3.out', clearProps: 'transform,opacity,visibility' })
+      .to(l, { rotationY: 0, duration: 1.5, ease: 'expo.inOut', clearProps: 'transform' }, '-=0.2')
+      .add(() => { void sh.offsetWidth; sh.classList.add('go'); }, '-=0.35')
+      .fromTo(book, { filter: 'drop-shadow(0 0 0 rgba(240,212,142,0))' },
+        { filter: 'drop-shadow(0 0 28px rgba(240,212,142,.45))', duration: 0.55, yoyo: true, repeat: 1, ease: 'sine.inOut', clearProps: 'filter' }, '<');
+    if (window.ScrollTrigger) diplST = ScrollTrigger.create({ trigger: f, start: 'top 90%', once: true, onEnter: play });
+    else play();
   }
   let lbItem = null, lbBack = null;
   function openLb(k, from) {
@@ -1382,7 +1437,7 @@
     gsap.fromTo(panel.querySelectorAll('.reveal'), { autoAlpha: 0, y: 34, scale: 0.985 },
       { autoAlpha: 1, y: 0, scale: 1, duration: 0.8, stagger: 0.08, ease: 'power3.out', delay: 0.12, clearProps: 'transform' });
     gsap.fromTo(panel.querySelectorAll('.fill'), { scaleX: 0 }, { scaleX: 1, duration: 1.4, stagger: 0.08, ease: 'expo.out', delay: 0.35 });
-    if (panel.id === 'science') { requestAnimationFrame(() => { layoutFan(true); thumbsFx(panel); }); }
+    if (panel.id === 'science') { requestAnimationFrame(() => { layoutFan(true); thumbsFx(panel); diplomaFx(); }); }
     if (panel.id === 'cases' && !stepsFx) {
       stepsFx = true;
       gsap.fromTo('.steps .prog', { scaleY: 0 }, { scaleY: 1, ease: 'none', scrollTrigger: { trigger: '.steps', start: 'top 70%', end: 'bottom 60%', scrub: true } });
