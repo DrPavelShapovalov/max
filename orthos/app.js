@@ -169,6 +169,54 @@ function buildWarp(){
   return out;
 }
 
+// ═══ Дистракция (КДО): остеотомия + дистрактор (линейный/криволинейный) + вектор ═══
+// Транспортируемый (дистальный) фрагмент н/ч — ЖЁСТКОЕ тело. Линейный дистрактор —
+// перенос вдоль вектора; криволинейный (радиус R) — поворот вокруг центра дуги C на
+// θ=L/R; при R→∞ сходится к линейному (точка O движется вдоль вектора). Clean-room,
+// сагиттальная 2D-модель; не копия Mimics; инструмент планирования — проверять клинически.
+const DISTR_PTS=['B','L1t','L1a','Pog','Gn','Me','Go']; // возможные точки транспортируемого фрагмента
+const DISTR_DEV=[{k:'linear',r:Infinity,lab:'Прямой (180°)'},{k:'R40',r:40,lab:'R 40 мм'},{k:'R50',r:50,lab:'R 50 мм'},{k:'R70',r:70,lab:'R 70 мм'},{k:'R100',r:100,lab:'R 100 мм'}];
+let distr={site:'ramus',dev:'R50',vec:null,len:10,lat:6,rate:1,cons:5.5,t:1,view:'trg'};
+let distrWarpCv=null,distrDirty=true; const invalidateDistr=()=>{distrDirty=true;if(skullMesh)skullMesh.__dm=null;};
+function distrLine(){ // линия остеотомии (пиксели ТРГ) по локализации: ветвь/тело/угол
+  if(!img)return null;const {H}=axes(),s=scale||1,Go=LM.Go,Ar=LM.Ar,Me=LM.Me;
+  if(distr.site==='ramus'){if(!Ar||!Go)return null;return{a:Ar,b:Go,col:'#e8872b',label:'Остеотомия ветви'};}
+  if(distr.site==='angle'){if(!Go)return null;const dir=Me?norm(sub(Me,Go)):H,perp={x:-dir.y,y:dir.x};
+    return{a:add(Go,mul(perp,10*s)),b:add(Go,mul(perp,-10*s)),col:'#e8872b',label:'Остеотомия угла'};}
+  if(!Go||!Me)return null;const mid=add(Go,mul(sub(Me,Go),0.38)),dir=norm(sub(Me,Go)),perp={x:-dir.y,y:dir.x};
+  return{a:add(mid,mul(perp,14*s)),b:add(mid,mul(perp,-14*s)),col:'#e8872b',label:'Остеотомия тела'};
+}
+function distrDir(){const {H,V}=axes();
+  if(distr.vec!=null){const r=d2r(distr.vec);return add(mul(H,Math.cos(r)),mul(V,Math.sin(r)));}
+  return (LM.Go&&LM.Me)?norm(sub(LM.Me,LM.Go)):{x:1,y:0};} // по умолчанию вдоль тела (антеро-инфериор)
+function distrDefDeg(){const {H,V}=axes(),d=distrDir();return r2d(Math.atan2(dot(d,V),dot(d,H)));}
+function distrTransSign(){const L=distrLine(),ref=LM.Pog||LM.Me||LM.B;if(!L||!ref)return 0;
+  return Math.sign((L.b.x-L.a.x)*(ref.y-L.a.y)-(L.b.y-L.a.y)*(ref.x-L.a.x))||1;}
+function distrIsTrans(p){const L=distrLine();if(!L)return false;const sgn=distrTransSign();
+  return Math.sign((L.b.x-L.a.x)*(p.y-L.a.y)-(L.b.y-L.a.y)*(p.x-L.a.x))===sgn;}
+function distrTx(f){ // жёсткое преобразование фрагмента на долю f∈[0,1]
+  const s=scale||1,L=distrLine(),dir=distrDir(),dev=DISTR_DEV.find(d=>d.k===distr.dev)||DISTR_DEV[0],Lmm=distr.len;
+  const O=L?mul(add(L.a,L.b),0.5):{x:0,y:0};
+  if(!isFinite(dev.r)||dev.r>400){const dsp=mul(dir,f*Lmm*s);return p=>add(p,dsp);}
+  const perp={x:-dir.y,y:dir.x},C=add(O,mul(perp,dev.r*s)),th=(f*Lmm)/dev.r; // перп +90° → O движется вдоль dir
+  return p=>rot(p,C,th);
+}
+function distrAfter(f){f=(f==null?distr.t:f);const tx=distrTx(f),out={};
+  for(const id in LM)out[id]=(DISTR_PTS.includes(id)&&distrIsTrans(LM[id]))?tx(LM[id]):{x:LM[id].x,y:LM[id].y};
+  return out;}
+function buildDistrWarp(){if(!img)return null;const W=img.width,H=img.height,P=distrAfter(),B=[],A=[];
+  for(const id in LM){if(!P[id])continue;B.push({x:LM[id].x,y:LM[id].y});A.push(P[id]);}
+  [[0,0],[W/2,0],[W,0],[W,H/2],[W,H],[W/2,H],[0,H],[0,H/2]].forEach(([x,y])=>{B.push({x,y});A.push({x,y});});
+  if(B.length<3)return null;const tris=delaunay(B),out=document.createElement('canvas');out.width=W;out.height=H;
+  const g=out.getContext('2d');g.drawImage(img,0,0);for(const[i,j,k]of tris)affTri(g,img,B[i],B[j],B[k],A[i],A[j],A[k]);return out;}
+function distrTheta(){const dev=DISTR_DEV.find(d=>d.k===distr.dev)||DISTR_DEV[0];return(isFinite(dev.r)&&dev.r<=400)?r2d(distr.len/dev.r):0;}
+function distrProto(){const days=Math.max(1,Math.ceil(distr.len/(distr.rate||1)));
+  return{lat:distr.lat,active:days,rate:distr.rate,consMo:distr.cons,totalD:distr.lat+days+Math.round(distr.cons*30.4)};}
+function skullDistrMoved(t){const M=skullMesh,H=M.H,tx=distrTx(t),out=new Array(M.V0.length);
+  for(let i=0;i<M.V0.length;i++){const v=M.V0[i],sg=M.seg[i],p2={x:v.x,y:(H-1)-v.z};
+    if(t>0&&(sg===2||sg===3)&&distrIsTrans(p2)){const q=tx(p2);out[i]={x:q.x,y:v.y,z:(H-1)-q.y};}else out[i]=v;}
+  return out;}
+
 // ═══ Фото-морф: прогноз профиля пациента по плану (привязка к мягкотканным точкам ТРГ) ═══
 // МНК-подобие src→dst (scale+поворот+сдвиг), ≥2 соответствия
 function fitSim(src,dst){
@@ -598,10 +646,10 @@ function skullMoved(t){
   return out;
 }
 const SEG_COL=[[222,220,210],[108,124,255],[24,195,182],[160,91,255]]; // кость · в/ч · н/ч · подбородок
-function drawSkull3D(yaw,pitch,t){
+function drawSkull3D(yaw,pitch,t,mover){
   fit();ctx.clearRect(0,0,cv.width,cv.height);
   const g=ctx.createLinearGradient(0,0,0,cv.height);g.addColorStop(0,'#f7f8ff');g.addColorStop(1,'#eef0fb');ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);
-  const M=skullMesh;if(!M)return;const Vm=skullMoved(t),T=M.T,N=M.N,seg=M.seg;
+  const M=skullMesh;if(!M)return;const Vm=(mover||skullMoved)(t),T=M.T,N=M.N,seg=M.seg;
   const cY=Math.cos(yaw),sY=Math.sin(yaw),cP=Math.cos(pitch),sP=Math.sin(pitch);
   const R=v=>{const x1=v.x*cY-v.y*sY,y1=v.x*sY+v.y*cY,z1=v.z;const y2=y1*cP-z1*sP,z2=y1*sP+z1*cP;return{x:x1,y:y2,z:z2};};
   const PR=new Array(Vm.length);let mnx=1/0,mxx=-1/0,mnz=1/0,mxz=-1/0;
@@ -625,6 +673,32 @@ function renderSkull(){
   if(!skullMesh){updateBadge();return;}
   drawSkull3D(skullYaw,skullPitch,overlay);
   const b=$('badge');b.innerHTML=`<span class="chip">3D-череп · <b>${(skullMesh.tri/1000|0)}k треуг.</b></span><span class="chip">до ↔ после: <b>${Math.round(overlay*100)}%</b></span>`;
+}
+function renderDistr(){
+  if(distr.view==='skull3d'&&vol){ $('empty').style.display='none';
+    if(!skullMesh&&!skullBuilding){skullBuilding=true;loadBar(0.3,'Строю 3D-реконструкцию…');
+      setTimeout(()=>{try{buildSkull();}catch(e){console.error(e);}skullBuilding=false;loadBar(null);render();},30);
+      fit();ctx.clearRect(0,0,cv.width,cv.height);const g=ctx.createLinearGradient(0,0,0,cv.height);g.addColorStop(0,'#f7f8ff');g.addColorStop(1,'#eef0fb');ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);updateBadge();return;}
+    if(skullMesh){drawSkull3D(skullYaw,skullPitch,distr.t,skullDistrMoved);
+      $('badge').innerHTML=`<span class="chip">3D-череп · дистракция</span><span class="chip">до ↔ после: <b>${Math.round(distr.t*100)}%</b></span>`;}
+    return;}
+  // 2D боковая ТРГ
+  fit();ctx.clearRect(0,0,cv.width,cv.height);$('empty').style.display='none';
+  ctx.imageSmoothingEnabled=true;ctx.drawImage(img,view.ox,view.oy,img.width*view.zoom,img.height*view.zoom);
+  if(distr.t>0){if(distrDirty||!distrWarpCv){distrWarpCv=buildDistrWarp();distrDirty=false;}
+    if(distrWarpCv){ctx.globalAlpha=distr.t;ctx.drawImage(distrWarpCv,view.ox,view.oy,img.width*view.zoom,img.height*view.zoom);ctx.globalAlpha=1;}}
+  const L=distrLine();
+  if(L){const A=toS(L.a),B=toS(L.b);ctx.save();ctx.strokeStyle=L.col;ctx.lineWidth=2.6;ctx.setLineDash([7,5]);
+    ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.stroke();ctx.restore();
+    const O=mul(add(L.a,L.b),0.5),dir=distrDir(),tip=add(O,mul(dir,Math.max(distr.len,6)*(scale||1)));
+    const Os=toS(O),Ts=toS(tip);ctx.strokeStyle='#18c3b6';ctx.lineWidth=2.8;
+    ctx.beginPath();ctx.moveTo(Os.x,Os.y);ctx.lineTo(Ts.x,Ts.y);ctx.stroke();
+    const ang=Math.atan2(Ts.y-Os.y,Ts.x-Os.x),hl=11;ctx.beginPath();ctx.moveTo(Ts.x,Ts.y);
+    ctx.lineTo(Ts.x-hl*Math.cos(ang-0.4),Ts.y-hl*Math.sin(ang-0.4));ctx.moveTo(Ts.x,Ts.y);
+    ctx.lineTo(Ts.x-hl*Math.cos(ang+0.4),Ts.y-hl*Math.sin(ang+0.4));ctx.stroke();
+    ctx.beginPath();ctx.arc(Ts.x,Ts.y,6,0,7);ctx.fillStyle='#18c3b6';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.stroke();
+    distr._tip=Ts;}
+  updateBadge();
 }
 
 // ── DICOM → ТРГ ──
@@ -750,6 +824,7 @@ function render(){
   if(step==='wafer'){ fit(); if(!waferMesh)waferMesh=buildWaferMesh(); drawWafer3D(waferMesh,waferYaw,waferPitch);
     $('empty').style.display='none'; updateBadge(); if(!waferRAF)waferRAF=requestAnimationFrame(waferAnim); return; }
   if(step==='plan'&&planView==='skull3d'&&vol&&img){ $('empty').style.display='none'; renderSkull(); return; }
+  if(step==='distraction'&&img){ renderDistr(); return; }
   fit();ctx.clearRect(0,0,cv.width,cv.height);
   const showPhoto=(step==='photo'&&photo);
   const pic=showPhoto?photo:img;
@@ -937,6 +1012,56 @@ function renderPanel(){
     $('toWafer').onclick=()=>setStep('wafer');
     $('expPng').onclick=exportPng; renderReport($('rep'));
   }
+  else if(step==='distraction'){
+    if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ и расставьте точки (нужны Ar, Go, Me, B, Pog для н/ч).'); return; }
+    const dev=DISTR_DEV.find(d=>d.k===distr.dev)||DISTR_DEV[0],pr=distrProto(),th=distrTheta(),vecDeg=(distr.vec!=null?distr.vec:distrDefDeg());
+    const dsl=(k,label,mn,mx,st,u,val)=>`<div class="slider-row"><label>${label}</label><input type="range" id="d_${k}" min="${mn}" max="${mx}" step="${st}" value="${val}"><span class="val" id="dv_${k}">${(+val).toFixed(st<1?1:0)}${u}</span></div>`;
+    p.innerHTML=`<div class="card view"><h3>↔ Дистракция (КДО)</h3>
+      <div class="desc">Компрессионно-дистракционный остеогенез: остеотомия → дистрактор (линейный/криволинейный под радиус) → вектор → длина и протокол. Транспортируемый фрагмент н/ч перемещается жёстко — видно удлинение.</div>
+      <div class="grp2"><h4>Остеотомия</h4><div class="seg-toggle">
+        <button class="seg-btn${distr.site==='ramus'?' on':''}" data-ds="ramus">Ветвь</button>
+        <button class="seg-btn${distr.site==='body'?' on':''}" data-ds="body">Тело</button>
+        <button class="seg-btn${distr.site==='angle'?' on':''}" data-ds="angle">Угол</button></div></div>
+      <div class="grp2"><h4>Дистрактор</h4><div class="seg-toggle" style="flex-wrap:wrap">
+        ${DISTR_DEV.map(d=>`<button class="seg-btn${distr.dev===d.k?' on':''}" data-dd="${d.k}">${d.lab}</button>`).join('')}</div>
+        <div class="note" style="margin-top:4px">${isFinite(dev.r)?`Криволинейный, радиус ${dev.r} мм → поворот фрагмента θ=${th.toFixed(1)}°`:'Линейный (прямой) — параллельный перенос вдоль вектора'}</div></div>
+      <div class="grp2"><h4>Вектор и длина</h4>
+        ${dsl('vec','Угол вектора',-90,90,1,'°',vecDeg)}
+        ${dsl('len','Длина дистракции',0,30,0.5,' мм',distr.len)}
+        <div class="note" style="margin-top:2px">🖱 вектор можно тянуть за наконечник на ТРГ.</div></div>
+      <div class="grp2"><h4>Протокол активации</h4>
+        ${dsl('lat','Латентный период',0,14,1,' дн',distr.lat)}
+        ${dsl('rate','Темп активации',0.5,2,0.5,' мм/дн',distr.rate)}
+        ${dsl('cons','Консолидация',3,8,0.5,' мес',distr.cons)}
+        <div class="note" style="margin-top:2px">Активация ${pr.active} дн · всего ≈ ${pr.totalD} дн (${(pr.totalD/30.4).toFixed(1)} мес)</div></div>
+      ${vol?`<div class="grp2"><h4>Просмотр</h4><div class="seg-toggle">
+        <button class="seg-btn${distr.view==='trg'?' on':''}" data-dv2="trg">ТРГ (профиль)</button>
+        <button class="seg-btn${distr.view==='skull3d'?' on':''}" data-dv2="skull3d">3D-череп (МСКТ)</button></div>
+        ${distr.view==='skull3d'?'<div class="note" style="margin-top:6px">Транспортируемый фрагмент н/ч двигается по тому же вектору/дуге. 🖱 вращение — тяни мышью, зум — колесо.</div>':''}</div>`:''}
+      <div class="slider-row"><label>До ↔ После</label><input type="range" id="d_t" min="0" max="1" step="0.05" value="${distr.t}"><span class="val">морф</span></div>
+      <button class="btn ghost" id="dReset">Сбросить</button></div>
+      <div class="card view"><div class="sect-label">Параметры дистракции</div>
+        <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Локализация</span><span class="v">${distr.site==='ramus'?'ветвь':distr.site==='body'?'тело':'угол'} н/ч</span></div>
+        <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Дистрактор</span><span class="v">${dev.lab}</span></div>
+        <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Длина</span><span class="v" style="color:var(--accent)">${distr.len.toFixed(1)} мм</span></div>
+        <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Угол вектора</span><span class="v">${vecDeg.toFixed(0)}°</span></div>
+        ${isFinite(dev.r)?`<div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Поворот фрагмента</span><span class="v">${th.toFixed(1)}°</span></div>`:''}
+        <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Протокол</span><span class="v" style="font-size:12px">латент. ${pr.lat} дн · ${pr.rate} мм/дн × ${pr.active} дн · консол. ${pr.consMo} мес</span></div>
+        <div class="note">Сагиттальная 2D-модель вектора; сегментация фрагмента схематична. Для односторонних (асимметрия) нужна прямая ТРГ — следующий модуль. Инструмент планирования, не мед. изделие — проверять клинически.</div>
+        <div class="btn-row"><button class="btn sm ghost" id="dPng" style="width:100%">⬇ План дистракции (PNG)</button></div></div>`;
+    p.querySelectorAll('[data-ds]').forEach(b=>b.onclick=()=>{distr.site=b.dataset.ds;invalidateDistr();renderPanel();render();});
+    p.querySelectorAll('[data-dd]').forEach(b=>b.onclick=()=>{distr.dev=b.dataset.dd;invalidateDistr();renderPanel();render();});
+    p.querySelectorAll('[data-dv2]').forEach(b=>b.onclick=()=>{distr.view=b.dataset.dv2;renderPanel();render();});
+    const fmtU={vec:'°',len:' мм',lat:' дн',rate:' мм/дн',cons:' мес'};
+    const bind=(k,set,geo)=>{const el=$('d_'+k);if(!el)return;const dec=parseFloat(el.step)<1?1:0;
+      el.oninput=e=>{const v=+e.target.value;set(v);const sp=$('dv_'+k);if(sp)sp.textContent=v.toFixed(dec)+(fmtU[k]||'');if(geo){invalidateDistr();render();}};
+      if(!geo)el.onchange=()=>renderPanel();};
+    bind('vec',v=>distr.vec=v,true);bind('len',v=>distr.len=v,true);
+    bind('lat',v=>distr.lat=v,false);bind('rate',v=>distr.rate=v,false);bind('cons',v=>distr.cons=v,false);
+    $('d_t').oninput=e=>{distr.t=+e.target.value;render();};
+    $('dReset').onclick=()=>{distr.vec=null;distr.len=10;distr.t=1;invalidateDistr();renderPanel();render();};
+    $('dPng').onclick=()=>{const a=document.createElement('a');a.download='ОРТОС_дистракция.png';a.href=cv.toDataURL('image/png');a.click();};
+  }
   else if(step==='wafer'){
     if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ, расставьте точки и спланируйте перемещения.'); return; }
     waferMesh=buildWaferMesh(); // строим до панели, чтобы знать режим (КТ/параметрический)
@@ -1022,7 +1147,7 @@ function requestDicom(kind){
 function esc(s){return(s||'').replace(/"/g,'&quot;');}
 
 // ── шаги ──
-function setStep(s){ if(s==='plan')invalidateWarp(); if(s==='wafer')waferMesh=null; if(s==='points'||s==='trg')skullMesh=null; step=s;
+function setStep(s){ if(s==='plan')invalidateWarp(); if(s==='wafer')waferMesh=null; if(s==='points'||s==='trg')skullMesh=null; if(s==='distraction')invalidateDistr(); step=s;
   document.querySelectorAll('.step').forEach(x=>{x.classList.toggle('on',x.dataset.s===s);});
   markDone(); renderPanel(); render(); }
 function markDone(){ document.querySelectorAll('.step').forEach(x=>{const s=x.dataset.s;let done=false;
@@ -1031,11 +1156,13 @@ function markDone(){ document.querySelectorAll('.step').forEach(x=>{const s=x.da
 function advancePick(){const i=ORDER.indexOf(pickId);const nx=ORDER.slice(i+1).find(id=>!LM[id]);pickId=nx||ORDER[(i+1)%ORDER.length];renderPanel();render();}
 
 // ── события канваса ──
-let drag=null,pan=null;
+let drag=null,pan=null,distrVecDrag=false;
 cv.addEventListener('mousedown',e=>{const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
   const sx=(e.clientX-r.left)*dpr,sy=(e.clientY-r.top)*dpr;
   if(step==='wafer'){waferSpin=false;waferDrag={sx,sy,yaw:waferYaw,pitch:waferPitch};return;}
   if(step==='plan'&&planView==='skull3d'&&vol&&skullMesh){skullDrag={sx,sy,yaw:skullYaw,pitch:skullPitch};return;}
+  if(step==='distraction'&&distr.view==='skull3d'&&vol&&skullMesh){skullDrag={sx,sy,yaw:skullYaw,pitch:skullPitch};return;}
+  if(step==='distraction'&&img&&distr.view!=='skull3d'){if(distr._tip&&Math.hypot(distr._tip.x-sx,distr._tip.y-sy)<18*dpr){distrVecDrag=true;return;}}
   if(step==='photo'&&photo){const ip={x:(sx-photoView.ox)/photoView.z,y:(sy-photoView.oy)/photoView.z};
     let b2=null,bd2=14*dpr;PHOTO_SET.forEach(id=>{if(photoLM[id]){const S={x:photoView.ox+photoLM[id].x*photoView.z,y:photoView.oy+photoLM[id].y*photoView.z};const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd2){bd2=d;b2=id;}}});
     if(b2){photoDrag=b2;photoPick=b2;renderPanel();render();return;}
@@ -1047,14 +1174,16 @@ cv.addEventListener('mousedown',e=>{const r=cv.getBoundingClientRect(),dpr=Math.
   if(pickId){LM[pickId]=ip;popAt(sx,sy);advancePick();}});
 window.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);const sx=(e.clientX-r.left)*dpr,sy=(e.clientY-r.top)*dpr;
   if(waferDrag){waferYaw=waferDrag.yaw+(sx-waferDrag.sx)*0.006;waferPitch=Math.max(-1.45,Math.min(1.45,waferDrag.pitch+(sy-waferDrag.sy)*0.006));if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);return;}
-  if(skullDrag){skullYaw=skullDrag.yaw+(sx-skullDrag.sx)*0.006;skullPitch=Math.max(-1.3,Math.min(1.3,skullDrag.pitch+(sy-skullDrag.sy)*0.006));renderSkull();return;}
+  if(skullDrag){skullYaw=skullDrag.yaw+(sx-skullDrag.sx)*0.006;skullPitch=Math.max(-1.3,Math.min(1.3,skullDrag.pitch+(sy-skullDrag.sy)*0.006));if(step==='distraction')drawSkull3D(skullYaw,skullPitch,distr.t,skullDistrMoved);else renderSkull();return;}
+  if(distrVecDrag){const ip=toI(sx,sy),L=distrLine();if(L){const O=mul(add(L.a,L.b),0.5),d=norm(sub(ip,O)),ax=axes();distr.vec=r2d(Math.atan2(dot(d,ax.V),dot(d,ax.H)));invalidateDistr();render();}return;}
   if(photoDrag){photoLM[photoDrag]={x:(sx-photoView.ox)/photoView.z,y:(sy-photoView.oy)/photoView.z};invalidatePhotoWarp();render();return;}
   if(pan){view.ox=pan.ox+(sx-pan.sx);view.oy=pan.oy+(sy-pan.sy);render();return;}
   if(drag){LM[drag]=toI(sx,sy);render();}});
-window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}if(photoDrag){photoDrag=null;renderPanel();}pan=null;waferDrag=null;skullDrag=null;});
+window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}if(photoDrag){photoDrag=null;renderPanel();}if(distrVecDrag){distrVecDrag=false;renderPanel();}pan=null;waferDrag=null;skullDrag=null;});
 cv.addEventListener('wheel',e=>{if(step==='photo')return;
   if(step==='wafer'){e.preventDefault();waferZoom=Math.max(0.4,Math.min(3,waferZoom*(e.deltaY<0?1.1:0.9)));if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);return;}
   if(step==='plan'&&planView==='skull3d'&&vol&&skullMesh){e.preventDefault();skullZoom=Math.max(0.4,Math.min(3,skullZoom*(e.deltaY<0?1.1:0.9)));renderSkull();return;}
+  if(step==='distraction'&&distr.view==='skull3d'&&vol&&skullMesh){e.preventDefault();skullZoom=Math.max(0.4,Math.min(3,skullZoom*(e.deltaY<0?1.1:0.9)));drawSkull3D(skullYaw,skullPitch,distr.t,skullDistrMoved);return;}
   if(!img)return;e.preventDefault();const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
   const sx=(e.clientX-r.left)*dpr,sy=(e.clientY-r.top)*dpr,bef=toI(sx,sy);view.zoom*=e.deltaY<0?1.12:0.89;const af=toI(sx,sy);view.ox+=(af.x-bef.x)*view.zoom;view.oy+=(af.y-bef.y)*view.zoom;render();},{passive:false});
 cv.addEventListener('dragover',e=>e.preventDefault());
@@ -1074,10 +1203,10 @@ $('stlUInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)ret
 $('stlLInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;f.arrayBuffer().then(b=>loadScan(b,'L'));e.target.value='';});
 $('steps').addEventListener('click',e=>{const s=e.target.closest('.step');if(s)setStep(s.dataset.s);});
 $('saveBtn').onclick=save; $('openBtn').onclick=()=>$('openInput').click();
-$('openInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const o=JSON.parse(rd.result);patient=o.patient||patient;scale=o.scale||0;LM=o.LM||{};plan=Object.assign(plan,o.plan||{});photoLM=o.photoLM||{};
+$('openInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const o=JSON.parse(rd.result);patient=o.patient||patient;scale=o.scale||0;LM=o.LM||{};plan=Object.assign(plan,o.plan||{});if(o.distr)distr=Object.assign(distr,o.distr);photoLM=o.photoLM||{};
   const done=()=>{setStep('points');};if(o.img){const im=new Image();im.onload=()=>{img=im;autoView();done();};im.src=o.img;}else done();if(o.photo){const pm=new Image();pm.onload=()=>{photo=pm;};pm.src=o.photo;}toast('Проект открыт.');}catch(err){alert('Не удалось открыть файл');}};rd.readAsText(f);e.target.value='';});
 
-function save(){const o={v:1,patient,scale,LM,plan,photoLM,img:img?img.src:null,photo:photo?photo.src:null};
+function save(){const o={v:1,patient,scale,LM,plan,distr,photoLM,img:img?img.src:null,photo:photo?photo.src:null};
   const a=document.createElement('a');a.download=(patient.name||'план')+'.orthos';a.href=URL.createObjectURL(new Blob([JSON.stringify(o)],{type:'application/json'}));a.click();}
 function exportPng(){const a=document.createElement('a');a.download='ОРТОС_план_'+(patient.name||'пациент')+'.png';a.href=cv.toDataURL('image/png');a.click();}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),2400);}
@@ -1104,4 +1233,8 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh
     const ec=new Map(),ek=(a,b)=>a<b?a+'_'+b:b+'_'+a;for(const[a,b,c]of skullMesh.T)for(const[p,q]of[[a,b],[b,c],[c,a]]){const k=ek(p,q);ec.set(k,(ec.get(k)||0)+1);}
     let bound=0;for(const v of ec.values())if(v===1)bound++;
     return{ok:true,verts:skullMesh.V0.length,tris:skullMesh.tri,seg:{fixed:sc[0],maxilla:sc[1],mandible:sc[2],chin:sc[3]},movedVerts:moved,maxDispPx:+mxd.toFixed(1),boundaryEdges:bound};},
+  setDistr:o=>{Object.assign(distr,o);invalidateDistr();}, distrInfo:()=>{
+    const P=distrAfter(1),dev=DISTR_DEV.find(d=>d.k===distr.dev)||DISTR_DEV[0];let moved=0,mxd=0;
+    for(const id in LM){const d=Math.hypot(P[id].x-LM[id].x,P[id].y-LM[id].y);if(d>0.5)moved++;if(d>mxd)mxd=d;}
+    return{site:distr.site,dev:distr.dev,radius:dev.r,len:distr.len,theta:+distrTheta().toFixed(2),movedPts:moved,maxDispPx:+mxd.toFixed(1),proto:distrProto(),warp:(()=>{const c=buildDistrWarp();return{ok:!!c,w:c&&c.width};})()};},
   step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasVol:!!vol,stepAP:waferStepAP(),vert:waferVert(),wtype:wafer.type,age:ageYears(),ready:patientReady()}) };
