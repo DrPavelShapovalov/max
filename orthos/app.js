@@ -35,22 +35,52 @@ function axes(){let H;if(LM.Po&&LM.Or)H=norm(sub(LM.Or,LM.Po));else if(LM.A&&LM.
   let V={x:-H.y,y:H.x};if(V.y<0)V={x:-V.x,y:-V.y};return{H,V};}
 
 // ── цефалометрия ──
-function analyse(G){
+// ── Возраст и детские нормы цефалометрии ──
+// Возраст считается из даты рождения; нормы ТРГ адаптируются по возрасту. Значения
+// ОРИЕНТИРОВОЧНЫЕ, по данным лонгитюдных исследований роста черепа (Michigan/Riolo,
+// Fels, Nijmegen и мультиуровневые модели): направление и приблизительная величина
+// возрастных изменений общеприняты — ANB и углы нижнечелюстной плоскости (SN–MP, FMA)
+// УБЫВАЮТ с возрастом, SNB РАСТЁТ (нижняя челюсть догоняет). Линейная интерполяция
+// между ~6 и ~18 годами; крайние значения вне диапазона. Проверять клинически.
+function parseDob(s){const m=/^\s*(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})\s*$/.exec(s||'');if(!m)return null;
+  const d=+m[1],mo=+m[2],y=+m[3],dt=new Date(y,mo-1,d);
+  if(dt.getFullYear()!==y||dt.getMonth()!==mo-1||dt.getDate()!==d||dt>new Date())return null;return dt;}
+function plural(n,a,b,c){n=Math.abs(n)%100;const n1=n%10;if(n>10&&n<20)return c;if(n1>1&&n1<5)return b;if(n1===1)return a;return c;}
+function ageYears(dob){const dt=parseDob(dob===undefined?patient.dob:dob);if(!dt)return null;
+  const n=new Date();let a=n.getFullYear()-dt.getFullYear();
+  if(n.getMonth()<dt.getMonth()||(n.getMonth()===dt.getMonth()&&n.getDate()<dt.getDate()))a--;return a<0?null:a;}
+function ageLabel(){const dt=parseDob(patient.dob);if(!dt)return null;const n=new Date();
+  let y=n.getFullYear()-dt.getFullYear(),mo=n.getMonth()-dt.getMonth();if(n.getDate()<dt.getDate())mo--;if(mo<0){y--;mo+=12;}
+  return y+' '+plural(y,'год','года','лет')+(mo?' '+mo+' мес':'');}
+function patientReady(){return !!(patient.name&&patient.name.trim()&&patient.sex&&parseDob(patient.dob));}
+function cephNorms(age){
+  const a=(age==null||isNaN(age))?18:Math.max(6,Math.min(18,age)),f=(a-6)/12,N={};
+  const aged=(k,m6,m18,sd)=>{const m=m6+f*(m18-m6);N[k]={lo:+(m-sd).toFixed(1),hi:+(m+sd).toFixed(1),mean:+m.toFixed(1),sd,label:(+m.toFixed(1))+'±'+sd,aged:true};};
+  const fix=(k,lo,hi,label)=>{N[k]={lo,hi,label,aged:false};};
+  aged('SNA',80.5,82,2);  aged('SNB',76,80,3);   aged('ANB',5,2,2);
+  aged('SNMP',38,32,5);   aged('FMA',29,25,5);   aged('interinc',127,131,7);
+  fix('Wits',-1,3,'−1…3'); fix('U1NAd',18,26,'22±2'); fix('U1NAmm',2,6,'4±2');
+  fix('L1NBd',21,29,'25±2'); fix('L1NBmm',2,6,'4±2'); fix('nasolab',90,110,'100±10');
+  return N;
+}
+function analyse(G,age){
+  if(age===undefined)age=ageYears();
+  const N=cephNorms(age);
   const has=(...k)=>k.every(x=>G[x]);const rows=[];
-  const a_=(key,val,lo,hi,norm,extra)=>{let st='—';if(val!=null&&!isNaN(val))st=val<lo?'ниже':(val>hi?'выше':'норма');rows.push({key,val,lo,hi,norm,st,extra});};
-  a_('SNA, °',has('S','N','A')?angAt(G.N,G.S,G.A):null,80,84,'82±2');
-  a_('SNB, °',has('S','N','B')?angAt(G.N,G.S,G.B):null,78,82,'80±2');
-  let anb=null,cls='';if(has('S','N','A','B')){anb=angAt(G.N,G.S,G.A)-angAt(G.N,G.S,G.B);cls=anb>4?'II класс':(anb<0?'III класс':'I класс');}
-  a_('ANB, °',anb,0,4,'2±2',cls);
-  a_('Wits, мм',has('A','B','U1t','L1t')?(()=>{const ao=ptLineMM(G.A,G.U1t,G.L1t),bo=ptLineMM(G.B,G.U1t,G.L1t);return ao==null?null:(ao-bo);})():null,-1,3,'−1…3');
-  a_('SN–MP, °',has('S','N','Go','Me')?lineAng(G.S,G.N,G.Go,G.Me):null,28,37,'32±5');
-  a_('FMA, °',has('Po','Or','Go','Me')?lineAng(G.Po,G.Or,G.Go,G.Me):null,20,30,'25±5');
-  a_('U1–NA, °',has('U1a','U1t','N','A')?lineAng(G.U1a,G.U1t,G.N,G.A):null,18,26,'22±2');
-  a_('U1–NA, мм',has('U1t','N','A')?Math.abs(ptLineMM(G.U1t,G.N,G.A)):null,2,6,'4±2');
-  a_('L1–NB, °',has('L1a','L1t','N','B')?lineAng(G.L1a,G.L1t,G.N,G.B):null,21,29,'25±2');
-  a_('L1–NB, мм',has('L1t','N','B')?Math.abs(ptLineMM(G.L1t,G.N,G.B)):null,2,6,'4±2');
-  if(has('U1a','U1t','L1a','L1t')){const v1=sub(G.U1t,G.U1a),v2=sub(G.L1t,G.L1a);a_('Межрезцовый, °',180-r2d(Math.acos(Math.max(-1,Math.min(1,dot(v1,v2)/((len(v1)*len(v2))||1))))),124,138,'131±7');}
-  a_('Носогубный, °',has('Prn','Sn','Ls')?angAt(G.Sn,G.Prn,G.Ls):null,90,110,'100±10');
+  const a_=(key,val,nk,extra)=>{const n=N[nk];let st='—';if(val!=null&&!isNaN(val))st=val<n.lo?'ниже':(val>n.hi?'выше':'норма');rows.push({key,val,lo:n.lo,hi:n.hi,norm:n.label,st,extra,aged:n.aged});};
+  a_('SNA, °',has('S','N','A')?angAt(G.N,G.S,G.A):null,'SNA');
+  a_('SNB, °',has('S','N','B')?angAt(G.N,G.S,G.B):null,'SNB');
+  let anb=null,cls='';if(has('S','N','A','B')){anb=angAt(G.N,G.S,G.A)-angAt(G.N,G.S,G.B);cls=anb>N.ANB.hi?'II класс':(anb<N.ANB.lo?'III класс':'I класс');}
+  a_('ANB, °',anb,'ANB',cls);
+  a_('Wits, мм',has('A','B','U1t','L1t')?(()=>{const ao=ptLineMM(G.A,G.U1t,G.L1t),bo=ptLineMM(G.B,G.U1t,G.L1t);return ao==null?null:(ao-bo);})():null,'Wits');
+  a_('SN–MP, °',has('S','N','Go','Me')?lineAng(G.S,G.N,G.Go,G.Me):null,'SNMP');
+  a_('FMA, °',has('Po','Or','Go','Me')?lineAng(G.Po,G.Or,G.Go,G.Me):null,'FMA');
+  a_('U1–NA, °',has('U1a','U1t','N','A')?lineAng(G.U1a,G.U1t,G.N,G.A):null,'U1NAd');
+  a_('U1–NA, мм',has('U1t','N','A')?Math.abs(ptLineMM(G.U1t,G.N,G.A)):null,'U1NAmm');
+  a_('L1–NB, °',has('L1a','L1t','N','B')?lineAng(G.L1a,G.L1t,G.N,G.B):null,'L1NBd');
+  a_('L1–NB, мм',has('L1t','N','B')?Math.abs(ptLineMM(G.L1t,G.N,G.B)):null,'L1NBmm');
+  if(has('U1a','U1t','L1a','L1t')){const v1=sub(G.U1t,G.U1a),v2=sub(G.L1t,G.L1a);a_('Межрезцовый, °',180-r2d(Math.acos(Math.max(-1,Math.min(1,dot(v1,v2)/((len(v1)*len(v2))||1))))),'interinc');}
+  a_('Носогубный, °',has('Prn','Sn','Ls')?angAt(G.Sn,G.Prn,G.Ls):null,'nasolab');
   return rows;
 }
 // Прогноз мягких тканей: средние коэффициенты «движение мягкой точки / движение
@@ -788,16 +818,22 @@ function updateBadge(){
 function renderPanel(){
   const p=$('panel');
   if(step==='patient'){
+    const ready=patientReady(),age=ageYears(),dobOk=!!parseDob(patient.dob);
     p.innerHTML=`<div class="card view">
-      <h3>👤 Пациент</h3><div class="desc">Заполните данные — они попадут в план и отчёт. Затем загрузите МСКТ.</div>
-      <div class="field"><label>ФИО / № карты</label><input type="text" id="pName" value="${esc(patient.name)}"></div>
-      <div class="two"><div class="field"><label>Пол</label><select id="pSex"><option value="M"${patient.sex==='M'?' selected':''}>мужской</option><option value="F"${patient.sex==='F'?' selected':''}>женский</option></select></div>
-        <div class="field"><label>Дата рождения</label><input type="text" id="pDob" value="${esc(patient.dob)}" placeholder="дд.мм.гггг"></div></div>
-      <button class="btn" id="goTrg" style="margin-top:4px">🧊 Загрузить МСКТ (DICOM) →</button>
-      <div class="note">Поддержка несжатого DICOM. Из серии строится боковая ТРГ, масштаб берётся из DICOM автоматически.</div>
+      <h3>👤 Пациент</h3><div class="desc">Данные обязательны — по дате рождения считается возраст, и нормы ТРГ подстраиваются под него (детские). Только после этого доступна загрузка МСКТ.</div>
+      <div class="field"><label>ФИО / № карты <span style="color:var(--warn)">*</span></label><input type="text" id="pName" value="${esc(patient.name)}" placeholder="Фамилия И. О. / № карты"></div>
+      <div class="two"><div class="field"><label>Пол <span style="color:var(--warn)">*</span></label><select id="pSex"><option value="M"${patient.sex==='M'?' selected':''}>мужской</option><option value="F"${patient.sex==='F'?' selected':''}>женский</option></select></div>
+        <div class="field"><label>Дата рождения <span style="color:var(--warn)">*</span></label><input type="text" id="pDob" value="${esc(patient.dob)}" placeholder="дд.мм.гггг"></div></div>
+      ${dobOk?`<div class="mode-chip ok" style="margin-top:2px">Возраст: <b>${ageLabel()}</b> · нормы ТРГ — <b>детские, для ${age} ${plural(age,'года','лет','лет')}</b> (ANB/нижнечелюстной угол выше у младших)</div>`
+             :(patient.dob?`<div class="mode-chip warn" style="margin-top:2px">Дата рождения в формате <b>дд.мм.гггг</b></div>`:'')}
+      <button class="btn" id="goTrg" style="margin-top:8px${ready?'':';opacity:.5'}">🧊 Загрузить МСКТ (DICOM) →</button>
+      ${ready?'<div class="note">Несжатый DICOM. Из серии строится боковая ТРГ, масштаб берётся из DICOM автоматически.</div>'
+             :'<div class="note" style="color:var(--warn)">Заполните ФИО, пол и дату рождения — затем откроется загрузка КТ, а нормы ТРГ подстроятся под возраст.</div>'}
     </div>`;
-    $('pName').onchange=e=>patient.name=e.target.value;$('pSex').onchange=e=>patient.sex=e.target.value;$('pDob').onchange=e=>patient.dob=e.target.value;
-    $('goTrg').onclick=()=>$('dcmInput').click();
+    $('pName').oninput=e=>{patient.name=e.target.value;};$('pName').onchange=()=>renderPanel();
+    $('pSex').onchange=e=>{patient.sex=e.target.value;renderPanel();};
+    $('pDob').oninput=e=>{patient.dob=e.target.value;if(parseDob(patient.dob))renderPanel();}; $('pDob').onchange=()=>renderPanel();
+    $('goTrg').onclick=()=>requestDicom();
   }
   else if(step==='trg'){
     p.innerHTML=`<div class="card view"><h3>🧊 МСКТ → ТРГ</h3>
@@ -806,7 +842,7 @@ function renderPanel(){
       <div class="btn-row"><button class="btn ghost" id="loadFilm">📷 Готовая плёнка ТРГ</button></div>
       ${img?'<button class="btn" id="toPoints" style="margin-top:10px">→ К расстановке точек</button>':''}
       <div class="note">Сжатый DICOM (JPEG/JPEG2000) — выгрузите несжатую серию.</div></div>`;
-    $('loadDcm2').onclick=()=>$('dcmInput').click();$('loadFilm').onclick=()=>$('imgInput').click();
+    $('loadDcm2').onclick=()=>requestDicom();$('loadFilm').onclick=()=>requestDicom('film');
     if($('toPoints'))$('toPoints').onclick=()=>setStep('points');
   }
   else if(step==='points'){
@@ -867,9 +903,12 @@ function renderPanel(){
   }
   else if(step==='analysis'){
     if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ и расставьте точки.'); return; }
-    const rows=analyse(LM);
-    p.innerHTML=`<div class="card view"><h3>📐 Цефалометрия</h3><div id="anBox" style="margin-top:6px">${rows.map(anRow).join('')}</div>
-      <div class="note">Нормы ориентировочные (взрослые). Линейные (мм) требуют масштаба (есть, т.к. из МСКТ). Точность зависит от расстановки точек.</div></div>`;
+    const age=ageYears(),rows=analyse(LM,age);
+    p.innerHTML=`<div class="card view"><h3>📐 Цефалометрия</h3>
+      ${age!=null?`<div class="mode-chip ok" style="margin-bottom:8px">Нормы <b>детские, для ${age} ${plural(age,'года','лет','лет')}</b> · ↕ = возрастзависимая (ANB, SNB, SN–MP, FMA, межрезцовый)</div>`
+                :`<div class="mode-chip warn" style="margin-bottom:8px">Возраст не задан — показаны взрослые нормы. Укажите дату рождения на шаге «Пациент».</div>`}
+      <div id="anBox">${rows.map(anRow).join('')}</div>
+      <div class="note">Нормы ориентировочные, по данным лонгитюдных исследований роста (Michigan/Riolo, Fels и др.): с возрастом ANB и нижнечелюстной угол убывают, SNB растёт. Проверяйте клинически. Линейные (мм) — по масштабу из МСКТ.</div></div>`;
   }
   else if(step==='plan'){
     if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ и расставьте точки.'); return; }
@@ -954,7 +993,7 @@ function renderPanel(){
 }
 function lmRow(id){const l=LBL[id];return `<div class="lm${id===pickId?' cur':''}${LM[id]?' ok':''}" data-k="${id}"><span class="ck">${LM[id]?'✓':'○'}</span><span class="t">${l.abbr} <small>· ${l.ru}</small></span></div>`;}
 function anRow(r){const col=r.st==='норма'?'var(--good)':(r.st==='—'?'var(--ink-faint)':'var(--warn)');
-  return `<div class="an-row"><span class="k">${r.key}</span><span class="v">${r.val!=null&&!isNaN(r.val)?r.val.toFixed(1):'—'}</span><span class="s" style="color:${col}">${r.st}</span><span class="n">норма ${r.norm}${r.extra?' · '+r.extra:''}</span></div>`;}
+  return `<div class="an-row"><span class="k">${r.key}${r.aged?' <span title="возрастная норма" style="color:var(--accent)">↕</span>':''}</span><span class="v">${r.val!=null&&!isNaN(r.val)?r.val.toFixed(1):'—'}</span><span class="s" style="color:${col}">${r.st}</span><span class="n">норма ${r.norm}${r.extra?' · '+r.extra:''}</span></div>`;}
 function sl(k,label,mn,mx,st,u){return `<div class="slider-row"><label>${label}</label><input type="range" id="s_${k}" min="${mn}" max="${mx}" step="${st}" value="${plan[k]}"><span class="val" id="v_${k}">${fmt(plan[k])}${u}</span></div>`;}
 function bindSliders(){['mxAdv','mxImp','mxPitch','mdAdv','mdRot','chAdv','chVert'].forEach(k=>{const el=$('s_'+k);if(!el)return;const u=(k.includes('Pitch')||k.includes('Rot'))?'°':'мм';
   el.oninput=e=>{plan[k]=+e.target.value;$('v_'+k).textContent=fmt(plan[k])+u;invalidateWarp();invalidatePhotoWarp();waferMesh=null;render();renderReport($('rep'));};});}
@@ -974,7 +1013,12 @@ function renderReport(box){if(!box)return;const mdR=plan.autorot?plan.mxImp*1.1:
         +`<span class="nv">${vb} <span style="color:var(--ink-faint)">→</span> <b style="color:${col}">${va}</b></span>`
         +`<span class="ns" style="color:${col}">${tag}</span></div>`;}).join('');
 }
-function emptyStepCard(t,d){return `<div class="card view"><h3>${t}</h3><div class="desc">${d}</div><button class="btn" onclick="document.getElementById('dcmInput').click()">🧊 Загрузить МСКТ</button></div>`;}
+function emptyStepCard(t,d){return `<div class="card view"><h3>${t}</h3><div class="desc">${d}</div><button class="btn" onclick="requestDicom()">🧊 Загрузить МСКТ</button></div>`;}
+// гейт: не пускаем к загрузке КТ/плёнки, пока не заполнены ФИО, пол и дата рождения
+function requestDicom(kind){
+  if(!patientReady()){ toast('Сначала заполните ФИО, пол и дату рождения пациента.'); if(step!=='patient')setStep('patient'); else renderPanel(); return; }
+  (kind==='film'?$('imgInput'):$('dcmInput')).click();
+}
 function esc(s){return(s||'').replace(/"/g,'&quot;');}
 
 // ── шаги ──
@@ -1042,7 +1086,8 @@ window.addEventListener('resize',render);
 renderPanel(); render();
 
 // тест-хук
-window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh=null;}, calib:s=>{scale=s;skullMesh=null;}, analyse:()=>analyse(LM), planned, setPlan:p=>{Object.assign(plan,p);invalidateWarp();invalidatePhotoWarp();waferMesh=null;},
+window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh=null;}, calib:s=>{scale=s;skullMesh=null;}, analyse:a=>analyse(LM,a), planned, setPlan:p=>{Object.assign(plan,p);invalidateWarp();invalidatePhotoWarp();waferMesh=null;},
+  setPatient:o=>{Object.assign(patient,o);renderPanel();}, age:()=>ageYears(), ready:()=>patientReady(), norms:a=>cephNorms(a===undefined?ageYears():a),
   setWafer:o=>{Object.assign(wafer,o);waferMesh=null;}, stl:()=>waferSTL(buildWaferMesh()), waferTris:()=>buildWaferMesh().length,
   ctDiag:()=>{buildWaferMesh();return{src:wafer.src,diag:wafer.ctDiag};}, injectVol:v=>{vol=v;waferMesh=null;},
   injectScan:(which,tris)=>{if(which==='U')scanU={tris};else scanL={tris};waferMesh=null;}, waferSrc:()=>{buildWaferMesh();return wafer.src;}, stlDiag:()=>{buildWaferMesh();return wafer.stlDiag;},
@@ -1059,4 +1104,4 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh
     const ec=new Map(),ek=(a,b)=>a<b?a+'_'+b:b+'_'+a;for(const[a,b,c]of skullMesh.T)for(const[p,q]of[[a,b],[b,c],[c,a]]){const k=ek(p,q);ec.set(k,(ec.get(k)||0)+1);}
     let bound=0;for(const v of ec.values())if(v===1)bound++;
     return{ok:true,verts:skullMesh.V0.length,tris:skullMesh.tri,seg:{fixed:sc[0],maxilla:sc[1],mandible:sc[2],chin:sc[3]},movedVerts:moved,maxDispPx:+mxd.toFixed(1),boundaryEdges:bound};},
-  step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasVol:!!vol,stepAP:waferStepAP(),vert:waferVert(),wtype:wafer.type}) };
+  step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasVol:!!vol,stepAP:waferStepAP(),vert:waferVert(),wtype:wafer.type,age:ageYears(),ready:patientReady()}) };
