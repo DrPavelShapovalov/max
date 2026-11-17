@@ -11,7 +11,8 @@ const PROFILE=['G','Prn','Sn','Ls','Li','Pog2','Me2'];
 
 // ── состояние ──
 let step='patient', patient={name:'',sex:'M',dob:''};
-let vol=null, img=null, scale=0, photo=null;
+let vol=null, img=null, imgF=null, scale=0, photo=null;
+let trgView='lat'; // боковая/прямая ТРГ на шаге «МСКТ → ТРГ»
 let LM={}, pickId=null, view={ox:0,oy:0,zoom:1};
 let plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};
 let overlay=0.85, building=false;
@@ -704,6 +705,14 @@ function renderDistr(){
     distr._tip=Ts;}
   updateBadge();
 }
+function renderFrontal(){
+  fit();ctx.clearRect(0,0,cv.width,cv.height);$('empty').style.display='none';
+  const z=Math.min(cv.width/imgF.width,cv.height/imgF.height)*0.9,ox=(cv.width-imgF.width*z)/2,oy=(cv.height-imgF.height*z)/2;
+  ctx.imageSmoothingEnabled=true;ctx.drawImage(imgF,ox,oy,imgF.width*z,imgF.height*z);
+  ctx.strokeStyle='rgba(91,108,255,.55)';ctx.lineWidth=1.4;ctx.setLineDash([6,6]); // ориентир средней линии
+  ctx.beginPath();ctx.moveTo(ox+imgF.width*z/2,oy);ctx.lineTo(ox+imgF.width*z/2,oy+imgF.height*z);ctx.stroke();ctx.setLineDash([]);
+  $('badge').innerHTML='<span class="chip">Прямая ТРГ (PA) · оценка симметрии</span>';
+}
 
 // ── DICOM → ТРГ ──
 function parseDcm(buf){
@@ -766,6 +775,19 @@ function buildLateralDRR(v){
   for(let i=0;i<acc.length;i++){let g=Math.pow(acc[i]*inv,0.6)*255;g=g>255?255:g;const o=i*4;P[o]=P[o+1]=P[o+2]=g;P[o+3]=255;}
   off.getContext('2d').putImageData(im,0,0);return{canvas:off,W,H,mpp};
 }
+// Прямая (фронтальная, PA) ТРГ: проекция вдоль передне-задней оси Y (сумма по y),
+// плоскость изображения X–Z (лево-право × верх-низ) — для оценки асимметрии.
+function buildFrontalDRR(v){
+  const [nx,ny,nz]=v.dims,[sx,sy,sz]=v.spacing,d=v.data,mpp=0.4;
+  const W=Math.round(nx*sx/mpp),H=Math.round(nz*sz/mpp),cl=h=>h<-200?0:(h>1800?2000:h+200);
+  const acc=new Float32Array(W*H);let mx=1;
+  for(let vv=0;vv<H;vv++){const zmm=(H-1-vv)*mpp,zv=Math.min(nz-1,Math.max(0,Math.round(zmm/sz)));
+    for(let u=0;u<W;u++){const xmm=u*mpp,xv=Math.min(nx-1,Math.max(0,Math.round(xmm/sx)));
+      let a=0;for(let y=0;y<ny;y++)a+=cl(d[(zv*ny+y)*nx+xv]);acc[vv*W+u]=a;if(a>mx)mx=a;}}
+  const off=document.createElement('canvas');off.width=W;off.height=H;const im=new ImageData(W,H),P=im.data,inv=1/mx;
+  for(let i=0;i<acc.length;i++){let g=Math.pow(acc[i]*inv,0.6)*255;g=g>255?255:g;const o=i*4;P[o]=P[o+1]=P[o+2]=g;P[o+3]=255;}
+  off.getContext('2d').putImageData(im,0,0);return{canvas:off,W,H,mpp};
+}
 // прогресс-бар загрузки
 function loadBar(frac,label){let el=$('loadbar');
   if(!el){el=document.createElement('div');el.id='loadbar';el.className='loadbar';
@@ -816,6 +838,7 @@ async function loadDicom(files){
   im.onload=()=>{ img=im; scale=1/drr.mpp; loadBar(null); autoView(); setStep('points');
     toast('ТРГ построена ('+vol.dims[2]+' срезов'+(chosen.multi?', 1 серия':'')+'). Масштаб '+scale.toFixed(2)+' px/мм.'+(chosen.multi?' · '+chosen.info:'')); };
   im.src=drr.canvas.toDataURL('image/png');
+  try{const fr=buildFrontalDRR(vol);const imf=new Image();imf.onload=()=>{imgF=imf;};imf.src=fr.canvas.toDataURL('image/png');}catch(e){imgF=null;} // прямая ТРГ
 }
 
 // ── вид / отрисовка ──
@@ -829,6 +852,7 @@ function render(){
     $('empty').style.display='none'; updateBadge(); if(!waferRAF)waferRAF=requestAnimationFrame(waferAnim); return; }
   if(step==='plan'&&planView==='skull3d'&&vol&&img){ $('empty').style.display='none'; renderSkull(); return; }
   if(step==='distraction'&&img){ renderDistr(); return; }
+  if(step==='trg'&&trgView==='frontal'&&imgF){ renderFrontal(); return; }
   fit();ctx.clearRect(0,0,cv.width,cv.height);
   const showPhoto=(step==='photo'&&photo);
   const pic=showPhoto?photo:img;
@@ -919,9 +943,14 @@ function renderPanel(){
       <div class="desc">${img?'Боковая ТРГ построена. Перейдите к расстановке точек.':'Загрузите серию МСКТ (DICOM) — программа построит боковую ТРГ (проекцию) и возьмёт масштаб из DICOM.'}</div>
       <button class="btn" id="loadDcm2">🧊 Загрузить МСКТ (DICOM)</button>
       <div class="btn-row"><button class="btn ghost" id="loadFilm">📷 Готовая плёнка ТРГ</button></div>
+      ${imgF?`<div class="grp2" style="margin-top:12px"><h4>Проекция</h4><div class="seg-toggle">
+        <button class="seg-btn${trgView==='lat'?' on':''}" data-tv="lat">Боковая</button>
+        <button class="seg-btn${trgView==='frontal'?' on':''}" data-tv="frontal">Прямая (PA)</button></div>
+        <div class="note" style="margin-top:6px">${trgView==='frontal'?'Прямая (фронтальная) проекция из МСКТ — для оценки асимметрии при односторонних случаях. Разметка точек и анализ асимметрии — следующий этап.':'Боковая ТРГ — основной поток (точки, анализ, план).'}</div></div>`:''}
       ${img?'<button class="btn" id="toPoints" style="margin-top:10px">→ К расстановке точек</button>':''}
-      <div class="note">Сжатый DICOM (JPEG/JPEG2000) — выгрузите несжатую серию.</div></div>`;
+      <div class="note">Из одной серии МСКТ строятся обе проекции: боковая и прямая. Сжатый DICOM — выгрузите несжатую серию.</div></div>`;
     $('loadDcm2').onclick=()=>requestDicom();$('loadFilm').onclick=()=>requestDicom('film');
+    p.querySelectorAll('[data-tv]').forEach(b=>b.onclick=()=>{trgView=b.dataset.tv;renderPanel();render();});
     if($('toPoints'))$('toPoints').onclick=()=>setStep('points');
   }
   else if(step==='points'){
@@ -1241,4 +1270,5 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh
     const P=distrAfter(1),dev=DISTR_DEV.find(d=>d.k===distr.dev)||DISTR_DEV[0];let moved=0,mxd=0;
     for(const id in LM){const d=Math.hypot(P[id].x-LM[id].x,P[id].y-LM[id].y);if(d>0.5)moved++;if(d>mxd)mxd=d;}
     return{site:distr.site,dev:distr.dev,arcDeg:dev.deg,len:distr.len,theta:+distrTheta().toFixed(2),movedPts:moved,maxDispPx:+mxd.toFixed(1),proto:distrProto(),warp:(()=>{const c=buildDistrWarp();return{ok:!!c,w:c&&c.width};})()};},
-  step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasVol:!!vol,stepAP:waferStepAP(),vert:waferVert(),wtype:wafer.type,age:ageYears(),ready:patientReady()}) };
+  setTrgView:v=>{trgView=v;}, frontalInfo:()=>imgF?{ok:true,w:imgF.naturalWidth||imgF.width,h:imgF.naturalHeight||imgF.height}:{ok:false},
+  step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasImgF:!!imgF,hasVol:!!vol,stepAP:waferStepAP(),vert:waferVert(),wtype:wafer.type,age:ageYears(),ready:patientReady()}) };
