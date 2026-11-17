@@ -257,6 +257,7 @@ function advancePhotoPick(){const i=PHOTO_SET.indexOf(photoPick);const nx=PHOTO_
 let wafer={type:'final',archW:52,archD:40,height:11,band:11,teeth:12,ct:true,src:'param',ctDiag:null};
 let waferMesh=null,waferYaw=0.6,waferPitch=0.5,waferRAF=null,waferDrag=null,waferSpin=true,waferZoom=1;
 let scanU=null,scanL=null; // STL внутриротовых сканов (верхняя/нижняя челюсть)
+let planMode='ortho';      // режим шага «План»: 'ortho' (ортогнатия) | 'distraction' (КДО)
 let planView='trg';        // контроль результата на шаге «План»: 'trg' | 'skull3d'
 let skullMesh=null,skullYaw=0.5,skullPitch=0.12,skullZoom=1,skullDrag=null,skullBuilding=false;
 // Относительное положение зубных дуг, которое фиксирует шаблон (мм):
@@ -850,8 +851,8 @@ const toI=(x,y)=>({x:(x-view.ox)/view.zoom,y:(y-view.oy)/view.zoom});
 function render(){
   if(step==='wafer'){ fit(); if(!waferMesh)waferMesh=buildWaferMesh(); drawWafer3D(waferMesh,waferYaw,waferPitch);
     $('empty').style.display='none'; updateBadge(); if(!waferRAF)waferRAF=requestAnimationFrame(waferAnim); return; }
-  if(step==='plan'&&planView==='skull3d'&&vol&&img){ $('empty').style.display='none'; renderSkull(); return; }
-  if(step==='distraction'&&img){ renderDistr(); return; }
+  if(step==='plan'&&planMode==='distraction'&&img){ renderDistr(); return; }
+  if(step==='plan'&&planMode==='ortho'&&planView==='skull3d'&&vol&&img){ $('empty').style.display='none'; renderSkull(); return; }
   if(step==='trg'&&trgView==='frontal'&&imgF){ renderFrontal(); return; }
   fit();ctx.clearRect(0,0,cv.width,cv.height);
   const showPhoto=(step==='photo'&&photo);
@@ -1018,9 +1019,10 @@ function renderPanel(){
       <div id="anBox">${rows.map(anRow).join('')}</div>
       <div class="note">Нормы ориентировочные, по данным лонгитюдных исследований роста (Michigan/Riolo, Fels и др.): с возрастом ANB и нижнечелюстной угол убывают, SNB растёт. Проверяйте клинически. Линейные (мм) — по масштабу из МСКТ.</div></div>`;
   }
-  else if(step==='plan'){
+  else if(step==='plan'&&planMode!=='distraction'){
     if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ и расставьте точки.'); return; }
-    p.innerHTML=`<div class="card view"><h3>🦷 Хирургическое перемещение</h3>
+    const modeTog=`<div class="card view" style="padding:10px 14px;margin-bottom:10px"><div class="seg-toggle"><button class="seg-btn on" data-pm="ortho">🦷 Ортогнатия</button><button class="seg-btn" data-pm="distraction">↔ Дистракция (КДО)</button></div></div>`;
+    p.innerHTML=modeTog+`<div class="card view"><h3>🦷 Хирургическое перемещение</h3>
         <div class="grp2"><h4>Верхняя челюсть <span class="tag">Le Fort I</span></h4>
           ${sl('mxAdv','Выдвижение',-10,10,0.5,'мм')}${sl('mxImp','Импакция (+вверх)',-5,6,0.5,'мм')}${sl('mxPitch','Наклон (питч)',-8,8,0.5,'°')}</div>
         <div class="grp2"><h4>Нижняя челюсть <span class="tag">BSSO</span></h4>
@@ -1044,13 +1046,15 @@ function renderPanel(){
     $('resetPlan').onclick=()=>{plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};invalidateWarp();invalidatePhotoWarp();waferMesh=null;renderPanel();render();};
     $('toWafer').onclick=()=>setStep('wafer');
     $('expPng').onclick=exportPng; renderReport($('rep'));
+    p.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{planMode=b.dataset.pm;invalidateDistr();renderPanel();render();});
   }
-  else if(step==='distraction'){
+  else if(step==='plan'){
     if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ и расставьте точки (нужны Ar, Go, Me, B, Pog для н/ч).'); return; }
+    const modeTog=`<div class="card view" style="padding:10px 14px;margin-bottom:10px"><div class="seg-toggle"><button class="seg-btn" data-pm="ortho">🦷 Ортогнатия</button><button class="seg-btn on" data-pm="distraction">↔ Дистракция (КДО)</button></div></div>`;
     const dev=DISTR_DEV.find(d=>d.k===distr.dev)||DISTR_DEV[0],pr=distrProto(),th=distrTheta(),vecDeg=(distr.vec!=null?distr.vec:distrDefDeg());
     const dsl=(k,label,mn,mx,st,u,val)=>`<div class="slider-row"><label>${label}</label><input type="range" id="d_${k}" min="${mn}" max="${mx}" step="${st}" value="${val}"><span class="val" id="dv_${k}">${(+val).toFixed(st<1?1:0)}${u}</span></div>`;
-    p.innerHTML=`<div class="card view"><h3>↔ Дистракция (КДО)</h3>
-      <div class="desc">Компрессионно-дистракционный остеогенез: остеотомия → дистрактор (линейный/криволинейный под радиус) → вектор → длина и протокол. Транспортируемый фрагмент н/ч перемещается жёстко — видно удлинение.</div>
+    p.innerHTML=modeTog+`<div class="card view"><h3>↔ Дистракция (КДО)</h3>
+      <div class="desc">Компрессионно-дистракционный остеогенез: остеотомия → дистрактор (линейный/криволинейный под угол дуги) → вектор → длина и протокол. Транспортируемый фрагмент н/ч перемещается жёстко — видно удлинение.</div>
       <div class="grp2"><h4>Остеотомия</h4><div class="seg-toggle">
         <button class="seg-btn${distr.site==='ramus'?' on':''}" data-ds="ramus">Ветвь</button>
         <button class="seg-btn${distr.site==='body'?' on':''}" data-ds="body">Тело</button>
@@ -1094,6 +1098,7 @@ function renderPanel(){
     $('d_t').oninput=e=>{distr.t=+e.target.value;render();};
     $('dReset').onclick=()=>{distr.vec=null;distr.len=10;distr.t=1;invalidateDistr();renderPanel();render();};
     $('dPng').onclick=()=>{const a=document.createElement('a');a.download='ОРТОС_дистракция.png';a.href=cv.toDataURL('image/png');a.click();};
+    p.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{planMode=b.dataset.pm;invalidateDistr();renderPanel();render();});
   }
   else if(step==='wafer'){
     if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ, расставьте точки и спланируйте перемещения.'); return; }
@@ -1180,7 +1185,7 @@ function requestDicom(kind){
 function esc(s){return(s||'').replace(/"/g,'&quot;');}
 
 // ── шаги ──
-function setStep(s){ if(s==='plan')invalidateWarp(); if(s==='wafer')waferMesh=null; if(s==='points'||s==='trg')skullMesh=null; if(s==='distraction')invalidateDistr(); step=s;
+function setStep(s){ if(s==='plan'){invalidateWarp();invalidateDistr();} if(s==='wafer')waferMesh=null; if(s==='points'||s==='trg')skullMesh=null; step=s;
   document.querySelectorAll('.step').forEach(x=>{x.classList.toggle('on',x.dataset.s===s);});
   markDone(); renderPanel(); render(); }
 function markDone(){ document.querySelectorAll('.step').forEach(x=>{const s=x.dataset.s;let done=false;
@@ -1193,9 +1198,9 @@ let drag=null,pan=null,distrVecDrag=false;
 cv.addEventListener('mousedown',e=>{const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
   const sx=(e.clientX-r.left)*dpr,sy=(e.clientY-r.top)*dpr;
   if(step==='wafer'){waferSpin=false;waferDrag={sx,sy,yaw:waferYaw,pitch:waferPitch};return;}
-  if(step==='plan'&&planView==='skull3d'&&vol&&skullMesh){skullDrag={sx,sy,yaw:skullYaw,pitch:skullPitch};return;}
-  if(step==='distraction'&&distr.view==='skull3d'&&vol&&skullMesh){skullDrag={sx,sy,yaw:skullYaw,pitch:skullPitch};return;}
-  if(step==='distraction'&&img&&distr.view!=='skull3d'){if(distr._tip&&Math.hypot(distr._tip.x-sx,distr._tip.y-sy)<18*dpr){distrVecDrag=true;return;}}
+  if(step==='plan'&&planMode==='ortho'&&planView==='skull3d'&&vol&&skullMesh){skullDrag={sx,sy,yaw:skullYaw,pitch:skullPitch};return;}
+  if(step==='plan'&&planMode==='distraction'&&distr.view==='skull3d'&&vol&&skullMesh){skullDrag={sx,sy,yaw:skullYaw,pitch:skullPitch};return;}
+  if(step==='plan'&&planMode==='distraction'&&img&&distr.view!=='skull3d'){if(distr._tip&&Math.hypot(distr._tip.x-sx,distr._tip.y-sy)<18*dpr){distrVecDrag=true;return;}}
   if(step==='photo'&&photo){const ip={x:(sx-photoView.ox)/photoView.z,y:(sy-photoView.oy)/photoView.z};
     let b2=null,bd2=14*dpr;PHOTO_SET.forEach(id=>{if(photoLM[id]){const S={x:photoView.ox+photoLM[id].x*photoView.z,y:photoView.oy+photoLM[id].y*photoView.z};const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd2){bd2=d;b2=id;}}});
     if(b2){photoDrag=b2;photoPick=b2;renderPanel();render();return;}
@@ -1207,7 +1212,7 @@ cv.addEventListener('mousedown',e=>{const r=cv.getBoundingClientRect(),dpr=Math.
   if(pickId){LM[pickId]=ip;popAt(sx,sy);advancePick();}});
 window.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);const sx=(e.clientX-r.left)*dpr,sy=(e.clientY-r.top)*dpr;
   if(waferDrag){waferYaw=waferDrag.yaw+(sx-waferDrag.sx)*0.006;waferPitch=Math.max(-1.45,Math.min(1.45,waferDrag.pitch+(sy-waferDrag.sy)*0.006));if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);return;}
-  if(skullDrag){skullYaw=skullDrag.yaw+(sx-skullDrag.sx)*0.006;skullPitch=Math.max(-1.3,Math.min(1.3,skullDrag.pitch+(sy-skullDrag.sy)*0.006));if(step==='distraction')drawSkull3D(skullYaw,skullPitch,distr.t,skullDistrMoved);else renderSkull();return;}
+  if(skullDrag){skullYaw=skullDrag.yaw+(sx-skullDrag.sx)*0.006;skullPitch=Math.max(-1.3,Math.min(1.3,skullDrag.pitch+(sy-skullDrag.sy)*0.006));if(step==='plan'&&planMode==='distraction')drawSkull3D(skullYaw,skullPitch,distr.t,skullDistrMoved);else renderSkull();return;}
   if(distrVecDrag){const ip=toI(sx,sy),L=distrLine();if(L){const O=mul(add(L.a,L.b),0.5),d=norm(sub(ip,O)),ax=axes();distr.vec=r2d(Math.atan2(dot(d,ax.V),dot(d,ax.H)));invalidateDistr();render();}return;}
   if(photoDrag){photoLM[photoDrag]={x:(sx-photoView.ox)/photoView.z,y:(sy-photoView.oy)/photoView.z};invalidatePhotoWarp();render();return;}
   if(pan){view.ox=pan.ox+(sx-pan.sx);view.oy=pan.oy+(sy-pan.sy);render();return;}
@@ -1215,8 +1220,8 @@ window.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect(),dpr=M
 window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}if(photoDrag){photoDrag=null;renderPanel();}if(distrVecDrag){distrVecDrag=false;renderPanel();}pan=null;waferDrag=null;skullDrag=null;});
 cv.addEventListener('wheel',e=>{if(step==='photo')return;
   if(step==='wafer'){e.preventDefault();waferZoom=Math.max(0.4,Math.min(3,waferZoom*(e.deltaY<0?1.1:0.9)));if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);return;}
-  if(step==='plan'&&planView==='skull3d'&&vol&&skullMesh){e.preventDefault();skullZoom=Math.max(0.4,Math.min(3,skullZoom*(e.deltaY<0?1.1:0.9)));renderSkull();return;}
-  if(step==='distraction'&&distr.view==='skull3d'&&vol&&skullMesh){e.preventDefault();skullZoom=Math.max(0.4,Math.min(3,skullZoom*(e.deltaY<0?1.1:0.9)));drawSkull3D(skullYaw,skullPitch,distr.t,skullDistrMoved);return;}
+  if(step==='plan'&&planMode==='ortho'&&planView==='skull3d'&&vol&&skullMesh){e.preventDefault();skullZoom=Math.max(0.4,Math.min(3,skullZoom*(e.deltaY<0?1.1:0.9)));renderSkull();return;}
+  if(step==='plan'&&planMode==='distraction'&&distr.view==='skull3d'&&vol&&skullMesh){e.preventDefault();skullZoom=Math.max(0.4,Math.min(3,skullZoom*(e.deltaY<0?1.1:0.9)));drawSkull3D(skullYaw,skullPitch,distr.t,skullDistrMoved);return;}
   if(!img)return;e.preventDefault();const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
   const sx=(e.clientX-r.left)*dpr,sy=(e.clientY-r.top)*dpr,bef=toI(sx,sy);view.zoom*=e.deltaY<0?1.12:0.89;const af=toI(sx,sy);view.ox+=(af.x-bef.x)*view.zoom;view.oy+=(af.y-bef.y)*view.zoom;render();},{passive:false});
 cv.addEventListener('dragover',e=>e.preventDefault());
@@ -1266,7 +1271,7 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh
     const ec=new Map(),ek=(a,b)=>a<b?a+'_'+b:b+'_'+a;for(const[a,b,c]of skullMesh.T)for(const[p,q]of[[a,b],[b,c],[c,a]]){const k=ek(p,q);ec.set(k,(ec.get(k)||0)+1);}
     let bound=0;for(const v of ec.values())if(v===1)bound++;
     return{ok:true,verts:skullMesh.V0.length,tris:skullMesh.tri,seg:{fixed:sc[0],maxilla:sc[1],mandible:sc[2],chin:sc[3]},movedVerts:moved,maxDispPx:+mxd.toFixed(1),boundaryEdges:bound};},
-  setDistr:o=>{Object.assign(distr,o);invalidateDistr();}, distrInfo:()=>{
+  setPlanMode:m=>{planMode=m;}, setDistr:o=>{Object.assign(distr,o);invalidateDistr();}, distrInfo:()=>{
     const P=distrAfter(1),dev=DISTR_DEV.find(d=>d.k===distr.dev)||DISTR_DEV[0];let moved=0,mxd=0;
     for(const id in LM){const d=Math.hypot(P[id].x-LM[id].x,P[id].y-LM[id].y);if(d>0.5)moved++;if(d>mxd)mxd=d;}
     return{site:distr.site,dev:distr.dev,arcDeg:dev.deg,len:distr.len,theta:+distrTheta().toFixed(2),movedPts:moved,maxDispPx:+mxd.toFixed(1),proto:distrProto(),warp:(()=>{const c=buildDistrWarp();return{ok:!!c,w:c&&c.width};})()};},
