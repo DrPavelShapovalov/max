@@ -15,6 +15,7 @@ let vol=null, img=null, imgF=null, scale=0, photo=null;
 let trgView='lat'; // боковая/прямая ТРГ на шаге «МСКТ → ТРГ»
 let LMF={}, pickF=null, analysisView='lat', frontalView={z:1,ox:0,oy:0}; // фронтальные точки/анализ
 const FRONT_IDS=['Cg','ANS','Me','ZR','ZL','CoR','CoL','GoR','GoL'];
+let vto={goal:'ANB',jaw:'md',target:null}; // VTO «от цели»: показатель, челюсть, целевое значение
 let LM={}, pickId=null, view={ox:0,oy:0,zoom:1};
 let plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};
 let overlay=0.85, building=false;
@@ -110,6 +111,20 @@ function analyseFrontal(G){
   if(has('GoR','GoL','Me')){const br=len(sub(G.Me,G.GoR))/s,bl=len(sub(G.Me,G.GoL))/s;
     a_('Асимм. длины тела, мм',Math.abs(br-bl),0,3,'Δ 0…3','П '+br.toFixed(1)+' · Л '+bl.toFixed(1));}
   return rows;
+}
+// ── VTO «от цели»: по целевому показателю численно подбирается перемещение челюсти ──
+const VTO_MAP={ANB:{row:'ANB, °',norm:'ANB',unit:'°'},SNB:{row:'SNB, °',norm:'SNB',unit:'°'},SNA:{row:'SNA, °',norm:'SNA',unit:'°'},Wits:{row:'Wits, мм',norm:'Wits',unit:'мм'}};
+function vtoNormMean(){const n=cephNorms(ageYears())[VTO_MAP[vto.goal].norm];return +((n.lo+n.hi)/2).toFixed(1);}
+function vtoTarget(){return vto.target!=null?+vto.target:vtoNormMean();}
+function vtoParam(){if(vto.goal==='SNA')return{k:'mxAdv',mn:-10,mx:10};if(vto.goal==='SNB')return{k:'mdAdv',mn:-12,mx:12};return vto.jaw==='mx'?{k:'mxAdv',mn:-10,mx:10}:{k:'mdAdv',mn:-12,mx:12};}
+function vtoCurrentVal(){const r=analyse(planned()).find(x=>x.key===VTO_MAP[vto.goal].row);return r&&r.val!=null?+r.val.toFixed(1):null;}
+function vtoSolve(){ // бисекция: подбирает plan[param] так, чтобы показатель = цели
+  const tgt=vtoTarget(),pm=vtoParam(),rowKey=VTO_MAP[vto.goal].row,orig=plan[pm.k];
+  const g=x=>{plan[pm.k]=x;const r=analyse(planned()).find(y=>y.key===rowKey);return(r&&r.val!=null?r.val:NaN)-tgt;};
+  const ga=g(pm.mn),gb=g(pm.mx);if(isNaN(ga)||isNaN(gb)){plan[pm.k]=orig;return null;}
+  if(ga*gb>0){plan[pm.k]=orig;return{param:pm.k,x:Math.abs(ga)<Math.abs(gb)?pm.mn:pm.mx,clamped:true,target:tgt};} // цель вне диапазона → ближайшее
+  let lo=pm.mn,hi=pm.mx,glo=ga;for(let i=0;i<44;i++){const mid=(lo+hi)/2,gm=g(mid);if(glo*gm<=0)hi=mid;else{lo=mid;glo=gm;}}
+  plan[pm.k]=orig;return{param:pm.k,x:+((lo+hi)/2).toFixed(1),clamped:false,target:tgt};
 }
 // Прогноз мягких тканей: средние коэффициенты «движение мягкой точки / движение
 // опорной костной точки», раздельно по горизонтали (H) и вертикали (V). Значения —
@@ -1096,6 +1111,16 @@ function renderPanel(){
           <label class="chk"><input type="checkbox" id="autorot" ${plan.autorot?'checked':''}> Авторотация по импакции в/ч</label></div>
         <div class="grp2"><h4>Подбородок <span class="tag">гениопластика</span></h4>
           ${sl('chAdv','Выдвижение',-10,10,0.5,'мм')}${sl('chVert','Вертикаль (+вниз)',-8,8,0.5,'мм')}</div>
+        <div class="grp2"><h4>🎯 VTO от цели</h4>
+          <div class="seg-toggle" style="flex-wrap:wrap">
+            <button class="seg-btn${vto.goal==='ANB'?' on':''}" data-vg="ANB">ANB</button>
+            <button class="seg-btn${vto.goal==='SNB'?' on':''}" data-vg="SNB">SNB</button>
+            <button class="seg-btn${vto.goal==='SNA'?' on':''}" data-vg="SNA">SNA</button>
+            <button class="seg-btn${vto.goal==='Wits'?' on':''}" data-vg="Wits">Wits</button></div>
+          <div class="slider-row" style="margin-top:6px"><label>Цель, ${VTO_MAP[vto.goal].unit}</label><input type="number" id="vtoTgt" step="0.5" value="${vtoTarget()}" style="width:72px;text-align:right"><span class="val" style="font-size:11px">норма ${vtoNormMean()}</span></div>
+          ${(vto.goal==='ANB'||vto.goal==='Wits')?`<div class="seg-toggle" style="margin-top:2px"><button class="seg-btn${vto.jaw==='md'?' on':''}" data-vj="md">двигать Н/ч</button><button class="seg-btn${vto.jaw==='mx'?' on':''}" data-vj="mx">двигать В/ч</button></div>`:`<div class="note" style="margin-top:2px">${vto.goal==='SNA'?'Двигается В/ч (Le Fort I).':'Двигается Н/ч (BSSO).'}</div>`}
+          <div class="note" style="margin-top:4px">Сейчас: <b>${vtoCurrentVal()!=null?vtoCurrentVal()+VTO_MAP[vto.goal].unit:'—'}</b> → цель <b>${vtoTarget()}${VTO_MAP[vto.goal].unit}</b>${ageYears()!=null?' · норма для '+ageYears()+' лет':''}</div>
+          <button class="btn sm" id="vtoCalc" style="margin-top:6px;width:100%">Рассчитать перемещение →</button></div>
         ${vol?`<div class="grp2"><h4>Контроль результата</h4>
           <div class="seg-toggle">
             <button class="seg-btn${planView==='trg'?' on':''}" data-pv="trg">ТРГ (профиль)</button>
@@ -1112,6 +1137,12 @@ function renderPanel(){
     $('resetPlan').onclick=()=>{plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};invalidateWarp();invalidatePhotoWarp();waferMesh=null;renderPanel();render();};
     $('toWafer').onclick=()=>setStep('wafer');
     $('expPng').onclick=exportPng; renderReport($('rep'));
+    p.querySelectorAll('[data-vg]').forEach(b=>b.onclick=()=>{vto.goal=b.dataset.vg;vto.target=null;renderPanel();});
+    p.querySelectorAll('[data-vj]').forEach(b=>b.onclick=()=>{vto.jaw=b.dataset.vj;renderPanel();});
+    if($('vtoTgt'))$('vtoTgt').onchange=e=>{vto.target=+e.target.value;renderPanel();};
+    if($('vtoCalc'))$('vtoCalc').onclick=()=>{const r=vtoSolve();if(!r){toast('Недостаточно точек для расчёта (нужны S, N, A, B).');return;}
+      plan[r.param]=r.x;invalidateWarp();invalidatePhotoWarp();waferMesh=null;invalidateDistr();renderPanel();render();
+      toast((r.param==='mxAdv'?'В/ч':'Н/ч')+' '+(r.x>=0?'+':'')+r.x+' мм'+(r.clamped?' · цель вне диапазона, выставлено ближайшее':' → '+vto.goal+' = '+r.target));};
     p.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{planMode=b.dataset.pm;invalidateDistr();renderPanel();render();});
   }
   else if(step==='plan'){
@@ -1349,4 +1380,5 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh
     return{site:distr.site,dev:distr.dev,arcDeg:dev.deg,len:distr.len,theta:+distrTheta().toFixed(2),movedPts:moved,maxDispPx:+mxd.toFixed(1),proto:distrProto(),warp:(()=>{const c=buildDistrWarp();return{ok:!!c,w:c&&c.width};})()};},
   setTrgView:v=>{trgView=v;}, frontalInfo:()=>imgF?{ok:true,w:imgF.naturalWidth||imgF.width,h:imgF.naturalHeight||imgF.height}:{ok:false},
   setAnalysisView:v=>{analysisView=v;}, setFrontLM:(k,x,y)=>{LMF[k]={x,y};}, frontalAnalysis:()=>analyseFrontal(LMF),
+  setVto:o=>{Object.assign(vto,o);}, vtoSolve:()=>vtoSolve(), vtoApply:()=>{const r=vtoSolve();if(r){plan[r.param]=r.x;invalidateWarp();}return r;},
   step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasImgF:!!imgF,hasVol:!!vol,stepAP:waferStepAP(),vert:waferVert(),wtype:wafer.type,age:ageYears(),ready:patientReady()}) };
