@@ -13,6 +13,8 @@ const PROFILE=['G','Prn','Sn','Ls','Li','Pog2','Me2'];
 let step='patient', patient={name:'',sex:'M',dob:''};
 let vol=null, img=null, imgF=null, scale=0, photo=null;
 let trgView='lat'; // боковая/прямая ТРГ на шаге «МСКТ → ТРГ»
+let LMF={}, pickF=null, analysisView='lat', frontalView={z:1,ox:0,oy:0}; // фронтальные точки/анализ
+const FRONT_IDS=['Cg','ANS','Me','ZR','ZL','CoR','CoL','GoR','GoL'];
 let LM={}, pickId=null, view={ox:0,oy:0,zoom:1};
 let plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};
 let overlay=0.85, building=false;
@@ -82,6 +84,31 @@ function analyse(G,age){
   a_('L1–NB, мм',has('L1t','N','B')?Math.abs(ptLineMM(G.L1t,G.N,G.B)):null,'L1NBmm');
   if(has('U1a','U1t','L1a','L1t')){const v1=sub(G.U1t,G.U1a),v2=sub(G.L1t,G.L1a);a_('Межрезцовый, °',180-r2d(Math.acos(Math.max(-1,Math.min(1,dot(v1,v2)/((len(v1)*len(v2))||1))))),'interinc');}
   a_('Носогубный, °',has('Prn','Sn','Ls')?angAt(G.Sn,G.Prn,G.Ls):null,'nasolab');
+  return rows;
+}
+// ── Фронтальный (прямой, PA) анализ асимметрии ──
+// Точки прямой ТРГ: средняя линия (Cg, ANS, Me) + парные П/Л для оценки асимметрии.
+const FRONT_LM=[
+  {id:'Cg',abbr:'Cg',ru:'Crista galli',side:'mid',hint:'средняя линия основания черепа'},
+  {id:'ANS',abbr:'ANS',ru:'Передняя носовая ость',side:'mid',hint:'средняя линия под носом (апертура)'},
+  {id:'Me',abbr:'Me',ru:'Ментон',side:'mid',hint:'нижняя точка подбородка'},
+  {id:'ZR',abbr:'Z-П',ru:'Скуловая, правая',side:'R',hint:'лобно-скуловой шов справа — горизонталь'},
+  {id:'ZL',abbr:'Z-Л',ru:'Скуловая, левая',side:'L',hint:'лобно-скуловой шов слева — горизонталь'},
+  {id:'CoR',abbr:'Co-П',ru:'Мыщелок, правый',side:'R',hint:'вершина мыщелка справа'},
+  {id:'CoL',abbr:'Co-Л',ru:'Мыщелок, левый',side:'L',hint:'вершина мыщелка слева'},
+  {id:'GoR',abbr:'Go-П',ru:'Гонион, правый',side:'R',hint:'угол н/ч справа'},
+  {id:'GoL',abbr:'Go-Л',ru:'Гонион, левый',side:'L',hint:'угол н/ч слева'},
+];
+function analyseFrontal(G){
+  const s=scale||1,rows=[],has=(...k)=>k.every(x=>G[x]);
+  const a_=(key,val,lo,hi,norm,extra)=>{let st='—';if(val!=null&&!isNaN(val))st=val<lo?'ниже':(val>hi?'выше':'норма');rows.push({key,val,lo,hi,norm,st,extra});};
+  if(has('Cg','ANS','Me')){const dev=ptLineMM(G.Me,G.Cg,G.ANS);
+    a_('Девиация ментона, мм',dev==null?null:Math.abs(dev),0,2,'0±2',dev==null?'':(dev>0?'вправо':'влево'));}
+  if(has('ZR','ZL','GoR','GoL')){const cant=lineAng(G.ZL,G.ZR,G.GoL,G.GoR);a_('Наклон н/ч (кант), °',cant,0,3,'0±3');}
+  if(has('CoR','GoR','CoL','GoL')){const hr=len(sub(G.GoR,G.CoR))/s,hl=len(sub(G.GoL,G.CoL))/s;
+    a_('Асимм. высоты ветви, мм',Math.abs(hr-hl),0,3,'Δ 0…3','П '+hr.toFixed(1)+' · Л '+hl.toFixed(1));}
+  if(has('GoR','GoL','Me')){const br=len(sub(G.Me,G.GoR))/s,bl=len(sub(G.Me,G.GoL))/s;
+    a_('Асимм. длины тела, мм',Math.abs(br-bl),0,3,'Δ 0…3','П '+br.toFixed(1)+' · Л '+bl.toFixed(1));}
   return rows;
 }
 // Прогноз мягких тканей: средние коэффициенты «движение мягкой точки / движение
@@ -714,6 +741,26 @@ function renderFrontal(){
   ctx.beginPath();ctx.moveTo(ox+imgF.width*z/2,oy);ctx.lineTo(ox+imgF.width*z/2,oy+imgF.height*z);ctx.stroke();ctx.setLineDash([]);
   $('badge').innerHTML='<span class="chip">Прямая ТРГ (PA) · оценка симметрии</span>';
 }
+const toSF=p=>({x:frontalView.ox+p.x*frontalView.z,y:frontalView.oy+p.y*frontalView.z});
+const toIF=(x,y)=>({x:(x-frontalView.ox)/frontalView.z,y:(y-frontalView.oy)/frontalView.z});
+function renderFrontalAnalysis(){
+  fit();ctx.clearRect(0,0,cv.width,cv.height);$('empty').style.display='none';ctx.imageSmoothingEnabled=true;
+  const z=Math.min(cv.width/imgF.width,cv.height/imgF.height)*0.9;
+  frontalView={z,ox:(cv.width-imgF.width*z)/2,oy:(cv.height-imgF.height*z)/2};
+  ctx.drawImage(imgF,frontalView.ox,frontalView.oy,imgF.width*z,imgF.height*z);
+  const dl=(a,b,col,w,dash)=>{if(!LMF[a]||!LMF[b])return;const A=toSF(LMF[a]),B=toSF(LMF[b]);ctx.save();ctx.strokeStyle=col;ctx.lineWidth=w;ctx.setLineDash(dash||[]);ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.stroke();ctx.restore();};
+  // средняя линия Cg→ANS (продлённая) + перпендикуляр до ментона
+  if(LMF.Cg&&LMF.ANS){const A=toSF(LMF.Cg),B=toSF(LMF.ANS),d={x:B.x-A.x,y:B.y-A.y},l=Math.hypot(d.x,d.y)||1,u={x:d.x/l,y:d.y/l};
+    const p0={x:A.x-u.x*l*3,y:A.y-u.y*l*3},p1={x:A.x+u.x*l*5,y:A.y+u.y*l*5};
+    ctx.strokeStyle='rgba(91,108,255,.75)';ctx.lineWidth=1.6;ctx.setLineDash([7,5]);ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);ctx.stroke();ctx.setLineDash([]);}
+  dl('ZL','ZR','#18c3b6',1.6,[5,4]); // горизонталь
+  dl('CoR','GoR','#a05bff',1.8); dl('CoL','GoL','#a05bff',1.8); // ветви
+  dl('GoR','Me','#ffb020',1.6); dl('GoL','Me','#ffb020',1.6); // тело
+  FRONT_LM.forEach(l=>{if(!LMF[l.id])return;const S=toSF(LMF[l.id]),cur=(l.id===pickF);
+    ctx.beginPath();ctx.arc(S.x,S.y,cur?6:4.5,0,7);ctx.fillStyle=cur?'#ffb020':(l.side==='mid'?'#5b6cff':l.side==='R'?'#18c3b6':'#a05bff');ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='700 12px Inter,sans-serif';ctx.save();ctx.strokeStyle='#1a1f33';ctx.lineWidth=3;ctx.strokeText(l.abbr,S.x+7,S.y-6);ctx.fillText(l.abbr,S.x+7,S.y-6);ctx.restore();});
+  const n=FRONT_IDS.filter(k=>LMF[k]).length;$('badge').innerHTML=`<span class="chip">Прямая ТРГ (PA) · асимметрия</span><span class="chip">Точки: <b>${n}/${FRONT_IDS.length}</b></span>`;
+}
 
 // ── DICOM → ТРГ ──
 function parseDcm(buf){
@@ -854,6 +901,7 @@ function render(){
   if(step==='plan'&&planMode==='distraction'&&img){ renderDistr(); return; }
   if(step==='plan'&&planMode==='ortho'&&planView==='skull3d'&&vol&&img){ $('empty').style.display='none'; renderSkull(); return; }
   if(step==='trg'&&trgView==='frontal'&&imgF){ renderFrontal(); return; }
+  if(step==='analysis'&&analysisView==='frontal'&&imgF){ renderFrontalAnalysis(); return; }
   fit();ctx.clearRect(0,0,cv.width,cv.height);
   const showPhoto=(step==='photo'&&photo);
   const pic=showPhoto?photo:img;
@@ -1012,12 +1060,30 @@ function renderPanel(){
   }
   else if(step==='analysis'){
     if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ и расставьте точки.'); return; }
-    const age=ageYears(),rows=analyse(LM,age);
-    p.innerHTML=`<div class="card view"><h3>📐 Цефалометрия</h3>
-      ${age!=null?`<div class="mode-chip ok" style="margin-bottom:8px">Нормы <b>детские, для ${age} ${plural(age,'года','лет','лет')}</b> · ↕ = возрастзависимая (ANB, SNB, SN–MP, FMA, межрезцовый)</div>`
-                :`<div class="mode-chip warn" style="margin-bottom:8px">Возраст не задан — показаны взрослые нормы. Укажите дату рождения на шаге «Пациент».</div>`}
-      <div id="anBox">${rows.map(anRow).join('')}</div>
-      <div class="note">Нормы ориентировочные, по данным лонгитюдных исследований роста (Michigan/Riolo, Fels и др.): с возрастом ANB и нижнечелюстной угол убывают, SNB растёт. Проверяйте клинически. Линейные (мм) — по масштабу из МСКТ.</div></div>`;
+    const anTog=imgF?`<div class="seg-toggle" style="margin-bottom:10px"><button class="seg-btn${analysisView==='lat'?' on':''}" data-av="lat">Боковая (профиль)</button><button class="seg-btn${analysisView==='frontal'?' on':''}" data-av="frontal">Прямая (асимметрия)</button></div>`:'';
+    if(analysisView==='frontal'&&imgF){
+      if(!pickF)pickF=FRONT_IDS.find(k=>!LMF[k])||FRONT_IDS[0];
+      const fr=analyseFrontal(LMF);
+      const rows=FRONT_LM.map(l=>`<div class="lm${l.id===pickF?' cur':''}${LMF[l.id]?' ok':''}" data-fk="${l.id}"><span class="ck">${LMF[l.id]?'✓':'○'}</span><span class="t">${l.abbr} <small>· ${l.ru}</small></span></div>`).join('');
+      const cur=FRONT_LM.find(l=>l.id===pickF);
+      p.innerHTML=`<div class="card view"><h3>📐 Прямая ТРГ — асимметрия</h3>${anTog}
+        <div class="mode-chip ok" style="margin-bottom:8px">Расставьте точки <b>на снимке</b>: клик — поставить, перетаскивание — поправить. ${cur?'Текущая: <b>'+cur.abbr+'</b> — '+(cur.hint||cur.ru):''}</div>
+        <div class="lm-list">${rows}</div></div>
+        <div class="card view"><div class="sect-label">Асимметрия (прямая ТРГ)</div>
+          <div id="anBoxF">${fr.length?fr.map(anRow).join(''):'<div class="note">Поставьте среднюю линию (Cg, ANS, Me) и парные точки (Z, Co, Go — П/Л).</div>'}</div>
+          <div class="note">Девиация ментона — перпендикуляр к средней линии Cg–ANS; высота ветви Co–Go и длина тела Go–Me сравниваются П/Л. Нормы ориентировочные (девиация 0±2 мм, асимметрия до ~3) — проверяйте клинически.</div>
+          <div class="btn-row"><button class="btn sm ghost" id="clrF" style="width:100%">Очистить точки</button></div></div>`;
+      p.querySelectorAll('[data-fk]').forEach(rw=>rw.onclick=()=>{pickF=rw.dataset.fk;renderPanel();render();});
+      $('clrF').onclick=()=>{LMF={};pickF=FRONT_IDS[0];renderPanel();render();};
+    } else {
+      const age=ageYears(),rows=analyse(LM,age);
+      p.innerHTML=`<div class="card view"><h3>📐 Цефалометрия</h3>${anTog}
+        ${age!=null?`<div class="mode-chip ok" style="margin-bottom:8px">Нормы <b>детские, для ${age} ${plural(age,'года','лет','лет')}</b> · ↕ = возрастзависимая (ANB, SNB, SN–MP, FMA, межрезцовый)</div>`
+                  :`<div class="mode-chip warn" style="margin-bottom:8px">Возраст не задан — показаны взрослые нормы. Укажите дату рождения на шаге «Пациент».</div>`}
+        <div id="anBox">${rows.map(anRow).join('')}</div>
+        <div class="note">Нормы ориентировочные, по данным лонгитюдных исследований роста (Michigan/Riolo, Fels и др.): с возрастом ANB и нижнечелюстной угол убывают, SNB растёт. Проверяйте клинически. Линейные (мм) — по масштабу из МСКТ.</div></div>`;
+    }
+    p.querySelectorAll('[data-av]').forEach(b=>b.onclick=()=>{analysisView=b.dataset.av;renderPanel();render();});
   }
   else if(step==='plan'&&planMode!=='distraction'){
     if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ и расставьте точки.'); return; }
@@ -1194,7 +1260,8 @@ function markDone(){ document.querySelectorAll('.step').forEach(x=>{const s=x.da
 function advancePick(){const i=ORDER.indexOf(pickId);const nx=ORDER.slice(i+1).find(id=>!LM[id]);pickId=nx||ORDER[(i+1)%ORDER.length];renderPanel();render();}
 
 // ── события канваса ──
-let drag=null,pan=null,distrVecDrag=false;
+let drag=null,pan=null,distrVecDrag=false,dragF=null;
+function advanceF(){const i=FRONT_IDS.indexOf(pickF);const nx=FRONT_IDS.slice(i+1).find(id=>!LMF[id]);pickF=nx||FRONT_IDS[(i+1)%FRONT_IDS.length];renderPanel();render();}
 cv.addEventListener('mousedown',e=>{const r=cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
   const sx=(e.clientX-r.left)*dpr,sy=(e.clientY-r.top)*dpr;
   if(step==='wafer'){waferSpin=false;waferDrag={sx,sy,yaw:waferYaw,pitch:waferPitch};return;}
@@ -1205,6 +1272,10 @@ cv.addEventListener('mousedown',e=>{const r=cv.getBoundingClientRect(),dpr=Math.
     let b2=null,bd2=14*dpr;PHOTO_SET.forEach(id=>{if(photoLM[id]){const S={x:photoView.ox+photoLM[id].x*photoView.z,y:photoView.oy+photoLM[id].y*photoView.z};const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd2){bd2=d;b2=id;}}});
     if(b2){photoDrag=b2;photoPick=b2;renderPanel();render();return;}
     if(photoPick){photoLM[photoPick]={x:ip.x,y:ip.y};invalidatePhotoWarp();popAt(sx,sy);advancePhotoPick();}return;}
+  if(step==='analysis'&&analysisView==='frontal'&&imgF){const ip=toIF(sx,sy);
+    let best=null,bd=14*dpr;FRONT_LM.forEach(l=>{if(LMF[l.id]){const S=toSF(LMF[l.id]);const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd){bd=d;best=l.id;}}});
+    if(best){dragF=best;pickF=best;renderPanel();render();return;}
+    if(pickF){LMF[pickF]={x:ip.x,y:ip.y};popAt(sx,sy);advanceF();}return;}
   if(e.button===1||e.shiftKey){pan={sx,sy,ox:view.ox,oy:view.oy};return;}
   if(step!=='points'||!img)return;const ip=toI(sx,sy);
   let best=null,bd=14*dpr;LM_DEF.forEach(l=>{if(LM[l.id]){const S=toS(LM[l.id]);const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd){bd=d;best=l.id;}}});
@@ -1216,8 +1287,9 @@ window.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect(),dpr=M
   if(distrVecDrag){const ip=toI(sx,sy),L=distrLine();if(L){const O=mul(add(L.a,L.b),0.5),d=norm(sub(ip,O)),ax=axes();distr.vec=r2d(Math.atan2(dot(d,ax.V),dot(d,ax.H)));invalidateDistr();render();}return;}
   if(photoDrag){photoLM[photoDrag]={x:(sx-photoView.ox)/photoView.z,y:(sy-photoView.oy)/photoView.z};invalidatePhotoWarp();render();return;}
   if(pan){view.ox=pan.ox+(sx-pan.sx);view.oy=pan.oy+(sy-pan.sy);render();return;}
+  if(dragF){LMF[dragF]=toIF(sx,sy);render();return;}
   if(drag){LM[drag]=toI(sx,sy);render();}});
-window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}if(photoDrag){photoDrag=null;renderPanel();}if(distrVecDrag){distrVecDrag=false;renderPanel();}pan=null;waferDrag=null;skullDrag=null;});
+window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}if(photoDrag){photoDrag=null;renderPanel();}if(distrVecDrag){distrVecDrag=false;renderPanel();}if(dragF){dragF=null;renderPanel();}pan=null;waferDrag=null;skullDrag=null;});
 cv.addEventListener('wheel',e=>{if(step==='photo')return;
   if(step==='wafer'){e.preventDefault();waferZoom=Math.max(0.4,Math.min(3,waferZoom*(e.deltaY<0?1.1:0.9)));if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);return;}
   if(step==='plan'&&planMode==='ortho'&&planView==='skull3d'&&vol&&skullMesh){e.preventDefault();skullZoom=Math.max(0.4,Math.min(3,skullZoom*(e.deltaY<0?1.1:0.9)));renderSkull();return;}
@@ -1241,10 +1313,10 @@ $('stlUInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)ret
 $('stlLInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;f.arrayBuffer().then(b=>loadScan(b,'L'));e.target.value='';});
 $('steps').addEventListener('click',e=>{const s=e.target.closest('.step');if(s)setStep(s.dataset.s);});
 $('saveBtn').onclick=save; $('openBtn').onclick=()=>$('openInput').click();
-$('openInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const o=JSON.parse(rd.result);patient=o.patient||patient;scale=o.scale||0;LM=o.LM||{};plan=Object.assign(plan,o.plan||{});if(o.distr)distr=Object.assign(distr,o.distr);photoLM=o.photoLM||{};
+$('openInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const o=JSON.parse(rd.result);patient=o.patient||patient;scale=o.scale||0;LM=o.LM||{};LMF=o.LMF||{};plan=Object.assign(plan,o.plan||{});if(o.distr)distr=Object.assign(distr,o.distr);photoLM=o.photoLM||{};
   const done=()=>{setStep('points');};if(o.img){const im=new Image();im.onload=()=>{img=im;autoView();done();};im.src=o.img;}else done();if(o.photo){const pm=new Image();pm.onload=()=>{photo=pm;};pm.src=o.photo;}toast('Проект открыт.');}catch(err){alert('Не удалось открыть файл');}};rd.readAsText(f);e.target.value='';});
 
-function save(){const o={v:1,patient,scale,LM,plan,distr,photoLM,img:img?img.src:null,photo:photo?photo.src:null};
+function save(){const o={v:1,patient,scale,LM,LMF,plan,distr,photoLM,img:img?img.src:null,photo:photo?photo.src:null};
   const a=document.createElement('a');a.download=(patient.name||'план')+'.orthos';a.href=URL.createObjectURL(new Blob([JSON.stringify(o)],{type:'application/json'}));a.click();}
 function exportPng(){const a=document.createElement('a');a.download='ОРТОС_план_'+(patient.name||'пациент')+'.png';a.href=cv.toDataURL('image/png');a.click();}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),2400);}
@@ -1276,4 +1348,5 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh
     for(const id in LM){const d=Math.hypot(P[id].x-LM[id].x,P[id].y-LM[id].y);if(d>0.5)moved++;if(d>mxd)mxd=d;}
     return{site:distr.site,dev:distr.dev,arcDeg:dev.deg,len:distr.len,theta:+distrTheta().toFixed(2),movedPts:moved,maxDispPx:+mxd.toFixed(1),proto:distrProto(),warp:(()=>{const c=buildDistrWarp();return{ok:!!c,w:c&&c.width};})()};},
   setTrgView:v=>{trgView=v;}, frontalInfo:()=>imgF?{ok:true,w:imgF.naturalWidth||imgF.width,h:imgF.naturalHeight||imgF.height}:{ok:false},
+  setAnalysisView:v=>{analysisView=v;}, setFrontLM:(k,x,y)=>{LMF[k]={x,y};}, frontalAnalysis:()=>analyseFrontal(LMF),
   step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasImgF:!!imgF,hasVol:!!vol,stepAP:waferStepAP(),vert:waferVert(),wtype:wafer.type,age:ageYears(),ready:patientReady()}) };
