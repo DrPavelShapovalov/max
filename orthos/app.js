@@ -175,8 +175,12 @@ function buildWarp(){
 // θ=L/R; при R→∞ сходится к линейному (точка O движется вдоль вектора). Clean-room,
 // сагиттальная 2D-модель; не копия Mimics; инструмент планирования — проверять клинически.
 const DISTR_PTS=['B','L1t','L1a','Pog','Gn','Me','Go']; // возможные точки транспортируемого фрагмента
-const DISTR_DEV=[{k:'linear',r:Infinity,lab:'Прямой (180°)'},{k:'R40',r:40,lab:'R 40 мм'},{k:'R50',r:50,lab:'R 50 мм'},{k:'R70',r:70,lab:'R 70 мм'},{k:'R100',r:100,lab:'R 100 мм'}];
-let distr={site:'ramus',dev:'R50',vec:null,len:10,lat:6,rate:1,cons:5.5,t:1,view:'trg'};
+// Дистрактор задаётся УГЛОМ дуги φ (°, как маркируются реальные аппараты): прямой =
+// 180° (перенос), меньше — сильнее изогнут. Угол задаёт радиус кривизны (внутр., мм),
+// по нему фрагмент поворачивается на θ=L/R вокруг центра дуги (движение мягкое,
+// клиническое). При 180° → перенос. Радиусы — под реальные аппараты задаются точно.
+const DISTR_DEV=[{k:'a40',deg:40,r:20,lab:'40°'},{k:'a50',deg:50,r:28,lab:'50°'},{k:'a70',deg:70,r:45,lab:'70°'},{k:'a100',deg:100,r:75,lab:'100°'},{k:'linear',deg:180,r:Infinity,lab:'Прямой (180°)'}];
+let distr={site:'ramus',dev:'a70',vec:null,len:10,lat:6,rate:1,cons:5.5,t:1,view:'trg'};
 let distrWarpCv=null,distrDirty=true; const invalidateDistr=()=>{distrDirty=true;if(skullMesh)skullMesh.__dm=null;};
 function distrLine(){ // линия остеотомии (пиксели ТРГ) по локализации: ветвь/тело/угол
   if(!img)return null;const {H}=axes(),s=scale||1,Go=LM.Go,Ar=LM.Ar,Me=LM.Me;
@@ -197,8 +201,8 @@ function distrIsTrans(p){const L=distrLine();if(!L)return false;const sgn=distrT
 function distrTx(f){ // жёсткое преобразование фрагмента на долю f∈[0,1]
   const s=scale||1,L=distrLine(),dir=distrDir(),dev=DISTR_DEV.find(d=>d.k===distr.dev)||DISTR_DEV[0],Lmm=distr.len;
   const O=L?mul(add(L.a,L.b),0.5):{x:0,y:0};
-  if(!isFinite(dev.r)||dev.r>400){const dsp=mul(dir,f*Lmm*s);return p=>add(p,dsp);}
-  const perp={x:-dir.y,y:dir.x},C=add(O,mul(perp,dev.r*s)),th=(f*Lmm)/dev.r; // перп +90° → O движется вдоль dir
+  if(!isFinite(dev.r)||dev.r>400){const dsp=mul(dir,f*Lmm*s);return p=>add(p,dsp);} // прямой (180°) = перенос
+  const perp={x:-dir.y,y:dir.x},C=add(O,mul(perp,dev.r*s)),th=(f*Lmm)/dev.r; // θ=L/R, O движется вдоль dir
   return p=>rot(p,C,th);
 }
 function distrAfter(f){f=(f==null?distr.t:f);const tx=distrTx(f),out={};
@@ -209,7 +213,7 @@ function buildDistrWarp(){if(!img)return null;const W=img.width,H=img.height,P=d
   [[0,0],[W/2,0],[W,0],[W,H/2],[W,H],[W/2,H],[0,H],[0,H/2]].forEach(([x,y])=>{B.push({x,y});A.push({x,y});});
   if(B.length<3)return null;const tris=delaunay(B),out=document.createElement('canvas');out.width=W;out.height=H;
   const g=out.getContext('2d');g.drawImage(img,0,0);for(const[i,j,k]of tris)affTri(g,img,B[i],B[j],B[k],A[i],A[j],A[k]);return out;}
-function distrTheta(){const dev=DISTR_DEV.find(d=>d.k===distr.dev)||DISTR_DEV[0];return(isFinite(dev.r)&&dev.r<=400)?r2d(distr.len/dev.r):0;}
+function distrTheta(){const dev=DISTR_DEV.find(d=>d.k===distr.dev)||DISTR_DEV[0];return(isFinite(dev.r)&&dev.r<=400)?r2d(distr.len/dev.r):0;} // поворот фрагмента θ=L/R
 function distrProto(){const days=Math.max(1,Math.ceil(distr.len/(distr.rate||1)));
   return{lat:distr.lat,active:days,rate:distr.rate,consMo:distr.cons,totalD:distr.lat+days+Math.round(distr.cons*30.4)};}
 function skullDistrMoved(t){const M=skullMesh,H=M.H,tx=distrTx(t),out=new Array(M.V0.length);
@@ -1024,7 +1028,7 @@ function renderPanel(){
         <button class="seg-btn${distr.site==='angle'?' on':''}" data-ds="angle">Угол</button></div></div>
       <div class="grp2"><h4>Дистрактор</h4><div class="seg-toggle" style="flex-wrap:wrap">
         ${DISTR_DEV.map(d=>`<button class="seg-btn${distr.dev===d.k?' on':''}" data-dd="${d.k}">${d.lab}</button>`).join('')}</div>
-        <div class="note" style="margin-top:4px">${isFinite(dev.r)?`Криволинейный, радиус ${dev.r} мм → поворот фрагмента θ=${th.toFixed(1)}°`:'Линейный (прямой) — параллельный перенос вдоль вектора'}</div></div>
+        <div class="note" style="margin-top:4px">${dev.deg<180?`Криволинейный, дуга ${dev.deg}° → поворот фрагмента θ=${th.toFixed(0)}° за полный ход`:'Прямой (180°) — параллельный перенос вдоль вектора'}</div></div>
       <div class="grp2"><h4>Вектор и длина</h4>
         ${dsl('vec','Угол вектора',-90,90,1,'°',vecDeg)}
         ${dsl('len','Длина дистракции',0,30,0.5,' мм',distr.len)}
@@ -1045,7 +1049,7 @@ function renderPanel(){
         <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Дистрактор</span><span class="v">${dev.lab}</span></div>
         <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Длина</span><span class="v" style="color:var(--accent)">${distr.len.toFixed(1)} мм</span></div>
         <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Угол вектора</span><span class="v">${vecDeg.toFixed(0)}°</span></div>
-        ${isFinite(dev.r)?`<div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Поворот фрагмента</span><span class="v">${th.toFixed(1)}°</span></div>`:''}
+        ${dev.deg<180?`<div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Дуга дистрактора</span><span class="v">${dev.deg}° → поворот ${th.toFixed(0)}°</span></div>`:''}
         <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Протокол</span><span class="v" style="font-size:12px">латент. ${pr.lat} дн · ${pr.rate} мм/дн × ${pr.active} дн · консол. ${pr.consMo} мес</span></div>
         <div class="note">Сагиттальная 2D-модель вектора; сегментация фрагмента схематична. Для односторонних (асимметрия) нужна прямая ТРГ — следующий модуль. Инструмент планирования, не мед. изделие — проверять клинически.</div>
         <div class="btn-row"><button class="btn sm ghost" id="dPng" style="width:100%">⬇ План дистракции (PNG)</button></div></div>`;
@@ -1236,5 +1240,5 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh
   setDistr:o=>{Object.assign(distr,o);invalidateDistr();}, distrInfo:()=>{
     const P=distrAfter(1),dev=DISTR_DEV.find(d=>d.k===distr.dev)||DISTR_DEV[0];let moved=0,mxd=0;
     for(const id in LM){const d=Math.hypot(P[id].x-LM[id].x,P[id].y-LM[id].y);if(d>0.5)moved++;if(d>mxd)mxd=d;}
-    return{site:distr.site,dev:distr.dev,radius:dev.r,len:distr.len,theta:+distrTheta().toFixed(2),movedPts:moved,maxDispPx:+mxd.toFixed(1),proto:distrProto(),warp:(()=>{const c=buildDistrWarp();return{ok:!!c,w:c&&c.width};})()};},
+    return{site:distr.site,dev:distr.dev,arcDeg:dev.deg,len:distr.len,theta:+distrTheta().toFixed(2),movedPts:moved,maxDispPx:+mxd.toFixed(1),proto:distrProto(),warp:(()=>{const c=buildDistrWarp();return{ok:!!c,w:c&&c.width};})()};},
   step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasVol:!!vol,stepAP:waferStepAP(),vert:waferVert(),wtype:wafer.type,age:ageYears(),ready:patientReady()}) };
