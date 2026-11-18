@@ -1504,13 +1504,13 @@ function renderPanel(){
         <button class="btn ghost" id="resetPlan">Сбросить перемещения</button></div>
       <div class="card view"><div class="sect-label">Сводка и анализ до → после</div><div id="rep"></div>
         <div class="btn-row"><button class="btn" id="toWafer" style="width:100%">🖨️ Сформировать шаблон (сплинт) →</button></div>
-        <div class="btn-row"><button class="btn sm ghost" id="expPng" style="width:100%">⬇ План (PNG)</button></div></div>`;
+        <div class="btn-row"><button class="btn sm" id="repDoc" style="width:49%">📄 Протокол</button><button class="btn sm ghost" id="expPng" style="width:49%">⬇ План (PNG)</button></div></div>`;
     bindSliders(); if($('autorot'))$('autorot').onchange=e=>{plan.autorot=e.target.checked;invalidateWarp();invalidatePhotoWarp();waferMesh=null;render();renderPanel();};
     $('ov').oninput=e=>{overlay=+e.target.value;render();};
     p.querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>{planView=b.dataset.pv;renderPanel();render();});
     $('resetPlan').onclick=()=>{plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};invalidateWarp();invalidatePhotoWarp();waferMesh=null;renderPanel();render();};
     $('toWafer').onclick=()=>setStep('wafer');
-    $('expPng').onclick=exportPng; renderReport($('rep'));
+    $('expPng').onclick=exportPng; if($('repDoc'))$('repDoc').onclick=openReport; renderReport($('rep'));
     p.querySelectorAll('[data-vg]').forEach(b=>b.onclick=()=>{vto.goal=b.dataset.vg;vto.target=null;renderPanel();});
     p.querySelectorAll('[data-vj]').forEach(b=>b.onclick=()=>{vto.jaw=b.dataset.vj;renderPanel();});
     if($('vtoTgt'))$('vtoTgt').onchange=e=>{vto.target=+e.target.value;renderPanel();};
@@ -1556,7 +1556,7 @@ function renderPanel(){
         ${dev.deg<180?`<div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Дуга дистрактора</span><span class="v">${dev.deg}° → поворот ${th.toFixed(0)}°</span></div>`:''}
         <div class="an-row" style="grid-template-columns:1fr auto"><span class="k">Протокол</span><span class="v" style="font-size:12px">латент. ${pr.lat} дн · ${pr.rate} мм/дн × ${pr.active} дн · консол. ${pr.consMo} мес</span></div>
         <div class="note">Сагиттальная 2D-модель вектора; сегментация фрагмента схематична. Для односторонних (асимметрия) нужна прямая ТРГ — следующий модуль. Инструмент планирования, не мед. изделие — проверять клинически.</div>
-        <div class="btn-row"><button class="btn sm ghost" id="dPng" style="width:100%">⬇ План дистракции (PNG)</button></div></div>`;
+        <div class="btn-row"><button class="btn sm" id="dRepDoc" style="width:49%">📄 Протокол</button><button class="btn sm ghost" id="dPng" style="width:49%">⬇ Дистракция (PNG)</button></div></div>`;
     p.querySelectorAll('[data-ds]').forEach(b=>b.onclick=()=>{distr.site=b.dataset.ds;invalidateDistr();renderPanel();render();});
     p.querySelectorAll('[data-dd]').forEach(b=>b.onclick=()=>{distr.dev=b.dataset.dd;invalidateDistr();renderPanel();render();});
     p.querySelectorAll('[data-dv2]').forEach(b=>b.onclick=()=>{distr.view=b.dataset.dv2;renderPanel();render();});
@@ -1569,6 +1569,7 @@ function renderPanel(){
     $('d_t').oninput=e=>{distr.t=+e.target.value;render();};
     $('dReset').onclick=()=>{distr.vec=null;distr.len=10;distr.t=1;invalidateDistr();renderPanel();render();};
     $('dPng').onclick=()=>{const a=document.createElement('a');a.download='ОРТОС_дистракция.png';a.href=cv.toDataURL('image/png');a.click();};
+    if($('dRepDoc'))$('dRepDoc').onclick=openReport;
     p.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{planMode=b.dataset.pm;invalidateDistr();renderPanel();render();});
   }
   else if(step==='wafer'){
@@ -1775,6 +1776,58 @@ $('openInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)ret
 function save(){const o={v:1,patient,scale,LM,LMF,plan,distr,planF,photoLM,photoFLM,snaps,airway,img:img?img.src:null,photo:photo?photo.src:null,photoF:photoF?photoF.src:null};
   const a=document.createElement('a');a.download=(patient.name||'план')+'.orthos';a.href=URL.createObjectURL(new Blob([JSON.stringify(o)],{type:'application/json'}));a.click();}
 function exportPng(){const a=document.createElement('a');a.download='ОРТОС_план_'+(patient.name||'пациент')+'.png';a.href=cv.toDataURL('image/png');a.click();}
+// ── Протокол операции (печатаемый клинический отчёт) ──
+function reportDate(){return new Date().toLocaleDateString('ru-RU');}
+function buildReportHTML(){
+  const age=ageYears(), sex=patient.sex==='F'?'женский':'мужской';
+  const esc=s=>String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const tbl=rows=>`<table><thead><tr><th>Показатель</th><th>Значение</th><th>Норма</th><th>Оценка</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.key)}</td><td>${r.val!=null&&!isNaN(r.val)?r.val.toFixed(1):'—'}</td><td>${esc(r.norm||'—')}${r.extra?' · '+esc(r.extra):''}</td><td class="${r.st==='норма'?'ok':(r.st==='—'?'':'warn')}">${esc(r.st)}</td></tr>`).join('')}</tbody></table>`;
+  const anRows=analyse(LM,age), fr=analyseFrontal(LMF), aw=analyseAirway().filter(r=>r.val!=null);
+  const MOVE=[['mxAdv','Le Fort I — выдвижение в/ч','мм'],['mxImp','Le Fort I — импакция (+вверх)','мм'],['mxPitch','Le Fort I — наклон (питч)','°'],['mdAdv','BSSO — выдвижение н/ч','мм'],['mdRot','BSSO — ротация','°'],['chAdv','Гениопластика — выдвижение','мм'],['chVert','Гениопластика — вертикаль (+вниз)','мм']];
+  const mv=MOVE.filter(([k])=>Math.abs(plan[k])>0.01);
+  const moveTbl=mv.length?`<table><tbody>${mv.map(([k,lab,u])=>`<tr><td>${lab}</td><td><b>${plan[k]>0?'+':''}${plan[k].toFixed(1)} ${u}</b></td></tr>`).join('')}</tbody></table>`:'<p class="muted">Перемещения не заданы.</p>';
+  const dev=DISTR_DEV.find(d=>d.k===distr.dev), siteLab={ramus:'ветвь',body:'тело',angle:'угол'}[distr.site]||distr.site;
+  const distrBlock=`<table><tbody>
+    <tr><td>Остеотомия</td><td>${siteLab} нижней челюсти</td></tr>
+    <tr><td>Аппарат</td><td>${dev?dev.lab:distr.dev}${dev&&dev.k!=='linear'?' · криволинейный':''}</td></tr>
+    <tr><td>Удлинение (дистракция)</td><td><b>${distr.len} мм</b></td></tr>
+    <tr><td>Латентный период</td><td>${distr.lat} дней</td></tr>
+    <tr><td>Темп активации</td><td>${distr.rate} мм/день</td></tr>
+    <tr><td>Консолидация</td><td>${distr.cons} мес</td></tr></tbody></table>`;
+  const waferLab={final:'финальный',intermediate:'промежуточный'}[wafer&&wafer.type]||(wafer&&wafer.type)||'—';
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Протокол — ${esc(patient.name||'пациент')}</title>
+  <style>@media print{@page{margin:14mm}.noprint{display:none}}
+    body{font:14px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1a2140;max-width:800px;margin:20px auto;padding:0 16px}
+    h1{font-size:22px;margin:0 0 2px}
+    h2{font-size:12px;color:#5b6cff;letter-spacing:.08em;text-transform:uppercase;margin:22px 0 6px;border-bottom:2px solid #eef0fb;padding-bottom:4px}
+    table{width:100%;border-collapse:collapse;margin:4px 0}
+    td,th{text-align:left;padding:5px 8px;border-bottom:1px solid #eef0fb;font-size:13px}
+    th{color:#8a94b8;font-weight:600;font-size:11px;text-transform:uppercase}
+    .ok{color:#1a9e7a}.warn{color:#e0803a}.muted{color:#8a94b8}
+    .pt{display:flex;gap:24px;flex-wrap:wrap;margin:6px 0 2px}
+    .sub{color:#8a94b8;font-size:12px}.foot{margin-top:28px;color:#8a94b8;font-size:11px;border-top:1px solid #eef0fb;padding-top:8px}
+    .brand{display:flex;justify-content:space-between;align-items:baseline}
+    .noprint{margin:16px 0;text-align:center}.noprint button{font:600 14px sans-serif;padding:9px 20px;border-radius:9px;border:none;background:#5b6cff;color:#fff;cursor:pointer}</style></head><body>
+  <div class="brand"><h1>Протокол ортогнатического планирования</h1><div class="sub">ОРТОС · ${reportDate()}</div></div>
+  <div class="noprint"><button onclick="window.print()">🖨️ Печать / Сохранить PDF</button></div>
+  <h2>Пациент</h2>
+  <div class="pt"><div><b>${esc(patient.name||'—')}</b></div><div>Пол: ${sex}</div><div>Дата рождения: ${esc(patient.dob||'—')}</div><div>Возраст: ${age!=null?age+' '+plural(age,'год','года','лет'):'—'}</div></div>
+  <h2>Цефалометрический анализ${age!=null?' · детские нормы, '+age+' '+plural(age,'год','года','лет'):''}</h2>
+  ${tbl(anRows)}
+  ${fr.length?`<h2>Фронтальный анализ (асимметрия)</h2>${tbl(fr)}`:''}
+  ${aw.length?`<h2>Дыхательные пути (McNamara)</h2>${tbl(aw)}`:''}
+  <h2>План операции${planMode==='distraction'?' · дистракция (КДО)':''}</h2>
+  ${planMode==='distraction'?distrBlock:moveTbl}
+  <p class="sub">Прогноз мягких тканей — по средним H/V-коэффициентам «мягкое/костное». Хирургический шаблон: <b>${waferLab}</b> сплинт.</p>
+  <div class="foot">Инструмент планирования, не медицинское изделие. Нормы и прогноз мягких тканей — ориентировочные, проверять клинически. Сформировано в ОРТОС.</div>
+  </body></html>`;
+}
+function openReport(){
+  if(!patientReady()){toast('Заполните паспорт пациента (шаг 1).');return;}
+  const html=buildReportHTML(),w=window.open('','_blank');
+  if(!w){const a=document.createElement('a');a.download='Протокол_'+(patient.name||'пациент')+'.html';a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.click();toast('Протокол сохранён (HTML).');return;}
+  w.document.open();w.document.write(html);w.document.close();
+}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),2400);}
 
 window.addEventListener('resize',render);
@@ -1809,7 +1862,7 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh
   snap:(label,usePlan)=>{addSnap(label,usePlan?planned():LM);return snaps.length;}, snapList:()=>snaps.map(s=>s.label),
   setSuper:(a,b,ref)=>{if(a!=null)superA=a;if(b!=null)superB=b;if(ref)superRef=ref;}, superDelta:()=>{const A=snaps[superA],B=snaps[superB];return A&&B?superimpDelta(A,B,superimpRef(superRef)):[];},
   growthForecast:age=>growthForecast(age), growthAnalyse:age=>{const gf=growthForecast(age);return gf?{a0:gf.a0,a1:gf.a1,now:analyse(LM),fut:analyse(gf.P,gf.a1)}:null;},
-  setAirway:(k,x,y)=>{airway[k]={x,y};}, airwayAnalyse:()=>analyseAirway(),
+  setAirway:(k,x,y)=>{airway[k]={x,y};}, airwayAnalyse:()=>analyseAirway(), reportHTML:()=>buildReportHTML(),
   snapOf:(label,G)=>{addSnap(label,G);return snaps.length;}, snapForecast:(label,age)=>{const gf=growthForecast(age);if(gf)addSnap(label,gf.P);return snaps.length;},
   setVto:o=>{Object.assign(vto,o);}, vtoSolve:()=>vtoSolve(), vtoApply:()=>{const r=vtoSolve();if(r){plan[r.param]=r.x;invalidateWarp();}return r;},
   setPhotoMode:v=>{photoMode=v;}, setPhotoFLM:(k,x,y)=>{photoFLM[k]={x,y};invalidatePhotoFWarp();}, setPlanF:o=>{Object.assign(planF,o);invalidatePhotoFWarp();}, frontalPhotoAfter:()=>frontalPhotoAfter(),
