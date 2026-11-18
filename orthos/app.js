@@ -24,11 +24,13 @@ let superRef='cranial', superA=0, superB=1; // референс регистра
 let airway={}, airwayPick=null, airwayDrag=null;
 // Линейка / транспортир — произвольные измерения на боковой ТРГ
 let ruler=[], rulerDrag=null;
+// Arnett STCA — проекции мягких тканей к истинной вертикали (TVL) через субназале
+let arnettNHP=0; // наклон естественного положения головы (°), подстройка TVL
 let LM={}, pickId=null, view={ox:0,oy:0,zoom:1};
 let plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};
 let overlay=0.85, building=false;
 // фото-морф: привязка фото к мягкотканным ориентирам ТРГ и прогноз профиля
-let photoLM={}, photoPick=null, photoOverlay=1, photoView={z:1,ox:0,oy:0}, photoDrag=null, photoWarpCv=null, photoWarpDirty=true;
+let photoLM={}, photoPick=null, photoOverlay=1, photoView={z:1,ox:0,oy:0}, photoDrag=null, photoWarpCv=null, photoWarpDirty=true, photoTrace=false;
 const PHOTO_SET=['G','Prn','Sn','Ls','Li','Pog2','Me2'];
 const invalidatePhotoWarp=()=>{photoWarpDirty=true;};
 // фото-ФАС: прогноз коррекции асимметрии (центрирование подбородка + выравнивание канта)
@@ -366,6 +368,34 @@ function renderRuler(){
   ruler.forEach(p=>{const S=toS(p);ctx.beginPath();ctx.arc(S.x,S.y,4,0,7);ctx.fillStyle='#ff8a3d';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.stroke();});
   updateBadge();
 }
+// ── Arnett STCA: проекции мягких тканей к истинной вертикали (TVL) через субназале ──
+// TVL — истинная вертикаль в естественном положении головы (NHP, подстраивается).
+// Для каждой мягкотканной точки — горизонтальная проекция к TVL (вперёд +). Профиль
+// предполагается лицом вправо (как требует ОРТОС). Нормы взрослые, ориентир.
+const ARNETT_PTS=[['G','Глабелла G′'],['Prn','Кончик носа'],['Sn','Субназале (TVL)'],['Ls','Верхняя губа'],['Li','Нижняя губа'],['Pog2','Погонион Pg′'],['Me2','Ментон Me′']];
+const ARNETT_NORM={G:[-10,-4],Prn:[14,22],Sn:[0,0],Ls:[1,5],Li:[-1,3],Pog2:[-6,0],Me2:[-6,1]};
+function arnettDir(){const th=d2r(arnettNHP);return {vert:{x:-Math.sin(th),y:Math.cos(th)}, horiz:{x:Math.cos(th),y:Math.sin(th)}};}
+function arnettAnalyse(){
+  const s=scale||1,rows=[];if(!LM.Sn)return rows;const {horiz}=arnettDir();
+  ARNETT_PTS.forEach(([k,lab])=>{const v=LM[k]?dot(sub(LM[k],LM.Sn),horiz)/s:null,n=ARNETT_NORM[k];
+    let st='—';if(v!=null&&n){st=k==='Sn'?'норма':(v<n[0]?'назад':(v>n[1]?'вперёд':'норма'));}
+    rows.push({key:lab+', мм',val:v,lo:n?n[0]:null,hi:n?n[1]:null,norm:k==='Sn'?'0 (референс)':(n?n[0]+'…'+n[1]:'—'),st,extra:LM[k]?'':'нет точки',aged:false});});
+  return rows;
+}
+function renderArnett(){
+  const dpr=Math.min(devicePixelRatio||1,2);fit();ctx.clearRect(0,0,cv.width,cv.height);$('empty').style.display='none';
+  if(img)ctx.drawImage(img,view.ox,view.oy,img.width*view.zoom,img.height*view.zoom);
+  if(!LM.Sn){updateBadge();return;}
+  const {vert,horiz}=arnettDir();
+  ctx.strokeStyle='rgba(138,99,255,.75)';ctx.lineWidth=2;ctx.setLineDash([7,5]);
+  const vS=toS(add(LM.Sn,mul(vert,-500))),vE=toS(add(LM.Sn,mul(vert,500)));
+  ctx.beginPath();ctx.moveTo(vS.x,vS.y);ctx.lineTo(vE.x,vE.y);ctx.stroke();ctx.setLineDash([]);
+  ARNETT_PTS.forEach(([k])=>{if(!LM[k])return;const P=toS(LM[k]),rel=sub(LM[k],LM.Sn),along=dot(rel,vert),foot=add(LM.Sn,mul(vert,along)),F=toS(foot);
+    ctx.strokeStyle='#18c3b6';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(F.x,F.y);ctx.lineTo(P.x,P.y);ctx.stroke();
+    ctx.beginPath();ctx.arc(P.x,P.y,4,0,7);ctx.fillStyle='#8a63ff';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.stroke();
+    if(scale){const mm=dot(rel,horiz)/scale,t=(mm>=0?'+':'')+mm.toFixed(1);ctx.fillStyle='#1a2140';ctx.font='700 '+(11*dpr/(devicePixelRatio||1))+'px Inter,sans-serif';ctx.save();ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.strokeText(t,P.x+6,P.y-5);ctx.fillText(t,P.x+6,P.y-5);ctx.restore();}});
+  updateBadge();
+}
 // ── VTO «от цели»: по целевому показателю численно подбирается перемещение челюсти ──
 const VTO_MAP={ANB:{row:'ANB, °',norm:'ANB',unit:'°'},SNB:{row:'SNB, °',norm:'SNB',unit:'°'},SNA:{row:'SNA, °',norm:'SNA',unit:'°'},Wits:{row:'Wits, мм',norm:'Wits',unit:'мм'}};
 function vtoNormMean(){const n=cephNorms(ageYears())[VTO_MAP[vto.goal].norm];return +((n.lo+n.hi)/2).toFixed(1);}
@@ -669,6 +699,7 @@ let scanU=null,scanL=null; // STL внутриротовых сканов (ве�
 let planMode='ortho';      // режим шага «План»: 'ortho' (ортогнатия) | 'distraction' (КДО)
 let planView='trg';        // контроль результата на шаге «План»: 'trg' | 'skull3d'
 let skullMesh=null,skullYaw=0.5,skullPitch=0.12,skullZoom=1,skullDrag=null,skullBuilding=false;
+let skull3dMode='morph'; // 3D-череп: морф «до↔после» / наложение (суперимпозиция до+после)
 // Относительное положение зубных дуг, которое фиксирует шаблон (мм):
 //  • ФИНАЛЬНЫЙ — обе челюсти в итоговом положении: AP = mdAdv−mxAdv, вертикаль ~0;
 //  • ПРОМЕЖУТОЧНЫЙ — в/ч перемещена, н/ч ИСХОДНАЯ (BSSO ещё не выполнен):
@@ -1081,11 +1112,38 @@ function drawSkull3D(yaw,pitch,t,mover){
     ctx.fillStyle=col;ctx.strokeStyle=col;ctx.lineWidth=0.6;
     ctx.beginPath();ctx.moveTo(ox+A.x*sc,oz-A.z*sc);ctx.lineTo(ox+B.x*sc,oz-B.z*sc);ctx.lineTo(ox+C.x*sc,oz-C.z*sc);ctx.closePath();ctx.fill();ctx.stroke();}
 }
+// 3D-суперимпозиция: «до» (призрак) + «после» (солид) в одной проекции, регистрация
+// на основании черепа (неподвижная кость seg=0; двигаются только сегменты челюстей).
+function drawSkullSuperimp(yaw,pitch){
+  fit();ctx.clearRect(0,0,cv.width,cv.height);
+  const g=ctx.createLinearGradient(0,0,0,cv.height);g.addColorStop(0,'#f7f8ff');g.addColorStop(1,'#eef0fb');ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);
+  const M=skullMesh;if(!M)return;const T=M.T,N=M.N,seg=M.seg;
+  const cY=Math.cos(yaw),sY=Math.sin(yaw),cP=Math.cos(pitch),sP=Math.sin(pitch);
+  const R=v=>{const x1=v.x*cY-v.y*sY,y1=v.x*sY+v.y*cY,z1=v.z;const y2=y1*cP-z1*sP,z2=y1*sP+z1*cP;return{x:x1,y:y2,z:z2};};
+  const proj=V=>{const P=new Array(V.length);for(let i=0;i<V.length;i++)P[i]=R(V[i]);return P;};
+  const P0=proj(skullMoved(0)),P1=proj(skullMoved(1));
+  let mnx=1/0,mxx=-1/0,mnz=1/0,mxz=-1/0;P0.forEach(r=>{if(r.x<mnx)mnx=r.x;if(r.x>mxx)mxx=r.x;if(r.z<mnz)mnz=r.z;if(r.z>mxz)mxz=r.z;});
+  const sc=Math.min(cv.width/(mxx-mnx||1),cv.height/(mxz-mnz||1))*0.82*skullZoom;
+  const ox=cv.width/2-(mnx+mxx)/2*sc,oz=cv.height/2+(mnz+mxz)/2*sc;
+  const Lt={x:-0.3,y:-0.5,z:0.81};ctx.lineJoin='round';
+  const drawMesh=(PR,colFn,alpha)=>{ctx.globalAlpha=alpha;
+    const ord=T.map((t2,i)=>[i,(PR[t2[0]].y+PR[t2[1]].y+PR[t2[2]].y)/3]).sort((a,b)=>a[1]-b[1]);
+    for(const[i]of ord){const tr=T[i],A=PR[tr[0]],B=PR[tr[1]],C=PR[tr[2]];
+      const na=N[tr[0]],nb=N[tr[1]],nc=N[tr[2]],nav={x:na.x+nb.x+nc.x,y:na.y+nb.y+nc.y,z:na.z+nb.z+nc.z};
+      const rn=R(nav),rl=Math.hypot(rn.x,rn.y,rn.z)||1,dif=Math.abs((rn.x*Lt.x+rn.y*Lt.y+rn.z*Lt.z)/rl),I=0.46+0.54*dif;
+      ctx.fillStyle=ctx.strokeStyle=colFn(Math.max(seg[tr[0]],seg[tr[1]],seg[tr[2]]),I);ctx.lineWidth=0.6;
+      ctx.beginPath();ctx.moveTo(ox+A.x*sc,oz-A.z*sc);ctx.lineTo(ox+B.x*sc,oz-B.z*sc);ctx.lineTo(ox+C.x*sc,oz-C.z*sc);ctx.closePath();ctx.fill();ctx.stroke();}};
+  drawMesh(P0,(sg,I)=>{const b=150+40*I|0;return `rgb(${b},${b+6},${Math.min(255,b+26)})`;},0.4);   // «до» — призрак
+  drawMesh(P1,(sg,I)=>{const bc=SEG_COL[sg];return `rgb(${Math.round(bc[0]*(0.5+0.5*I))},${Math.round(bc[1]*(0.5+0.5*I))},${Math.round(bc[2]*(0.5+0.5*I))})`;},1); // «после» — солид
+  ctx.globalAlpha=1;
+}
 function renderSkull(){
   if(!skullMesh&&!skullBuilding){skullBuilding=true;loadBar(0.3,'Строю 3D-реконструкцию…');
     setTimeout(()=>{try{buildSkull();}catch(e){console.error(e);}skullBuilding=false;loadBar(null);render();},30);
     fit();ctx.clearRect(0,0,cv.width,cv.height);const g=ctx.createLinearGradient(0,0,0,cv.height);g.addColorStop(0,'#f7f8ff');g.addColorStop(1,'#eef0fb');ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);updateBadge();return;}
   if(!skullMesh){updateBadge();return;}
+  if(skull3dMode==='superimp'&&anyMove()){drawSkullSuperimp(skullYaw,skullPitch);
+    $('badge').innerHTML=`<span class="chip">3D-череп · <b>наложение до+после</b></span><span class="chip">рег. — осн. черепа</span>`;return;}
   drawSkull3D(skullYaw,skullPitch,overlay);
   const b=$('badge');b.innerHTML=`<span class="chip">3D-череп · <b>${(skullMesh.tri/1000|0)}k треуг.</b></span><span class="chip">до ↔ после: <b>${Math.round(overlay*100)}%</b></span>`;
 }
@@ -1287,6 +1345,7 @@ function render(){
   if(step==='analysis'&&analysisView==='superimp'){ renderSuperimp(); return; }
   if(step==='analysis'&&analysisView==='airway'&&img){ renderAirway(); return; }
   if(step==='analysis'&&analysisView==='ruler'&&img){ renderRuler(); return; }
+  if(step==='analysis'&&analysisView==='arnett'&&img){ renderArnett(); return; }
   if(step==='photo'&&photoMode==='frontal'){ renderFrontalPhoto(); return; }
   fit();ctx.clearRect(0,0,cv.width,cv.height);
   const showPhoto=(step==='photo'&&photoMode==='profile'&&photo);
@@ -1310,6 +1369,14 @@ function render(){
   let sh=document.querySelector('.shimmer'); if(building&&!sh){sh=document.createElement('div');sh.className='shimmer';$('stage').appendChild(sh);} if(!building&&sh)sh.remove();
   if(showPhoto){
     const toP=p=>({x:photoView.ox+p.x*photoView.z,y:photoView.oy+p.y*photoView.z});
+    if(photoTrace){const pc=photoCorr();
+      if(pc.src.length>=2){const T=fitSim(pc.src,pc.dst),trP=p=>toP({x:T.cos*p.x-T.sin*p.y+T.tx,y:T.sin*p.x+T.cos*p.y+T.ty});
+        const drawTrace=(G,col,wd)=>{ctx.save();ctx.strokeStyle=col;ctx.lineWidth=wd;
+          LINES.forEach(([a,b])=>{if(G[a]&&G[b]){const A=trP(G[a]),B=trP(G[b]);ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.stroke();}});
+          ctx.beginPath();let st=false;PROFILE.forEach(k=>{if(G[k]){const S=trP(G[k]);st?ctx.lineTo(S.x,S.y):ctx.moveTo(S.x,S.y);st=true;}});ctx.stroke();ctx.restore();};
+        drawTrace(LM,'rgba(91,108,255,.75)',1.6);
+        if(anyMove())drawTrace(planned(),'rgba(24,195,182,.95)',1.8);
+      }}
     const pa=anyMove()?photoAfter():null;
     if(pa)pa.ids.forEach(id=>{const S=toP(photoLM[id]),A=toP(pa.after[id]);ctx.strokeStyle='#18c3b6';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(S.x,S.y);ctx.lineTo(A.x,A.y);ctx.stroke();
       ctx.beginPath();ctx.arc(A.x,A.y,3,0,7);ctx.fillStyle='#18c3b6';ctx.fill();});
@@ -1433,6 +1500,7 @@ function renderPanel(){
       <div class="card view"><div class="sect-label">Мягкотканные точки на фото (${nPlaced}/${PHOTO_SET.length})</div>
         <div class="lm-list">${rows}</div>
         <div class="slider-row" style="margin-top:12px"><label>Исходное ↔ прогноз</label><input type="range" id="phOv" min="0" max="1" step="0.05" value="${photoOverlay}"><span class="val">${moved?'морф':'—'}</span></div>
+        <label style="display:flex;align-items:center;gap:8px;margin:8px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="phTrace"${photoTrace?' checked':''}> Показать трассировку ТРГ на фото <small style="color:var(--ink-faint)">(синяя — до, бирюза — после)</small></label>
         <div class="${corr>=2&&moved?'mode-chip ok':'mode-chip warn'}" style="margin-top:4px">${
           corr>=2&&moved ? '✓ Прогноз профиля построен по плану ('+corr+ ' опорных точек). Двигайте «до ↔ прогноз».'
           : (corr<2 ? 'Отметьте ≥2 точек и на фото, и на ТРГ (сейчас: фото '+nPlaced+', ТРГ '+onTrg+').' : 'Задайте перемещения на шаге «План» — и профиль на фото изменится.')}</div>
@@ -1442,6 +1510,7 @@ function renderPanel(){
     $('prevPh').onclick=()=>{const i=PHOTO_SET.indexOf(photoPick);photoPick=PHOTO_SET[(i-1+PHOTO_SET.length)%PHOTO_SET.length];renderPanel();render();};
     $('nextPh').onclick=()=>advancePhotoPick();
     $('phOv').oninput=e=>{photoOverlay=+e.target.value;render();};
+    if($('phTrace'))$('phTrace').onchange=e=>{photoTrace=e.target.checked;render();};
     $('clrPh').onclick=()=>{photoLM={};photoPick=PHOTO_SET[0];invalidatePhotoWarp();renderPanel();render();};
     $('delPhoto').onclick=()=>{photo=null;photoLM={};renderPanel();render();};
     $('phPng').onclick=()=>{const a=document.createElement('a');a.download='ОРТОС_профиль_до-после.png';a.href=cv.toDataURL('image/png');a.click();};
@@ -1450,7 +1519,7 @@ function renderPanel(){
   }
   else if(step==='analysis'){
     if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ и расставьте точки.'); return; }
-    const anTog=`<div class="seg-toggle" style="margin-bottom:10px;flex-wrap:wrap"><button class="seg-btn${analysisView==='lat'?' on':''}" data-av="lat">Боковая</button>${imgF?`<button class="seg-btn${analysisView==='frontal'?' on':''}" data-av="frontal">Прямая</button>`:''}<button class="seg-btn${analysisView==='superimp'?' on':''}" data-av="superimp">Наложение</button><button class="seg-btn${analysisView==='airway'?' on':''}" data-av="airway">Дых. пути</button><button class="seg-btn${analysisView==='ruler'?' on':''}" data-av="ruler">📏 Линейка</button></div>`;
+    const anTog=`<div class="seg-toggle" style="margin-bottom:10px;flex-wrap:wrap"><button class="seg-btn${analysisView==='lat'?' on':''}" data-av="lat">Боковая</button>${imgF?`<button class="seg-btn${analysisView==='frontal'?' on':''}" data-av="frontal">Прямая</button>`:''}<button class="seg-btn${analysisView==='superimp'?' on':''}" data-av="superimp">Наложение</button><button class="seg-btn${analysisView==='airway'?' on':''}" data-av="airway">Дых. пути</button><button class="seg-btn${analysisView==='ruler'?' on':''}" data-av="ruler">📏 Линейка</button><button class="seg-btn${analysisView==='arnett'?' on':''}" data-av="arnett">Arnett TVL</button></div>`;
     if(analysisView==='superimp'){ renderSuperimpPanel(p,anTog); }
     else if(analysisView==='airway'){
       if(!airwayPick)airwayPick=AIRWAY_LM.find(l=>!airway[l.id])?.id||AIRWAY_LM[0].id;
@@ -1476,6 +1545,17 @@ function renderPanel(){
         <div class="note">Для измерений в мм нужна калибровка масштаба (из МСКТ берётся автоматически).</div></div>`;
       $('rulUndo').onclick=()=>{ruler.pop();renderPanel();render();};
       $('rulClr').onclick=()=>{ruler=[];renderPanel();render();};
+    }
+    else if(analysisView==='arnett'){
+      const rows=arnettAnalyse(), need=!LM.Sn;
+      p.innerHTML=`<div class="card view"><h3>📐 Arnett — TVL</h3>${anTog}
+        <div class="${need?'mode-chip warn':'mode-chip ok'}" style="margin-bottom:8px">${need?'Нужна мягкотканная точка <b>Sn</b> (субназале) — поставьте на шаге «Точки».':'Истинная вертикаль (TVL) через <b>Sn</b>. Подстройте наклон под естественное положение головы. Профиль — лицом вправо.'}</div>
+        <div class="slider-row"><label>Наклон NHP</label><input type="range" id="arNHP" min="-20" max="20" step="1" value="${arnettNHP}"><span class="val" id="arNHPv">${arnettNHP}°</span></div>
+        <div class="sect-label">Проекции к TVL (вперёд +), мм</div>
+        <div id="arBox">${rows.length?rows.map(anRow).join(''):'<div class="note">Поставьте мягкотканные точки (G, Prn, Sn, Ls, Li, Pog′, Me′) на шаге «Точки».</div>'}</div>
+        <div class="note">Анализ мягкого профиля по Arnett–Bergman: горизонтальные проекции точек к истинной вертикали через субназале. Нормы взрослые, ориентировочные — проверять клинически и по полу.</div></div>`;
+      if($('arNHP'))$('arNHP').oninput=e=>{arnettNHP=+e.target.value;$('arNHPv').textContent=arnettNHP+'°';render();};
+      if($('arNHP'))$('arNHP').onchange=()=>renderPanel();
     }
     else if(analysisView==='frontal'&&imgF){
       if(!pickF)pickF=FRONT_IDS.find(k=>!LMF[k])||FRONT_IDS[0];
@@ -1538,7 +1618,8 @@ function renderPanel(){
           <div class="seg-toggle">
             <button class="seg-btn${planView==='trg'?' on':''}" data-pv="trg">ТРГ (профиль)</button>
             <button class="seg-btn${planView==='skull3d'?' on':''}" data-pv="skull3d">3D-череп (МСКТ)</button></div>
-          ${planView==='skull3d'?'<div class="note" style="margin-top:6px">3D-реконструкция кости из МСКТ. Цветом — перемещаемые сегменты: <b style="color:#5b6cff">в/ч (Le Fort I)</b>, <b style="color:#18c3b6">н/ч (BSSO)</b>, <b style="color:#a05bff">подбородок</b>. 🖱 вращение — тяни мышью, зум — колесо. Сегментация по ориентирам — схематична.</div>':''}</div>`:''}
+          ${planView==='skull3d'?`<div class="seg-toggle" style="margin-top:8px"><button class="seg-btn${skull3dMode==='morph'?' on':''}" data-s3d="morph">Морф до↔после</button><button class="seg-btn${skull3dMode==='superimp'?' on':''}" data-s3d="superimp">Наложение</button></div>
+          <div class="note" style="margin-top:6px">3D-реконструкция кости из МСКТ. Цветом — перемещаемые сегменты: <b style="color:#5b6cff">в/ч (Le Fort I)</b>, <b style="color:#18c3b6">н/ч (BSSO)</b>, <b style="color:#a05bff">подбородок</b>. «Наложение» показывает <b>до (призрак) + после (цвет)</b> одновременно, зарегистрированные на основании черепа. 🖱 вращение — тяни мышью, зум — колесо. Сегментация по ориентирам — схематична.</div>`:''}</div>`:''}
         <div class="slider-row"><label>До ↔ После</label><input type="range" id="ov" min="0" max="1" step="0.05" value="${overlay}"><span class="val">морф</span></div>
         <button class="btn ghost" id="resetPlan">Сбросить перемещения</button></div>
       <div class="card view"><div class="sect-label">Сводка и анализ до → после</div><div id="rep"></div>
@@ -1547,6 +1628,7 @@ function renderPanel(){
     bindSliders(); if($('autorot'))$('autorot').onchange=e=>{plan.autorot=e.target.checked;invalidateWarp();invalidatePhotoWarp();waferMesh=null;render();renderPanel();};
     $('ov').oninput=e=>{overlay=+e.target.value;render();};
     p.querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>{planView=b.dataset.pv;renderPanel();render();});
+    p.querySelectorAll('[data-s3d]').forEach(b=>b.onclick=()=>{skull3dMode=b.dataset.s3d;renderPanel();render();});
     $('resetPlan').onclick=()=>{plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};invalidateWarp();invalidatePhotoWarp();waferMesh=null;renderPanel();render();};
     $('toWafer').onclick=()=>setStep('wafer');
     $('expPng').onclick=exportPng; if($('repDoc'))$('repDoc').onclick=openReport; renderReport($('rep'));
@@ -1908,6 +1990,8 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh
   growthForecast:age=>growthForecast(age), growthAnalyse:age=>{const gf=growthForecast(age);return gf?{a0:gf.a0,a1:gf.a1,now:analyse(LM),fut:analyse(gf.P,gf.a1)}:null;},
   setAirway:(k,x,y)=>{airway[k]={x,y};}, airwayAnalyse:()=>analyseAirway(), reportHTML:()=>buildReportHTML(),
   addRuler:(x,y)=>{ruler.push({x,y});return ruler.length;}, rulerSegs:()=>{const o=[];for(let i=0;i+1<ruler.length;i++)o.push(rulerSeg(i));return o;}, rulerAng:i=>ruler[i-1]&&ruler[i]&&ruler[i+1]?angAt(ruler[i],ruler[i-1],ruler[i+1]):null,
+  setArnettNHP:v=>{arnettNHP=v;}, arnettAnalyse:()=>arnettAnalyse(), setSkull3dMode:v=>{skull3dMode=v;}, setPhotoTrace:v=>{photoTrace=!!v;},
+  injectPhoto:(w,h)=>{const c=document.createElement('canvas');c.width=w||400;c.height=h||500;const g=c.getContext('2d');g.fillStyle='#cbb';g.fillRect(0,0,c.width,c.height);const im=new Image();im.onload=()=>{photo=im;invalidatePhotoWarp();};im.src=c.toDataURL();return true;}, setPhotoLM:(k,x,y)=>{photoLM[k]={x,y};invalidatePhotoWarp();},
   snapOf:(label,G)=>{addSnap(label,G);return snaps.length;}, snapForecast:(label,age)=>{const gf=growthForecast(age);if(gf)addSnap(label,gf.P);return snaps.length;},
   setVto:o=>{Object.assign(vto,o);}, vtoSolve:()=>vtoSolve(), vtoApply:()=>{const r=vtoSolve();if(r){plan[r.param]=r.x;invalidateWarp();}return r;},
   setPhotoMode:v=>{photoMode=v;}, setPhotoFLM:(k,x,y)=>{photoFLM[k]={x,y};invalidatePhotoFWarp();}, setPlanF:o=>{Object.assign(planF,o);invalidatePhotoFWarp();}, frontalPhotoAfter:()=>frontalPhotoAfter(),
