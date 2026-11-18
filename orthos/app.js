@@ -23,6 +23,19 @@ let overlay=0.85, building=false;
 let photoLM={}, photoPick=null, photoOverlay=1, photoView={z:1,ox:0,oy:0}, photoDrag=null, photoWarpCv=null, photoWarpDirty=true;
 const PHOTO_SET=['G','Prn','Sn','Ls','Li','Pog2','Me2'];
 const invalidatePhotoWarp=()=>{photoWarpDirty=true;};
+// фото-ФАС: прогноз коррекции асимметрии (центрирование подбородка + выравнивание канта)
+let photoMode='profile'; // профиль / фас на шаге «Фото»
+let photoF=null, photoFLM={}, photoFPick=null, photoFOverlay=1, photoFView={z:1,ox:0,oy:0}, photoFDrag=null, photoFWarpCv=null, photoFWarpDirty=true;
+let planF={dev:1,cant:1}; // доли коррекции асимметрии (0..1), дефолт — полная
+const PHOTOF_SET=['Gf','Snf','Chf','JRf','JLf'];
+const PHOTOF_LBL={
+  Gf:{abbr:'Gf',ru:'Глабелла',hint:'середина лба по средней линии — опора (не двигается)'},
+  Snf:{abbr:'Snf',ru:'Основание носа',hint:'под носом по средней линии — опора в/ч (не двигается)'},
+  Chf:{abbr:'Pgf',ru:'Середина подбородка',hint:'самая выступающая точка подбородка (мягкий погонион)'},
+  JRf:{abbr:'Go-П',ru:'Угол челюсти, справа',hint:'угол нижней челюсти со стороны пациента справа'},
+  JLf:{abbr:'Go-Л',ru:'Угол челюсти, слева',hint:'угол нижней челюсти со стороны пациента слева'},
+};
+const invalidatePhotoFWarp=()=>{photoFWarpDirty=true;};
 
 const cv=$('cv'), ctx=cv.getContext('2d');
 
@@ -294,6 +307,119 @@ function buildPhotoWarp(){
   return out;
 }
 function advancePhotoPick(){const i=PHOTO_SET.indexOf(photoPick);const nx=PHOTO_SET.slice(i+1).find(id=>!photoLM[id]);photoPick=nx||PHOTO_SET[(i+1)%PHOTO_SET.length];renderPanel();render();}
+
+// ═══ Фото-ФАС: прогноз коррекции асимметрии ═══
+// опоры — средняя линия (Gf→Snf, не двигаются); нижняя треть (Chf, JRf, JLf) —
+// выравнивается наклон (кант) поворотом вокруг Snf, затем подбородок сдвигается к средней линии
+function frontalPhotoAfter(){
+  const G=photoFLM;
+  if(!(G.Gf&&G.Snf&&G.Chf))return null;
+  const m=norm(sub(G.Snf,G.Gf)), perp={x:-m.y,y:m.x}; // средняя линия и горизонталь-перпендикуляр
+  const mob=['Chf','JRf','JLf'].filter(id=>G[id]);
+  let a=0;
+  if(G.JRf&&G.JLf){ const j=sub(G.JRf,G.JLf); // наклон линии углов челюсти относительно горизонтали
+    let al=Math.atan2(perp.x*j.y-perp.y*j.x, perp.x*j.x+perp.y*j.y); // знаковый угол perp→j
+    let star=-al; star-=Math.PI*Math.round(star/Math.PI); // ближайшее выравнивание
+    a=planF.cant*star;
+  }
+  const pivot=G.Snf, rr={}; mob.forEach(id=>rr[id]=rot(G[id],pivot,a));
+  const devOff=dot(sub(rr.Chf,G.Snf),perp); // смещение подбородка от средней линии после выравнивания
+  const shift=mul(perp,-planF.dev*devOff);
+  const after={Gf:G.Gf,Snf:G.Snf}; mob.forEach(id=>after[id]=add(rr[id],shift));
+  return {ids:['Gf','Snf',...mob],after,before:G};
+}
+function buildFrontalPhotoWarp(){
+  if(!photoF)return null;const W=photoF.naturalWidth||photoF.width,H=photoF.naturalHeight||photoF.height;
+  const pa=frontalPhotoAfter(); if(!pa)return null;
+  const B=[],A=[];
+  pa.ids.forEach(id=>{B.push(pa.before[id]);A.push(pa.after[id]);});
+  // фиксированные якоря по краям — лоб/фон не плывут, морф локален в нижней трети
+  [[0,0],[W/2,0],[W,0],[W,H],[0,H]].forEach(([x,y])=>{B.push({x,y});A.push({x,y});});
+  if(B.length<3)return null;
+  const tris=delaunay(B),out=document.createElement('canvas');out.width=W;out.height=H;const g=out.getContext('2d');g.drawImage(photoF,0,0);
+  for(const[i,j,k]of tris)affTri(g,photoF,B[i],B[j],B[k],A[i],A[j],A[k]);
+  return out;
+}
+function advanceFrontalPhotoPick(){const i=PHOTOF_SET.indexOf(photoFPick);const nx=PHOTOF_SET.slice(i+1).find(id=>!photoFLM[id]);photoFPick=nx||PHOTOF_SET[(i+1)%PHOTOF_SET.length];renderPanel();render();}
+function frontFaceSVG(id){
+  const P={Gf:[60,34],Snf:[60,74],Chf:[60,118],JRf:[26,96],JLf:[94,96]};
+  const dots=Object.entries(P).map(([k,[x,y]])=>`<circle cx="${x}" cy="${y}" r="${k===id?5.5:3}" fill="${k===id?'#ffb020':'#8a63ff'}" stroke="#fff" stroke-width="1.5"/>`).join('');
+  return `<svg viewBox="0 0 120 150" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+    <path d="M60 18 C88 18 98 46 98 74 C98 104 82 130 60 134 C38 130 22 104 22 74 C22 46 32 18 60 18 Z" fill="none" stroke="#c7cef0" stroke-width="2"/>
+    <line x1="60" y1="12" x2="60" y2="140" stroke="#8a63ff" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>
+    <ellipse cx="46" cy="58" rx="5" ry="3" fill="none" stroke="#c7cef0" stroke-width="1.5"/>
+    <ellipse cx="74" cy="58" rx="5" ry="3" fill="none" stroke="#c7cef0" stroke-width="1.5"/>
+    <path d="M60 64 L60 76 M54 80 Q60 84 66 80" fill="none" stroke="#c7cef0" stroke-width="1.5"/>
+    <path d="M48 100 Q60 106 72 100" fill="none" stroke="#c7cef0" stroke-width="1.5"/>
+    ${dots}</svg>`;
+}
+function renderFrontalPhoto(){
+  fit();ctx.clearRect(0,0,cv.width,cv.height);
+  $('empty').style.display=photoF?'none':'';
+  if(!photoF){updateBadge();return;}
+  const W=photoF.naturalWidth||photoF.width,H=photoF.naturalHeight||photoF.height;
+  const z=Math.min(cv.width/W,cv.height/H)*0.92; photoFView={z,ox:(cv.width-W*z)/2,oy:(cv.height-H*z)/2};
+  const pa=frontalPhotoAfter();
+  if(pa){ if(photoFWarpDirty||!photoFWarpCv){photoFWarpCv=buildFrontalPhotoWarp();photoFWarpDirty=false;}
+    ctx.drawImage(photoF,photoFView.ox,photoFView.oy,W*z,H*z);
+    if(photoFWarpCv){ctx.globalAlpha=photoFOverlay;ctx.drawImage(photoFWarpCv,photoFView.ox,photoFView.oy,W*z,H*z);ctx.globalAlpha=1;}
+  } else ctx.drawImage(photoF,photoFView.ox,photoFView.oy,W*z,H*z);
+  const toP=p=>({x:photoFView.ox+p.x*photoFView.z,y:photoFView.oy+p.y*photoFView.z});
+  if(photoFLM.Gf&&photoFLM.Snf){const A=toP(photoFLM.Gf),B=toP(photoFLM.Snf),dx=B.x-A.x,dy=B.y-A.y;
+    ctx.save();ctx.strokeStyle='rgba(138,99,255,.55)';ctx.lineWidth=1.5;ctx.setLineDash([6,5]);
+    ctx.beginPath();ctx.moveTo(A.x-dx*2.2,A.y-dy*2.2);ctx.lineTo(B.x+dx*3.5,B.y+dy*3.5);ctx.stroke();ctx.restore();}
+  if(pa)pa.ids.forEach(id=>{if(id==='Gf'||id==='Snf')return;const S=toP(pa.before[id]),Af=toP(pa.after[id]);
+    ctx.strokeStyle='#18c3b6';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(S.x,S.y);ctx.lineTo(Af.x,Af.y);ctx.stroke();
+    ctx.beginPath();ctx.arc(Af.x,Af.y,3,0,7);ctx.fillStyle='#18c3b6';ctx.fill();});
+  PHOTOF_SET.forEach(id=>{ if(!photoFLM[id])return; const S=toP(photoFLM[id]),cur=(id===photoFPick);
+    ctx.beginPath();ctx.arc(S.x,S.y,cur?6:4,0,7);ctx.fillStyle=cur?'#ffb020':'#8a63ff';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='700 12px Inter,sans-serif';ctx.save();ctx.strokeStyle='#1a1f33';ctx.lineWidth=3;ctx.strokeText(PHOTOF_LBL[id].abbr,S.x+7,S.y-6);ctx.fillText(PHOTOF_LBL[id].abbr,S.x+7,S.y-6);ctx.restore();});
+  updateBadge();
+}
+function renderFrontalPhotoPanel(p,modeTog){
+  if(!photoF){
+    p.innerHTML=modeTog+`<div class="card view"><h3>📷 Фото фас</h3>
+      <div class="desc">Загрузите фотографию <b>анфас</b> (прямо в камеру, естественное положение головы). По ней покажем прогноз коррекции <b>асимметрии</b>: центрирование подбородка к средней линии и выравнивание наклона (канта) нижней челюсти.</div>
+      <button class="btn" id="loadPhotoF">📷 Загрузить фото фас</button>
+      <div class="note">Затем отметите опорные точки: средняя линия (глабелла, основание носа) и нижняя треть (подбородок, углы челюсти).</div></div>`;
+    $('loadPhotoF').onclick=()=>$('photoFInput').click(); return;
+  }
+  if(!photoFPick) photoFPick=PHOTOF_SET.find(id=>!photoFLM[id])||PHOTOF_SET[0];
+  const l=PHOTOF_LBL[photoFPick], idx=PHOTOF_SET.indexOf(photoFPick)+1, nPlaced=PHOTOF_SET.filter(id=>photoFLM[id]).length;
+  const fr=analyseFrontal(LMF), devR=fr.find(r=>r.key.indexOf('Девиация')===0), cantR=fr.find(r=>r.key.indexOf('Наклон')===0);
+  const ready=!!(photoFLM.Gf&&photoFLM.Snf&&photoFLM.Chf), hasJaw=!!(photoFLM.JRf&&photoFLM.JLf);
+  const rows=PHOTOF_SET.map(id=>{const L=PHOTOF_LBL[id];return `<div class="lm${id===photoFPick?' cur':''}${photoFLM[id]?' ok':''}" data-fpk="${id}"><span class="ck">${photoFLM[id]?'✓':'○'}</span><span class="t">${L.abbr} <small>· ${L.ru}</small></span></div>`;}).join('');
+  const meas=(devR&&devR.val!=null)||(cantR&&cantR.val!=null)
+    ? `<div class="mode-chip" style="margin-top:8px">Из прямой ТРГ: ${devR&&devR.val!=null?'девиация '+devR.val.toFixed(1)+' мм'+(devR.extra?' '+devR.extra:''):''}${cantR&&cantR.val!=null?' · кант '+cantR.val.toFixed(1)+'°':''} → цель 0</div>`
+    : `<div class="note">Разметьте точки прямой ТРГ (шаг 5 · «Прямая»), чтобы показать величины асимметрии в мм/°.</div>`;
+  p.innerHTML=modeTog+`<div class="hint-card view">
+      <div class="hint-ill">${frontFaceSVG(photoFPick)}</div>
+      <div class="hint-body"><div class="pt">${l.abbr} <span class="ru">— ${l.ru}</span></div>
+        <div class="txt">${l.hint}</div>
+        <div class="nav"><button class="btn ghost sm" id="prevPhF">← Назад</button><button class="btn sm" id="nextPhF" style="width:auto">Пропустить →</button><span class="idx">${idx} / ${PHOTOF_SET.length}</span></div>
+      </div></div>
+    <div class="card view"><div class="sect-label">Опорные точки на фото фас (${nPlaced}/${PHOTOF_SET.length})</div>
+      <div class="lm-list">${rows}</div>
+      ${meas}
+      <div class="slider-row" style="margin-top:12px"><label>Коррекция девиации</label><input type="range" id="pfDev" min="0" max="1" step="0.05" value="${planF.dev}"><span class="val">${Math.round(planF.dev*100)}%</span></div>
+      <div class="slider-row"><label>Коррекция канта</label><input type="range" id="pfCant" min="0" max="1" step="0.05" value="${planF.cant}"${hasJaw?'':' disabled'}><span class="val">${hasJaw?Math.round(planF.cant*100)+'%':'нет точек'}</span></div>
+      <div class="slider-row"><label>Исходное ↔ прогноз</label><input type="range" id="pfOv" min="0" max="1" step="0.05" value="${photoFOverlay}"><span class="val">${ready?'морф':'—'}</span></div>
+      <div class="${ready?'mode-chip ok':'mode-chip warn'}" style="margin-top:4px">${ready?'✓ Прогноз фас построен. Углы челюсти добавляют выравнивание канта.':'Отметьте минимум среднюю линию (глабелла, основание носа) и подбородок.'}</div>
+      <div class="btn-row"><button class="btn sm" id="pfPng" style="width:100%">⬇ Фас до→после (PNG)</button></div>
+      <div class="btn-row"><button class="btn ghost sm" id="clrPhF" style="width:49%">Очистить точки</button><button class="btn ghost sm" id="delPhotoF" style="width:49%">Удалить фото</button></div>
+      <div class="note">Прогноз показывает коррекцию асимметрии: подбородок к средней линии (глабелла–основание носа), нижняя челюсть — выравнивание наклона. Сагиттальные перемещения — на фото профиля.</div></div>`;
+  $('prevPhF').onclick=()=>{const i=PHOTOF_SET.indexOf(photoFPick);photoFPick=PHOTOF_SET[(i-1+PHOTOF_SET.length)%PHOTOF_SET.length];renderPanel();render();};
+  $('nextPhF').onclick=()=>advanceFrontalPhotoPick();
+  $('pfDev').oninput=e=>{planF.dev=+e.target.value;invalidatePhotoFWarp();render();};
+  $('pfDev').onchange=()=>renderPanel();
+  $('pfCant').oninput=e=>{planF.cant=+e.target.value;invalidatePhotoFWarp();render();};
+  $('pfCant').onchange=()=>renderPanel();
+  $('pfOv').oninput=e=>{photoFOverlay=+e.target.value;render();};
+  $('pfPng').onclick=()=>{const a=document.createElement('a');a.download='ОРТОС_фас_до-после.png';a.href=cv.toDataURL('image/png');a.click();};
+  $('clrPhF').onclick=()=>{photoFLM={};photoFPick=PHOTOF_SET[0];invalidatePhotoFWarp();renderPanel();render();};
+  $('delPhotoF').onclick=()=>{photoF=null;photoFLM={};invalidatePhotoFWarp();renderPanel();render();};
+  p.querySelectorAll('.lm').forEach(rw=>rw.onclick=()=>{photoFPick=rw.dataset.fpk;renderPanel();render();});
+}
 
 // ═══ Хирургический шаблон (окклюзионный сплинт) — параметрическая 3D-модель ═══
 let wafer={type:'final',archW:52,archD:40,height:11,band:11,teeth:12,ct:true,src:'param',ctDiag:null};
@@ -917,8 +1043,9 @@ function render(){
   if(step==='plan'&&planMode==='ortho'&&planView==='skull3d'&&vol&&img){ $('empty').style.display='none'; renderSkull(); return; }
   if(step==='trg'&&trgView==='frontal'&&imgF){ renderFrontal(); return; }
   if(step==='analysis'&&analysisView==='frontal'&&imgF){ renderFrontalAnalysis(); return; }
+  if(step==='photo'&&photoMode==='frontal'){ renderFrontalPhoto(); return; }
   fit();ctx.clearRect(0,0,cv.width,cv.height);
-  const showPhoto=(step==='photo'&&photo);
+  const showPhoto=(step==='photo'&&photoMode==='profile'&&photo);
   const pic=showPhoto?photo:img;
   const planWarp=(step==='plan'&&img&&anyMove());
   if(pic){ctx.imageSmoothingEnabled=true;
@@ -1039,18 +1166,21 @@ function renderPanel(){
     p.querySelectorAll('.lm').forEach(r=>r.onclick=()=>{pickId=r.dataset.k;renderPanel();render();});
   }
   else if(step==='photo'){
+    const modeTog=`<div class="seg-toggle" style="margin-bottom:10px"><button class="seg-btn${photoMode==='profile'?' on':''}" data-pm="profile">Профиль</button><button class="seg-btn${photoMode==='frontal'?' on':''}" data-pm="frontal">Фас (асимметрия)</button></div>`;
+    const bindPM=()=>p.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{photoMode=b.dataset.pm;renderPanel();render();});
+    if(photoMode==='frontal'){ renderFrontalPhotoPanel(p,modeTog); bindPM(); return; }
     if(!photo){
-      p.innerHTML=`<div class="card view"><h3>📷 Фото профиля</h3>
+      p.innerHTML=modeTog+`<div class="card view"><h3>📷 Фото профиля</h3>
         <div class="desc">Загрузите фотографию <b>профиля</b> пациента (естественное положение головы, та же сторона, что и ТРГ — лицом вправо). По ней построим прогноз профиля после операции.</div>
         <button class="btn" id="loadPhoto">📷 Загрузить фото профиля</button>
         <div class="note">Затем вы отметите на фото мягкотканные точки (те же, что на ТРГ) — программа привяжет фото к плану и покажет «до → после».</div></div>`;
-      $('loadPhoto').onclick=()=>$('photoInput').click(); return;
+      $('loadPhoto').onclick=()=>$('photoInput').click(); bindPM(); return;
     }
     if(!photoPick) photoPick = PHOTO_SET.find(id=>!photoLM[id]) || PHOTO_SET[0];
     const l=LBL[photoPick], idx=PHOTO_SET.indexOf(photoPick)+1, nPlaced=PHOTO_SET.filter(id=>photoLM[id]).length;
     const onTrg=PHOTO_SET.filter(id=>LM[id]).length, corr=photoCorr().src.length, moved=anyMove();
     const rows=PHOTO_SET.map(id=>{const L=LBL[id];return `<div class="lm${id===photoPick?' cur':''}${photoLM[id]?' ok':''}" data-k="${id}"><span class="ck">${photoLM[id]?'✓':'○'}</span><span class="t">${L.abbr} <small>· ${L.ru.replace(' (мягк. ткани)','')}</small></span></div>`;}).join('');
-    p.innerHTML=`<div class="hint-card view">
+    p.innerHTML=modeTog+`<div class="hint-card view">
         <div class="hint-ill">${window.skullSVG(photoPick)}</div>
         <div class="hint-body"><div class="pt">${l.abbr} <span class="ru">— ${l.ru}</span></div>
           <div class="txt">${l.hint}</div>
@@ -1072,6 +1202,7 @@ function renderPanel(){
     $('delPhoto').onclick=()=>{photo=null;photoLM={};renderPanel();render();};
     $('phPng').onclick=()=>{const a=document.createElement('a');a.download='ОРТОС_профиль_до-после.png';a.href=cv.toDataURL('image/png');a.click();};
     p.querySelectorAll('.lm').forEach(rw=>rw.onclick=()=>{photoPick=rw.dataset.k;renderPanel();render();});
+    bindPM();
   }
   else if(step==='analysis'){
     if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ и расставьте точки.'); return; }
@@ -1299,6 +1430,10 @@ cv.addEventListener('mousedown',e=>{const r=cv.getBoundingClientRect(),dpr=Math.
   if(step==='plan'&&planMode==='ortho'&&planView==='skull3d'&&vol&&skullMesh){skullDrag={sx,sy,yaw:skullYaw,pitch:skullPitch};return;}
   if(step==='plan'&&planMode==='distraction'&&distr.view==='skull3d'&&vol&&skullMesh){skullDrag={sx,sy,yaw:skullYaw,pitch:skullPitch};return;}
   if(step==='plan'&&planMode==='distraction'&&img&&distr.view!=='skull3d'){if(distr._tip&&Math.hypot(distr._tip.x-sx,distr._tip.y-sy)<18*dpr){distrVecDrag=true;return;}}
+  if(step==='photo'&&photoMode==='frontal'&&photoF){const ip={x:(sx-photoFView.ox)/photoFView.z,y:(sy-photoFView.oy)/photoFView.z};
+    let b2=null,bd2=14*dpr;PHOTOF_SET.forEach(id=>{if(photoFLM[id]){const S={x:photoFView.ox+photoFLM[id].x*photoFView.z,y:photoFView.oy+photoFLM[id].y*photoFView.z};const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd2){bd2=d;b2=id;}}});
+    if(b2){photoFDrag=b2;photoFPick=b2;renderPanel();render();return;}
+    if(photoFPick){photoFLM[photoFPick]={x:ip.x,y:ip.y};invalidatePhotoFWarp();popAt(sx,sy);advanceFrontalPhotoPick();}return;}
   if(step==='photo'&&photo){const ip={x:(sx-photoView.ox)/photoView.z,y:(sy-photoView.oy)/photoView.z};
     let b2=null,bd2=14*dpr;PHOTO_SET.forEach(id=>{if(photoLM[id]){const S={x:photoView.ox+photoLM[id].x*photoView.z,y:photoView.oy+photoLM[id].y*photoView.z};const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd2){bd2=d;b2=id;}}});
     if(b2){photoDrag=b2;photoPick=b2;renderPanel();render();return;}
@@ -1316,11 +1451,12 @@ window.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect(),dpr=M
   if(waferDrag){waferYaw=waferDrag.yaw+(sx-waferDrag.sx)*0.006;waferPitch=Math.max(-1.45,Math.min(1.45,waferDrag.pitch+(sy-waferDrag.sy)*0.006));if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);return;}
   if(skullDrag){skullYaw=skullDrag.yaw+(sx-skullDrag.sx)*0.006;skullPitch=Math.max(-1.3,Math.min(1.3,skullDrag.pitch+(sy-skullDrag.sy)*0.006));if(step==='plan'&&planMode==='distraction')drawSkull3D(skullYaw,skullPitch,distr.t,skullDistrMoved);else renderSkull();return;}
   if(distrVecDrag){const ip=toI(sx,sy),L=distrLine();if(L){const O=mul(add(L.a,L.b),0.5),d=norm(sub(ip,O)),ax=axes();distr.vec=r2d(Math.atan2(dot(d,ax.V),dot(d,ax.H)));invalidateDistr();render();}return;}
+  if(photoFDrag){photoFLM[photoFDrag]={x:(sx-photoFView.ox)/photoFView.z,y:(sy-photoFView.oy)/photoFView.z};invalidatePhotoFWarp();render();return;}
   if(photoDrag){photoLM[photoDrag]={x:(sx-photoView.ox)/photoView.z,y:(sy-photoView.oy)/photoView.z};invalidatePhotoWarp();render();return;}
   if(pan){view.ox=pan.ox+(sx-pan.sx);view.oy=pan.oy+(sy-pan.sy);render();return;}
   if(dragF){LMF[dragF]=toIF(sx,sy);render();return;}
   if(drag){LM[drag]=toI(sx,sy);render();}});
-window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}if(photoDrag){photoDrag=null;renderPanel();}if(distrVecDrag){distrVecDrag=false;renderPanel();}if(dragF){dragF=null;renderPanel();}pan=null;waferDrag=null;skullDrag=null;});
+window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}if(photoDrag){photoDrag=null;renderPanel();}if(photoFDrag){photoFDrag=null;renderPanel();}if(distrVecDrag){distrVecDrag=false;renderPanel();}if(dragF){dragF=null;renderPanel();}pan=null;waferDrag=null;skullDrag=null;});
 cv.addEventListener('wheel',e=>{if(step==='photo')return;
   if(step==='wafer'){e.preventDefault();waferZoom=Math.max(0.4,Math.min(3,waferZoom*(e.deltaY<0?1.1:0.9)));if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);return;}
   if(step==='plan'&&planMode==='ortho'&&planView==='skull3d'&&vol&&skullMesh){e.preventDefault();skullZoom=Math.max(0.4,Math.min(3,skullZoom*(e.deltaY<0?1.1:0.9)));renderSkull();return;}
@@ -1339,15 +1475,16 @@ function popAt(x,y){const d=document.createElement('div');const r=cv.getBounding
 $('dcmInput').addEventListener('change',e=>{if(e.target.files.length)loadDicom(e.target.files);e.target.value='';});
 $('imgInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{const im=new Image();im.onload=()=>{img=im;scale=0;autoView();setStep('points');toast('Плёнка ТРГ загружена.');};im.src=rd.result;};rd.readAsDataURL(f);e.target.value='';});
 $('photoInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{const im=new Image();im.onload=()=>{photo=im;renderPanel();render();toast('Фото загружено.');};im.src=rd.result;};rd.readAsDataURL(f);e.target.value='';});
+$('photoFInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{const im=new Image();im.onload=()=>{photoF=im;invalidatePhotoFWarp();renderPanel();render();toast('Фото фас загружено.');};im.src=rd.result;};rd.readAsDataURL(f);e.target.value='';});
 $('emptyLoad').onclick=()=>$('dcmInput').click();
 $('stlUInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;f.arrayBuffer().then(b=>loadScan(b,'U'));e.target.value='';});
 $('stlLInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;f.arrayBuffer().then(b=>loadScan(b,'L'));e.target.value='';});
 $('steps').addEventListener('click',e=>{const s=e.target.closest('.step');if(s)setStep(s.dataset.s);});
 $('saveBtn').onclick=save; $('openBtn').onclick=()=>$('openInput').click();
-$('openInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const o=JSON.parse(rd.result);patient=o.patient||patient;scale=o.scale||0;LM=o.LM||{};LMF=o.LMF||{};plan=Object.assign(plan,o.plan||{});if(o.distr)distr=Object.assign(distr,o.distr);photoLM=o.photoLM||{};
-  const done=()=>{setStep('points');};if(o.img){const im=new Image();im.onload=()=>{img=im;autoView();done();};im.src=o.img;}else done();if(o.photo){const pm=new Image();pm.onload=()=>{photo=pm;};pm.src=o.photo;}toast('Проект открыт.');}catch(err){alert('Не удалось открыть файл');}};rd.readAsText(f);e.target.value='';});
+$('openInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const o=JSON.parse(rd.result);patient=o.patient||patient;scale=o.scale||0;LM=o.LM||{};LMF=o.LMF||{};plan=Object.assign(plan,o.plan||{});if(o.distr)distr=Object.assign(distr,o.distr);if(o.planF)planF=Object.assign(planF,o.planF);photoLM=o.photoLM||{};photoFLM=o.photoFLM||{};invalidatePhotoFWarp();
+  const done=()=>{setStep('points');};if(o.img){const im=new Image();im.onload=()=>{img=im;autoView();done();};im.src=o.img;}else done();if(o.photo){const pm=new Image();pm.onload=()=>{photo=pm;};pm.src=o.photo;}if(o.photoF){const pf=new Image();pf.onload=()=>{photoF=pf;};pf.src=o.photoF;}toast('Проект открыт.');}catch(err){alert('Не удалось открыть файл');}};rd.readAsText(f);e.target.value='';});
 
-function save(){const o={v:1,patient,scale,LM,LMF,plan,distr,photoLM,img:img?img.src:null,photo:photo?photo.src:null};
+function save(){const o={v:1,patient,scale,LM,LMF,plan,distr,planF,photoLM,photoFLM,img:img?img.src:null,photo:photo?photo.src:null,photoF:photoF?photoF.src:null};
   const a=document.createElement('a');a.download=(patient.name||'план')+'.orthos';a.href=URL.createObjectURL(new Blob([JSON.stringify(o)],{type:'application/json'}));a.click();}
 function exportPng(){const a=document.createElement('a');a.download='ОРТОС_план_'+(patient.name||'пациент')+'.png';a.href=cv.toDataURL('image/png');a.click();}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),2400);}
@@ -1381,4 +1518,6 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh
   setTrgView:v=>{trgView=v;}, frontalInfo:()=>imgF?{ok:true,w:imgF.naturalWidth||imgF.width,h:imgF.naturalHeight||imgF.height}:{ok:false},
   setAnalysisView:v=>{analysisView=v;}, setFrontLM:(k,x,y)=>{LMF[k]={x,y};}, frontalAnalysis:()=>analyseFrontal(LMF),
   setVto:o=>{Object.assign(vto,o);}, vtoSolve:()=>vtoSolve(), vtoApply:()=>{const r=vtoSolve();if(r){plan[r.param]=r.x;invalidateWarp();}return r;},
+  setPhotoMode:v=>{photoMode=v;}, setPhotoFLM:(k,x,y)=>{photoFLM[k]={x,y};invalidatePhotoFWarp();}, setPlanF:o=>{Object.assign(planF,o);invalidatePhotoFWarp();}, frontalPhotoAfter:()=>frontalPhotoAfter(),
+  injectPhotoF:(w,h)=>{const c=document.createElement('canvas');c.width=w||400;c.height=h||500;const g=c.getContext('2d');g.fillStyle='#bbb';g.fillRect(0,0,c.width,c.height);g.fillStyle='#777';g.fillRect(c.width*0.2,c.height*0.1,c.width*0.6,c.height*0.8);const im=new Image();im.onload=()=>{photoF=im;invalidatePhotoFWarp();};im.src=c.toDataURL();return true;},
   step:s=>setStep(s), state:()=>({step,scale,n:Object.keys(LM).length,hasImg:!!img,hasImgF:!!imgF,hasVol:!!vol,stepAP:waferStepAP(),vert:waferVert(),wtype:wafer.type,age:ageYears(),ready:patientReady()}) };
