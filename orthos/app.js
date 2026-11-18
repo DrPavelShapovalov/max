@@ -20,6 +20,8 @@ let cephAnalysis='orthos'; // выбранный именованный анал
 // Суперимпозиция (наложение трассировок T1/T2) — оценка роста/результата лечения
 let snaps=[]; // снимки-трассировки: {label,LM,scale}
 let superRef='cranial', superA=0, superB=1; // референс регистрации и индексы базового/накладываемого
+// Анализ дыхательных путей (McNamara) — ставится на боковой ТРГ
+let airway={}, airwayPick=null, airwayDrag=null;
 let LM={}, pickId=null, view={ox:0,oy:0,zoom:1};
 let plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};
 let overlay=0.85, building=false;
@@ -307,6 +309,35 @@ function analyseFrontal(G){
   if(has('GoR','GoL','Me')){const br=len(sub(G.Me,G.GoR))/s,bl=len(sub(G.Me,G.GoL))/s;
     a_('Асимм. длины тела, мм',Math.abs(br-bl),0,3,'Δ 0…3','П '+br.toFixed(1)+' · Л '+bl.toFixed(1));}
   return rows;
+}
+// ── Анализ дыхательных путей (McNamara) на боковой ТРГ ──
+// Верхние дых. пути — ширина между задним контуром мягкого нёба и задней стенкой
+// глотки; нижние — между корнем языка и задней стенкой глотки на нижнем уровне.
+const AIRWAY_LM=[
+  {id:'SPP',abbr:'МНз',ru:'Мягкое нёбо (задний контур)',hint:'задняя граница мягкого нёба — верхний уровень дых. путей'},
+  {id:'UPW',abbr:'ЗСГв',ru:'Задняя стенка глотки (верх)',hint:'задняя стенка глотки на уровне мягкого нёба'},
+  {id:'TB',abbr:'Язз',ru:'Корень языка (задний контур)',hint:'задний контур языка у основания'},
+  {id:'LPW',abbr:'ЗСГн',ru:'Задняя стенка глотки (низ)',hint:'задняя стенка глотки на нижнем уровне (у нижнечел. плоскости)'},
+];
+function analyseAirway(){
+  const s=scale||1,rows=[];
+  const w=(a,b)=>airway[a]&&airway[b]?len(sub(airway[a],airway[b]))/s:null;
+  const a_=(key,val,lo,hi,norm)=>{let st='—';if(val!=null)st=val<lo?'сужен':(val>hi?'широкий':'норма');rows.push({key,val,lo,hi,norm,st,extra:(val!=null&&val<lo)?'⚠ сужение':''});};
+  a_('Верхние дых. пути, мм',w('SPP','UPW'),10,30,'~17 (McNamara)');
+  a_('Нижние дых. пути, мм',w('TB','LPW'),8,20,'~11 (McNamara)');
+  return rows;
+}
+function advanceAirway(){const i=AIRWAY_LM.findIndex(l=>l.id===airwayPick);const nx=AIRWAY_LM.slice(i+1).find(l=>!airway[l.id]);airwayPick=(nx||AIRWAY_LM[(i+1)%AIRWAY_LM.length]).id;renderPanel();render();}
+function renderAirway(){
+  const dpr=Math.min(devicePixelRatio||1,2);fit();ctx.clearRect(0,0,cv.width,cv.height);$('empty').style.display='none';
+  if(img)ctx.drawImage(img,view.ox,view.oy,img.width*view.zoom,img.height*view.zoom);
+  const pair=(a,b,col,lab)=>{if(airway[a]&&airway[b]){const A=toS(airway[a]),B=toS(airway[b]);ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.stroke();
+    if(scale){const mm=(len(sub(airway[a],airway[b]))/scale).toFixed(1),mx=(A.x+B.x)/2,my=(A.y+B.y)/2;ctx.fillStyle=col;ctx.font='700 '+(12*dpr/(devicePixelRatio||1))+'px Inter,sans-serif';ctx.save();ctx.strokeStyle='#1a1f33';ctx.lineWidth=3;ctx.strokeText(mm+' мм',mx+6,my);ctx.fillText(mm+' мм',mx+6,my);ctx.restore();}}};
+  pair('SPP','UPW','#18c3b6'); pair('TB','LPW','#ffb020');
+  AIRWAY_LM.forEach(l=>{if(!airway[l.id])return;const S=toS(airway[l.id]),cur=l.id===airwayPick;
+    ctx.beginPath();ctx.arc(S.x,S.y,cur?6:4,0,7);ctx.fillStyle=cur?'#ffb020':'#18c3b6';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='700 11px Inter,sans-serif';ctx.save();ctx.strokeStyle='#1a1f33';ctx.lineWidth=3;ctx.strokeText(l.abbr,S.x+7,S.y-6);ctx.fillText(l.abbr,S.x+7,S.y-6);ctx.restore();});
+  updateBadge();
 }
 // ── VTO «от цели»: по целевому показателю численно подбирается перемещение челюсти ──
 const VTO_MAP={ANB:{row:'ANB, °',norm:'ANB',unit:'°'},SNB:{row:'SNB, °',norm:'SNB',unit:'°'},SNA:{row:'SNA, °',norm:'SNA',unit:'°'},Wits:{row:'Wits, мм',norm:'Wits',unit:'мм'}};
@@ -1227,6 +1258,7 @@ function render(){
   if(step==='trg'&&trgView==='frontal'&&imgF){ renderFrontal(); return; }
   if(step==='analysis'&&analysisView==='frontal'&&imgF){ renderFrontalAnalysis(); return; }
   if(step==='analysis'&&analysisView==='superimp'){ renderSuperimp(); return; }
+  if(step==='analysis'&&analysisView==='airway'&&img){ renderAirway(); return; }
   if(step==='photo'&&photoMode==='frontal'){ renderFrontalPhoto(); return; }
   fit();ctx.clearRect(0,0,cv.width,cv.height);
   const showPhoto=(step==='photo'&&photoMode==='profile'&&photo);
@@ -1390,8 +1422,22 @@ function renderPanel(){
   }
   else if(step==='analysis'){
     if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ и расставьте точки.'); return; }
-    const anTog=`<div class="seg-toggle" style="margin-bottom:10px"><button class="seg-btn${analysisView==='lat'?' on':''}" data-av="lat">Боковая</button>${imgF?`<button class="seg-btn${analysisView==='frontal'?' on':''}" data-av="frontal">Прямая</button>`:''}<button class="seg-btn${analysisView==='superimp'?' on':''}" data-av="superimp">Наложение</button></div>`;
+    const anTog=`<div class="seg-toggle" style="margin-bottom:10px;flex-wrap:wrap"><button class="seg-btn${analysisView==='lat'?' on':''}" data-av="lat">Боковая</button>${imgF?`<button class="seg-btn${analysisView==='frontal'?' on':''}" data-av="frontal">Прямая</button>`:''}<button class="seg-btn${analysisView==='superimp'?' on':''}" data-av="superimp">Наложение</button><button class="seg-btn${analysisView==='airway'?' on':''}" data-av="airway">Дых. пути</button></div>`;
     if(analysisView==='superimp'){ renderSuperimpPanel(p,anTog); }
+    else if(analysisView==='airway'){
+      if(!airwayPick)airwayPick=AIRWAY_LM.find(l=>!airway[l.id])?.id||AIRWAY_LM[0].id;
+      const cur=AIRWAY_LM.find(l=>l.id===airwayPick),nPl=AIRWAY_LM.filter(l=>airway[l.id]).length;
+      const rows=AIRWAY_LM.map(l=>`<div class="lm${l.id===airwayPick?' cur':''}${airway[l.id]?' ok':''}" data-awk="${l.id}"><span class="ck">${airway[l.id]?'✓':'○'}</span><span class="t">${l.abbr} <small>· ${l.ru}</small></span></div>`).join('');
+      p.innerHTML=`<div class="card view"><h3>📐 Дыхательные пути</h3>${anTog}
+        <div class="mode-chip ok" style="margin-bottom:8px">Ставьте точки <b>на ТРГ</b> (клик — поставить, перетащить — поправить). ${cur?'Текущая: <b>'+cur.abbr+'</b> — '+cur.hint:''}</div>
+        <div class="lm-list">${rows}</div></div>
+        <div class="card view"><div class="sect-label">Ширина дых. путей (McNamara)</div>
+          <div id="awBox">${analyseAirway().map(anRow).join('')}</div>
+          <div class="note">Верхние — мягкое нёбо ↔ задняя стенка глотки; нижние — корень языка ↔ задняя стенка глотки. Нормы McNamara ориентировочные (верх ~17 мм, низ ~11 мм); <b>сужение — риск обструкции/СОАС</b>, оценивать клинически и по КТ-объёму. На DRR воздушный столб виден слабо — удобнее на обычной плёнке ТРГ.</div>
+          <div class="btn-row"><button class="btn sm ghost" id="clrAw" style="width:100%">Очистить точки</button></div></div>`;
+      p.querySelectorAll('[data-awk]').forEach(rw=>rw.onclick=()=>{airwayPick=rw.dataset.awk;renderPanel();render();});
+      $('clrAw').onclick=()=>{airway={};airwayPick=AIRWAY_LM[0].id;renderPanel();render();};
+    }
     else if(analysisView==='frontal'&&imgF){
       if(!pickF)pickF=FRONT_IDS.find(k=>!LMF[k])||FRONT_IDS[0];
       const fr=analyseFrontal(LMF);
@@ -1679,6 +1725,10 @@ cv.addEventListener('mousedown',e=>{const r=cv.getBoundingClientRect(),dpr=Math.
     let best=null,bd=14*dpr;FRONT_LM.forEach(l=>{if(LMF[l.id]){const S=toSF(LMF[l.id]);const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd){bd=d;best=l.id;}}});
     if(best){dragF=best;pickF=best;renderPanel();render();return;}
     if(pickF){LMF[pickF]={x:ip.x,y:ip.y};popAt(sx,sy);advanceF();}return;}
+  if(step==='analysis'&&analysisView==='airway'&&img){const ip=toI(sx,sy);
+    let best=null,bd=14*dpr;AIRWAY_LM.forEach(l=>{if(airway[l.id]){const S=toS(airway[l.id]);const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd){bd=d;best=l.id;}}});
+    if(best){airwayDrag=best;airwayPick=best;renderPanel();render();return;}
+    if(airwayPick){airway[airwayPick]={x:ip.x,y:ip.y};popAt(sx,sy);advanceAirway();}return;}
   if(e.button===1||e.shiftKey){pan={sx,sy,ox:view.ox,oy:view.oy};return;}
   if(step!=='points'||!img)return;const ip=toI(sx,sy);
   let best=null,bd=14*dpr;LM_DEF.forEach(l=>{if(LM[l.id]){const S=toS(LM[l.id]);const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd){bd=d;best=l.id;}}});
@@ -1692,8 +1742,9 @@ window.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect(),dpr=M
   if(photoDrag){photoLM[photoDrag]={x:(sx-photoView.ox)/photoView.z,y:(sy-photoView.oy)/photoView.z};invalidatePhotoWarp();render();return;}
   if(pan){view.ox=pan.ox+(sx-pan.sx);view.oy=pan.oy+(sy-pan.sy);render();return;}
   if(dragF){LMF[dragF]=toIF(sx,sy);render();return;}
+  if(airwayDrag){airway[airwayDrag]=toI(sx,sy);render();return;}
   if(drag){LM[drag]=toI(sx,sy);render();}});
-window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}if(photoDrag){photoDrag=null;renderPanel();}if(photoFDrag){photoFDrag=null;renderPanel();}if(distrVecDrag){distrVecDrag=false;renderPanel();}if(dragF){dragF=null;renderPanel();}pan=null;waferDrag=null;skullDrag=null;});
+window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}if(photoDrag){photoDrag=null;renderPanel();}if(photoFDrag){photoFDrag=null;renderPanel();}if(distrVecDrag){distrVecDrag=false;renderPanel();}if(dragF){dragF=null;renderPanel();}if(airwayDrag){airwayDrag=null;renderPanel();}pan=null;waferDrag=null;skullDrag=null;});
 cv.addEventListener('wheel',e=>{if(step==='photo')return;
   if(step==='wafer'){e.preventDefault();waferZoom=Math.max(0.4,Math.min(3,waferZoom*(e.deltaY<0?1.1:0.9)));if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);return;}
   if(step==='plan'&&planMode==='ortho'&&planView==='skull3d'&&vol&&skullMesh){e.preventDefault();skullZoom=Math.max(0.4,Math.min(3,skullZoom*(e.deltaY<0?1.1:0.9)));renderSkull();return;}
@@ -1718,10 +1769,10 @@ $('stlUInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)ret
 $('stlLInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;f.arrayBuffer().then(b=>loadScan(b,'L'));e.target.value='';});
 $('steps').addEventListener('click',e=>{const s=e.target.closest('.step');if(s)setStep(s.dataset.s);});
 $('saveBtn').onclick=save; $('openBtn').onclick=()=>$('openInput').click();
-$('openInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const o=JSON.parse(rd.result);patient=o.patient||patient;scale=o.scale||0;LM=o.LM||{};LMF=o.LMF||{};plan=Object.assign(plan,o.plan||{});if(o.distr)distr=Object.assign(distr,o.distr);if(o.planF)planF=Object.assign(planF,o.planF);photoLM=o.photoLM||{};photoFLM=o.photoFLM||{};snaps=o.snaps||[];invalidatePhotoFWarp();
+$('openInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const o=JSON.parse(rd.result);patient=o.patient||patient;scale=o.scale||0;LM=o.LM||{};LMF=o.LMF||{};plan=Object.assign(plan,o.plan||{});if(o.distr)distr=Object.assign(distr,o.distr);if(o.planF)planF=Object.assign(planF,o.planF);photoLM=o.photoLM||{};photoFLM=o.photoFLM||{};snaps=o.snaps||[];airway=o.airway||{};invalidatePhotoFWarp();
   const done=()=>{setStep('points');};if(o.img){const im=new Image();im.onload=()=>{img=im;autoView();done();};im.src=o.img;}else done();if(o.photo){const pm=new Image();pm.onload=()=>{photo=pm;};pm.src=o.photo;}if(o.photoF){const pf=new Image();pf.onload=()=>{photoF=pf;};pf.src=o.photoF;}toast('Проект открыт.');}catch(err){alert('Не удалось открыть файл');}};rd.readAsText(f);e.target.value='';});
 
-function save(){const o={v:1,patient,scale,LM,LMF,plan,distr,planF,photoLM,photoFLM,snaps,img:img?img.src:null,photo:photo?photo.src:null,photoF:photoF?photoF.src:null};
+function save(){const o={v:1,patient,scale,LM,LMF,plan,distr,planF,photoLM,photoFLM,snaps,airway,img:img?img.src:null,photo:photo?photo.src:null,photoF:photoF?photoF.src:null};
   const a=document.createElement('a');a.download=(patient.name||'план')+'.orthos';a.href=URL.createObjectURL(new Blob([JSON.stringify(o)],{type:'application/json'}));a.click();}
 function exportPng(){const a=document.createElement('a');a.download='ОРТОС_план_'+(patient.name||'пациент')+'.png';a.href=cv.toDataURL('image/png');a.click();}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),2400);}
@@ -1758,6 +1809,7 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh
   snap:(label,usePlan)=>{addSnap(label,usePlan?planned():LM);return snaps.length;}, snapList:()=>snaps.map(s=>s.label),
   setSuper:(a,b,ref)=>{if(a!=null)superA=a;if(b!=null)superB=b;if(ref)superRef=ref;}, superDelta:()=>{const A=snaps[superA],B=snaps[superB];return A&&B?superimpDelta(A,B,superimpRef(superRef)):[];},
   growthForecast:age=>growthForecast(age), growthAnalyse:age=>{const gf=growthForecast(age);return gf?{a0:gf.a0,a1:gf.a1,now:analyse(LM),fut:analyse(gf.P,gf.a1)}:null;},
+  setAirway:(k,x,y)=>{airway[k]={x,y};}, airwayAnalyse:()=>analyseAirway(),
   snapOf:(label,G)=>{addSnap(label,G);return snaps.length;}, snapForecast:(label,age)=>{const gf=growthForecast(age);if(gf)addSnap(label,gf.P);return snaps.length;},
   setVto:o=>{Object.assign(vto,o);}, vtoSolve:()=>vtoSolve(), vtoApply:()=>{const r=vtoSolve();if(r){plan[r.param]=r.x;invalidateWarp();}return r;},
   setPhotoMode:v=>{photoMode=v;}, setPhotoFLM:(k,x,y)=>{photoFLM[k]={x,y};invalidatePhotoFWarp();}, setPlanF:o=>{Object.assign(planF,o);invalidatePhotoFWarp();}, frontalPhotoAfter:()=>frontalPhotoAfter(),
