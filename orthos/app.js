@@ -263,6 +263,26 @@ function renderSuperimp(){
   if(B){ctx.fillStyle='#18c3b6';ctx.fillText('— '+(B.label||'T2'),pad,pad*0.6+18*dpr/(devicePixelRatio||1));}
   updateBadge();
 }
+// ── Прогноз роста: проекция ориентиров вперёд по возрасту (ориентир среднего роста) ──
+// Скорость роста убывает к 18 (rate(a)=max(0,(18−a)/12)); кумулятивно — трапеция от a0 к a1.
+// Направления в системе FH: нижняя челюсть растёт вперёд-вниз (догоняет в/ч → SNB↑, ANB↓),
+// ветвь вниз-назад, в/ч вперёд, назион чуть вперёд-вверх. Мягкие ткани следуют (ST_RATIO).
+// Средние величины — ориентировочные, НЕ индивидуальный прогноз; проверять клинически.
+function growthForecast(toAge){
+  const a0=ageYears(); if(a0==null)return null;
+  const a1=Math.max(a0,Math.min(18,+toAge));
+  const R=a=>Math.max(0,(18-a)/12), G=0.5*(R(a0)+R(a1))*(a1-a0);
+  const {H,V}=axes(), s=scale||1, P={}; for(const k in LM)P[k]={x:LM[k].x,y:LM[k].y};
+  const move=(keys,h,v,rate)=>{const dn=norm(add(mul(H,h),mul(V,v)));keys.forEach(k=>{if(P[k])P[k]=add(P[k],mul(dn,rate*G*s));});};
+  move(['B','L1a','L1t','Pog','Gn','Me'],0.62,0.85,2.4); // дистальный комплекс н/ч — вперёд-вниз
+  move(['Go'],-0.3,1,2.2);                                // гонион/ветвь — вниз-назад (задняя высота растёт быстрее → форвард-ротация)
+  move(['Ar'],-0.28,1,1.7);
+  move(['A','ANS','PNS','U1a','U1t'],1,0.35,0.9);      // в/ч — вперёд, немного вниз
+  move(['N'],0.6,-0.4,0.5);                            // назион/лоб — вперёд-вверх
+  ST_RATIO.forEach(([sk,src,rh,rv])=>{if(!LM[sk]||!LM[src]||!P[src])return;const d=sub(P[src],LM[src]);
+    P[sk]=add(LM[sk],add(mul(H,dot(d,H)*rh),mul(V,dot(d,V)*rv)));});
+  return {P,a0,a1,G};
+}
 // ── Фронтальный (прямой, PA) анализ асимметрии ──
 // Точки прямой ТРГ: средняя линия (Cg, ANS, Me) + парные П/Л для оценки асимметрии.
 const FRONT_LM=[
@@ -1561,7 +1581,13 @@ function renderPanel(){
 }
 function lmRow(id){const l=LBL[id];return `<div class="lm${id===pickId?' cur':''}${LM[id]?' ok':''}" data-k="${id}"><span class="ck">${LM[id]?'✓':'○'}</span><span class="t">${l.abbr} <small>· ${l.ru}</small></span></div>`;}
 function renderSuperimpPanel(p,anTog){
-  const n=snaps.length, canMake=!!img && Object.keys(LM).length>=3;
+  const n=snaps.length, canMake=!!img && Object.keys(LM).length>=3, a0=ageYears();
+  const grDef=a0!=null?Math.min(18,a0+3):12;
+  const growthCard=(a0!=null&&canMake)?`<div class="card view" style="padding:10px 12px;margin:8px 0">
+      <div class="sect-label" style="margin-top:0">🌱 Прогноз роста (${a0} → цель)</div>
+      <div class="slider-row"><label>До возраста</label><input type="range" id="grAge" min="${a0}" max="18" step="1" value="${grDef}"><span class="val" id="grAgeV">${grDef} лет</span></div>
+      <button class="btn sm" id="grAdd" style="width:100%">+ Снимок-прогноз роста</button>
+      <div class="note">Средний рост: н/ч вперёд-вниз (догоняет в/ч → SNB↑, ANB↓). Ориентир, не индивидуальный прогноз. Добавьте снимок «сейчас» и прогноз — и сравните на наложении.</div></div>`:'';
   const selStyle='flex:1;min-width:0;padding:6px 9px;border-radius:9px;border:1px solid var(--line,#d8def0);background:var(--card,#fff);color:inherit;font:inherit;cursor:pointer';
   const refTog=`<div class="seg-toggle" style="margin:6px 0 10px"><button class="seg-btn${superRef==='cranial'?' on':''}" data-sr="cranial">Осн. черепа</button><button class="seg-btn${superRef==='palatal'?' on':''}" data-sr="palatal">В/ч (нёбная)</button><button class="seg-btn${superRef==='mandible'?' on':''}" data-sr="mandible">Н/ч (Go–Me)</button></div>`;
   const snapList=snaps.map((s,i)=>`<div class="an-row"><span class="k">${i+1}. ${s.label}</span><span class="v">${Object.keys(s.LM).length} тчк</span><span class="s"><button data-del="${i}" title="удалить" style="border:none;background:none;color:var(--warn);cursor:pointer;font-size:15px;line-height:1">✕</button></span></div>`).join('');
@@ -1583,9 +1609,11 @@ function renderSuperimpPanel(p,anTog){
   }
   p.innerHTML=`<div class="card view"><h3>📐 Суперимпозиция</h3>${anTog}
     <div class="btn-row"><button class="btn sm${canMake?'':' ghost'}" id="snapNow" style="width:49%"${canMake?'':' disabled'}>+ Снимок сейчас</button><button class="btn sm ghost" id="snapPlan" style="width:49%"${canMake?'':' disabled'}>+ После плана</button></div>
-    ${body}</div>`;
+    ${growthCard}${body}</div>`;
   if($('snapNow'))$('snapNow').onclick=()=>{addSnap('Снимок '+(snaps.length+1),LM);renderPanel();render();};
   if($('snapPlan'))$('snapPlan').onclick=()=>{addSnap('После плана',planned());renderPanel();render();};
+  if($('grAge'))$('grAge').oninput=e=>{$('grAgeV').textContent=e.target.value+' лет';};
+  if($('grAdd'))$('grAdd').onclick=()=>{const gf=growthForecast(+($('grAge').value));if(gf)addSnap('Прогноз '+gf.a1+' лет',gf.P);renderPanel();render();};
   if($('supA'))$('supA').onchange=e=>{superA=+e.target.value;renderPanel();render();};
   if($('supB'))$('supB').onchange=e=>{superB=+e.target.value;renderPanel();render();};
   if($('supPng'))$('supPng').onclick=()=>{const a=document.createElement('a');a.download='ОРТОС_наложение.png';a.href=cv.toDataURL('image/png');a.click();};
@@ -1729,6 +1757,8 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh
   setCephAnalysis:v=>{cephAnalysis=v;}, analyseNamed:w=>analyseNamed(LM,w,ageYears()), cephList:()=>CEPH_ANALYSES.map(a=>a.id),
   snap:(label,usePlan)=>{addSnap(label,usePlan?planned():LM);return snaps.length;}, snapList:()=>snaps.map(s=>s.label),
   setSuper:(a,b,ref)=>{if(a!=null)superA=a;if(b!=null)superB=b;if(ref)superRef=ref;}, superDelta:()=>{const A=snaps[superA],B=snaps[superB];return A&&B?superimpDelta(A,B,superimpRef(superRef)):[];},
+  growthForecast:age=>growthForecast(age), growthAnalyse:age=>{const gf=growthForecast(age);return gf?{a0:gf.a0,a1:gf.a1,now:analyse(LM),fut:analyse(gf.P,gf.a1)}:null;},
+  snapOf:(label,G)=>{addSnap(label,G);return snaps.length;}, snapForecast:(label,age)=>{const gf=growthForecast(age);if(gf)addSnap(label,gf.P);return snaps.length;},
   setVto:o=>{Object.assign(vto,o);}, vtoSolve:()=>vtoSolve(), vtoApply:()=>{const r=vtoSolve();if(r){plan[r.param]=r.x;invalidateWarp();}return r;},
   setPhotoMode:v=>{photoMode=v;}, setPhotoFLM:(k,x,y)=>{photoFLM[k]={x,y};invalidatePhotoFWarp();}, setPlanF:o=>{Object.assign(planF,o);invalidatePhotoFWarp();}, frontalPhotoAfter:()=>frontalPhotoAfter(),
   injectPhotoF:(w,h)=>{const c=document.createElement('canvas');c.width=w||400;c.height=h||500;const g=c.getContext('2d');g.fillStyle='#bbb';g.fillRect(0,0,c.width,c.height);g.fillStyle='#777';g.fillRect(c.width*0.2,c.height*0.1,c.width*0.6,c.height*0.8);const im=new Image();im.onload=()=>{photoF=im;invalidatePhotoFWarp();};im.src=c.toDataURL();return true;},
