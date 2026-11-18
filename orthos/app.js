@@ -22,6 +22,8 @@ let snaps=[]; // снимки-трассировки: {label,LM,scale}
 let superRef='cranial', superA=0, superB=1; // референс регистрации и индексы базового/накладываемого
 // Анализ дыхательных путей (McNamara) — ставится на боковой ТРГ
 let airway={}, airwayPick=null, airwayDrag=null;
+// Линейка / транспортир — произвольные измерения на боковой ТРГ
+let ruler=[], rulerDrag=null;
 let LM={}, pickId=null, view={ox:0,oy:0,zoom:1};
 let plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};
 let overlay=0.85, building=false;
@@ -143,6 +145,9 @@ const CEPH_METRIC={
   L1APogd:{lm:['L1a','L1t','A','Pog'],u:'°',f:G=>lineAng(G.L1a,G.L1t,G.A,G.Pog)},
   L1APogmm:{lm:['L1t','A','Pog'],u:'мм',f:G=>ptLineMM(G.L1t,G.A,G.Pog)},
   lowerLipE:{lm:['Li','Prn','Pog2'],u:'мм',f:G=>ptLineMM(G.Li,G.Prn,G.Pog2)},
+  upperLipE:{lm:['Ls','Prn','Pog2'],u:'мм',f:G=>ptLineMM(G.Ls,G.Prn,G.Pog2)},
+  softConv:{lm:['G','Sn','Pog2'],u:'°',f:G=>angAt(G.Sn,G.G,G.Pog2)},
+  softConvN:{lm:['G','Prn','Pog2'],u:'°',f:G=>angAt(G.Prn,G.G,G.Pog2)},
   PogNB:{lm:['Pog','N','B'],u:'мм',f:G=>{const v=ptLineMM(G.Pog,G.N,G.B);return v==null?null:Math.abs(v);}},
   AtoNperp:{lm:['Po','Or','N','A'],u:'мм',f:G=>scale?dot(sub(G.A,G.N),norm(sub(G.Or,G.Po)))/scale:null},
   PogNperp:{lm:['Po','Or','N','Pog'],u:'мм',f:G=>scale?dot(sub(G.Pog,G.N),norm(sub(G.Or,G.Po)))/scale:null},
@@ -205,6 +210,13 @@ const CEPH_ANALYSES=[
   {id:'wits',name:'Wits',note:'оценка сагиттального соотношения (Wits).',rows:[
     {m:'Wits',label:'Wits',lo:-2,hi:2,norm:'0±2 · М −1 / Ж 0'},
     {m:'ANB',label:'ANB',lo:0,hi:4,norm:'2±2'},
+  ]},
+  {id:'soft',name:'Мягкие ткани (профиль)',note:'мягкотканный профиль (E-линия Ricketts, носогубный, выпуклость — в духе Arnett).',rows:[
+    {m:'nasolab',label:'Носогубный угол',lo:90,hi:110,norm:'100±10'},
+    {m:'softConv',label:'Выпуклость без носа (G–Sn–Pog′)',lo:160,hi:175,norm:'~168'},
+    {m:'softConvN',label:'Выпуклость с носом (G–Prn–Pog′)',lo:132,hi:146,norm:'~137'},
+    {m:'upperLipE',label:'Верхн. губа — E-линия',lo:-6,hi:-1,norm:'−4±2'},
+    {m:'lowerLipE',label:'Нижн. губа — E-линия',lo:-4,hi:0,norm:'−2±2'},
   ]},
 ];
 function analyseNamed(G,which,age){
@@ -337,6 +349,21 @@ function renderAirway(){
   AIRWAY_LM.forEach(l=>{if(!airway[l.id])return;const S=toS(airway[l.id]),cur=l.id===airwayPick;
     ctx.beginPath();ctx.arc(S.x,S.y,cur?6:4,0,7);ctx.fillStyle=cur?'#ffb020':'#18c3b6';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.stroke();
     ctx.fillStyle='#fff';ctx.font='700 11px Inter,sans-serif';ctx.save();ctx.strokeStyle='#1a1f33';ctx.lineWidth=3;ctx.strokeText(l.abbr,S.x+7,S.y-6);ctx.fillText(l.abbr,S.x+7,S.y-6);ctx.restore();});
+  updateBadge();
+}
+// ── Линейка / транспортир: произвольные измерения на боковой ТРГ ──
+function rulerSeg(i){return (ruler[i]&&ruler[i+1]&&scale)?len(sub(ruler[i+1],ruler[i]))/scale:null;}
+function renderRuler(){
+  const dpr=Math.min(devicePixelRatio||1,2);fit();ctx.clearRect(0,0,cv.width,cv.height);$('empty').style.display='none';
+  if(img)ctx.drawImage(img,view.ox,view.oy,img.width*view.zoom,img.height*view.zoom);
+  if(ruler.length>1){ctx.strokeStyle='#ff8a3d';ctx.lineWidth=2;ctx.beginPath();ruler.forEach((p,i)=>{const S=toS(p);i?ctx.lineTo(S.x,S.y):ctx.moveTo(S.x,S.y);});ctx.stroke();}
+  ctx.font='700 '+(12*dpr/(devicePixelRatio||1))+'px Inter,sans-serif';
+  for(let i=0;i+1<ruler.length;i++){const A=toS(ruler[i]),B=toS(ruler[i+1]),mm=rulerSeg(i),mx=(A.x+B.x)/2,my=(A.y+B.y)/2;
+    const lab=mm!=null?mm.toFixed(1)+' мм':len(sub(ruler[i+1],ruler[i])).toFixed(0)+' px';
+    ctx.save();ctx.strokeStyle='#1a1f33';ctx.lineWidth=3;ctx.strokeText(lab,mx+6,my-4);ctx.fillStyle='#ff8a3d';ctx.fillText(lab,mx+6,my-4);ctx.restore();}
+  for(let i=1;i+1<ruler.length;i++){const S=toS(ruler[i]),lab='∠ '+angAt(ruler[i],ruler[i-1],ruler[i+1]).toFixed(0)+'°';
+    ctx.save();ctx.strokeStyle='#1a1f33';ctx.lineWidth=3;ctx.strokeText(lab,S.x+6,S.y+15);ctx.fillStyle='#18c3b6';ctx.fillText(lab,S.x+6,S.y+15);ctx.restore();}
+  ruler.forEach(p=>{const S=toS(p);ctx.beginPath();ctx.arc(S.x,S.y,4,0,7);ctx.fillStyle='#ff8a3d';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.stroke();});
   updateBadge();
 }
 // ── VTO «от цели»: по целевому показателю численно подбирается перемещение челюсти ──
@@ -1259,6 +1286,7 @@ function render(){
   if(step==='analysis'&&analysisView==='frontal'&&imgF){ renderFrontalAnalysis(); return; }
   if(step==='analysis'&&analysisView==='superimp'){ renderSuperimp(); return; }
   if(step==='analysis'&&analysisView==='airway'&&img){ renderAirway(); return; }
+  if(step==='analysis'&&analysisView==='ruler'&&img){ renderRuler(); return; }
   if(step==='photo'&&photoMode==='frontal'){ renderFrontalPhoto(); return; }
   fit();ctx.clearRect(0,0,cv.width,cv.height);
   const showPhoto=(step==='photo'&&photoMode==='profile'&&photo);
@@ -1422,7 +1450,7 @@ function renderPanel(){
   }
   else if(step==='analysis'){
     if(!img){ p.innerHTML=emptyStepCard('Нет данных','Постройте ТРГ и расставьте точки.'); return; }
-    const anTog=`<div class="seg-toggle" style="margin-bottom:10px;flex-wrap:wrap"><button class="seg-btn${analysisView==='lat'?' on':''}" data-av="lat">Боковая</button>${imgF?`<button class="seg-btn${analysisView==='frontal'?' on':''}" data-av="frontal">Прямая</button>`:''}<button class="seg-btn${analysisView==='superimp'?' on':''}" data-av="superimp">Наложение</button><button class="seg-btn${analysisView==='airway'?' on':''}" data-av="airway">Дых. пути</button></div>`;
+    const anTog=`<div class="seg-toggle" style="margin-bottom:10px;flex-wrap:wrap"><button class="seg-btn${analysisView==='lat'?' on':''}" data-av="lat">Боковая</button>${imgF?`<button class="seg-btn${analysisView==='frontal'?' on':''}" data-av="frontal">Прямая</button>`:''}<button class="seg-btn${analysisView==='superimp'?' on':''}" data-av="superimp">Наложение</button><button class="seg-btn${analysisView==='airway'?' on':''}" data-av="airway">Дых. пути</button><button class="seg-btn${analysisView==='ruler'?' on':''}" data-av="ruler">📏 Линейка</button></div>`;
     if(analysisView==='superimp'){ renderSuperimpPanel(p,anTog); }
     else if(analysisView==='airway'){
       if(!airwayPick)airwayPick=AIRWAY_LM.find(l=>!airway[l.id])?.id||AIRWAY_LM[0].id;
@@ -1437,6 +1465,17 @@ function renderPanel(){
           <div class="btn-row"><button class="btn sm ghost" id="clrAw" style="width:100%">Очистить точки</button></div></div>`;
       p.querySelectorAll('[data-awk]').forEach(rw=>rw.onclick=()=>{airwayPick=rw.dataset.awk;renderPanel();render();});
       $('clrAw').onclick=()=>{airway={};airwayPick=AIRWAY_LM[0].id;renderPanel();render();};
+    }
+    else if(analysisView==='ruler'){
+      const segs=[];for(let i=0;i+1<ruler.length;i++){const mm=rulerSeg(i);segs.push(`<div class="an-row"><span class="k">Отрезок ${i+1}</span><span class="v">${mm!=null?mm.toFixed(1)+' мм':len(sub(ruler[i+1],ruler[i])).toFixed(0)+' px'}</span></div>`);}
+      const angs=[];for(let i=1;i+1<ruler.length;i++){angs.push(`<div class="an-row"><span class="k">Угол в точке ${i+1}</span><span class="v">${angAt(ruler[i],ruler[i-1],ruler[i+1]).toFixed(1)}°</span></div>`);}
+      p.innerHTML=`<div class="card view"><h3>📏 Линейка / транспортир</h3>${anTog}
+        <div class="mode-chip ok" style="margin-bottom:8px">Клик по ТРГ — добавить точку. 2 точки = расстояние, 3+ = углы в вершинах. Точки можно перетаскивать.${scale?'':' <b>Калибровки нет — показываю в пикселях.</b>'}</div>
+        ${ruler.length<2?'<div class="note">Поставьте минимум 2 точки на снимке.</div>':`<div class="sect-label">Расстояния</div>${segs.join('')}${angs.length?'<div class="sect-label">Углы</div>'+angs.join(''):''}`}
+        <div class="btn-row"><button class="btn sm ghost" id="rulUndo" style="width:49%">← Убрать точку</button><button class="btn sm ghost" id="rulClr" style="width:49%">Очистить</button></div>
+        <div class="note">Для измерений в мм нужна калибровка масштаба (из МСКТ берётся автоматически).</div></div>`;
+      $('rulUndo').onclick=()=>{ruler.pop();renderPanel();render();};
+      $('rulClr').onclick=()=>{ruler=[];renderPanel();render();};
     }
     else if(analysisView==='frontal'&&imgF){
       if(!pickF)pickF=FRONT_IDS.find(k=>!LMF[k])||FRONT_IDS[0];
@@ -1730,6 +1769,10 @@ cv.addEventListener('mousedown',e=>{const r=cv.getBoundingClientRect(),dpr=Math.
     let best=null,bd=14*dpr;AIRWAY_LM.forEach(l=>{if(airway[l.id]){const S=toS(airway[l.id]);const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd){bd=d;best=l.id;}}});
     if(best){airwayDrag=best;airwayPick=best;renderPanel();render();return;}
     if(airwayPick){airway[airwayPick]={x:ip.x,y:ip.y};popAt(sx,sy);advanceAirway();}return;}
+  if(step==='analysis'&&analysisView==='ruler'&&img){const ip=toI(sx,sy);
+    let best=-1,bd=14*dpr;ruler.forEach((pt,i)=>{const Sp=toS(pt);const d=Math.hypot(Sp.x-sx,Sp.y-sy);if(d<bd){bd=d;best=i;}});
+    if(best>=0){rulerDrag=best;return;}
+    ruler.push(ip);popAt(sx,sy);renderPanel();render();return;}
   if(e.button===1||e.shiftKey){pan={sx,sy,ox:view.ox,oy:view.oy};return;}
   if(step!=='points'||!img)return;const ip=toI(sx,sy);
   let best=null,bd=14*dpr;LM_DEF.forEach(l=>{if(LM[l.id]){const S=toS(LM[l.id]);const d=Math.hypot(S.x-sx,S.y-sy);if(d<bd){bd=d;best=l.id;}}});
@@ -1744,8 +1787,9 @@ window.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect(),dpr=M
   if(pan){view.ox=pan.ox+(sx-pan.sx);view.oy=pan.oy+(sy-pan.sy);render();return;}
   if(dragF){LMF[dragF]=toIF(sx,sy);render();return;}
   if(airwayDrag){airway[airwayDrag]=toI(sx,sy);render();return;}
+  if(rulerDrag!=null){ruler[rulerDrag]=toI(sx,sy);render();return;}
   if(drag){LM[drag]=toI(sx,sy);render();}});
-window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}if(photoDrag){photoDrag=null;renderPanel();}if(photoFDrag){photoFDrag=null;renderPanel();}if(distrVecDrag){distrVecDrag=false;renderPanel();}if(dragF){dragF=null;renderPanel();}if(airwayDrag){airwayDrag=null;renderPanel();}pan=null;waferDrag=null;skullDrag=null;});
+window.addEventListener('mouseup',()=>{if(drag){drag=null;renderPanel();}if(photoDrag){photoDrag=null;renderPanel();}if(photoFDrag){photoFDrag=null;renderPanel();}if(distrVecDrag){distrVecDrag=false;renderPanel();}if(dragF){dragF=null;renderPanel();}if(airwayDrag){airwayDrag=null;renderPanel();}if(rulerDrag!=null){rulerDrag=null;renderPanel();}pan=null;waferDrag=null;skullDrag=null;});
 cv.addEventListener('wheel',e=>{if(step==='photo')return;
   if(step==='wafer'){e.preventDefault();waferZoom=Math.max(0.4,Math.min(3,waferZoom*(e.deltaY<0?1.1:0.9)));if(waferMesh)drawWafer3D(waferMesh,waferYaw,waferPitch);return;}
   if(step==='plan'&&planMode==='ortho'&&planView==='skull3d'&&vol&&skullMesh){e.preventDefault();skullZoom=Math.max(0.4,Math.min(3,skullZoom*(e.deltaY<0?1.1:0.9)));renderSkull();return;}
@@ -1863,6 +1907,7 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh
   setSuper:(a,b,ref)=>{if(a!=null)superA=a;if(b!=null)superB=b;if(ref)superRef=ref;}, superDelta:()=>{const A=snaps[superA],B=snaps[superB];return A&&B?superimpDelta(A,B,superimpRef(superRef)):[];},
   growthForecast:age=>growthForecast(age), growthAnalyse:age=>{const gf=growthForecast(age);return gf?{a0:gf.a0,a1:gf.a1,now:analyse(LM),fut:analyse(gf.P,gf.a1)}:null;},
   setAirway:(k,x,y)=>{airway[k]={x,y};}, airwayAnalyse:()=>analyseAirway(), reportHTML:()=>buildReportHTML(),
+  addRuler:(x,y)=>{ruler.push({x,y});return ruler.length;}, rulerSegs:()=>{const o=[];for(let i=0;i+1<ruler.length;i++)o.push(rulerSeg(i));return o;}, rulerAng:i=>ruler[i-1]&&ruler[i]&&ruler[i+1]?angAt(ruler[i],ruler[i-1],ruler[i+1]):null,
   snapOf:(label,G)=>{addSnap(label,G);return snaps.length;}, snapForecast:(label,age)=>{const gf=growthForecast(age);if(gf)addSnap(label,gf.P);return snaps.length;},
   setVto:o=>{Object.assign(vto,o);}, vtoSolve:()=>vtoSolve(), vtoApply:()=>{const r=vtoSolve();if(r){plan[r.param]=r.x;invalidateWarp();}return r;},
   setPhotoMode:v=>{photoMode=v;}, setPhotoFLM:(k,x,y)=>{photoFLM[k]={x,y};invalidatePhotoFWarp();}, setPlanF:o=>{Object.assign(planF,o);invalidatePhotoFWarp();}, frontalPhotoAfter:()=>frontalPhotoAfter(),
