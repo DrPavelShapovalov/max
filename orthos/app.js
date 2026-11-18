@@ -16,6 +16,7 @@ let trgView='lat'; // боковая/прямая ТРГ на шаге «МСК�
 let LMF={}, pickF=null, analysisView='lat', frontalView={z:1,ox:0,oy:0}; // фронтальные точки/анализ
 const FRONT_IDS=['Cg','ANS','Me','ZR','ZL','CoR','CoL','GoR','GoL'];
 let vto={goal:'ANB',jaw:'md',target:null}; // VTO «от цели»: показатель, челюсть, целевое значение
+let cephAnalysis='orthos'; // выбранный именованный анализ на шаге «Анализ»
 let LM={}, pickId=null, view={ox:0,oy:0,zoom:1};
 let plan={mxAdv:0,mxImp:0,mxPitch:0,mdAdv:0,mdRot:0,chAdv:0,chVert:0,autorot:false};
 let overlay=0.85, building=false;
@@ -98,6 +99,120 @@ function analyse(G,age){
   a_('L1–NB, мм',has('L1t','N','B')?Math.abs(ptLineMM(G.L1t,G.N,G.B)):null,'L1NBmm');
   if(has('U1a','U1t','L1a','L1t')){const v1=sub(G.U1t,G.U1a),v2=sub(G.L1t,G.L1a);a_('Межрезцовый, °',180-r2d(Math.acos(Math.max(-1,Math.min(1,dot(v1,v2)/((len(v1)*len(v2))||1))))),'interinc');}
   a_('Носогубный, °',has('Prn','Sn','Ls')?angAt(G.Sn,G.Prn,G.Ls):null,'nasolab');
+  return rows;
+}
+// ── Библиотека именованных цефалометрических анализов (как в Dolphin) ──
+// Каждая метрика вычисляется из имеющихся ориентиров; нормы — классические
+// (взрослый референс), общеизвестные значения методов. «ОРТОС (сводный)» (функция
+// analyse выше) остаётся с детскими возрастными нормами. Углы при вершине — angAt
+// (0–180), углы между линиями — lineAng (острый 0–90). Ориентир, проверять клинически.
+function mm2(a,b){return scale?len(sub(a,b))/scale:null;}
+const CEPH_METRIC={
+  SNA:{lm:['S','N','A'],u:'°',f:G=>angAt(G.N,G.S,G.A)},
+  SNB:{lm:['S','N','B'],u:'°',f:G=>angAt(G.N,G.S,G.B)},
+  ANB:{lm:['S','N','A','B'],u:'°',f:G=>angAt(G.N,G.S,G.A)-angAt(G.N,G.S,G.B)},
+  Wits:{lm:['A','B','U1t','L1t'],u:'мм',f:G=>{const ao=ptLineMM(G.A,G.U1t,G.L1t),bo=ptLineMM(G.B,G.U1t,G.L1t);return ao==null?null:ao-bo;}},
+  SNMP:{lm:['S','N','Go','Me'],u:'°',f:G=>lineAng(G.S,G.N,G.Go,G.Me)},
+  SNGoGn:{lm:['S','N','Go','Gn'],u:'°',f:G=>lineAng(G.S,G.N,G.Go,G.Gn)},
+  FMA:{lm:['Po','Or','Go','Me'],u:'°',f:G=>lineAng(G.Po,G.Or,G.Go,G.Me)},
+  IMPA:{lm:['L1a','L1t','Go','Me'],u:'°',f:G=>lineAng(G.L1a,G.L1t,G.Go,G.Me)},
+  FMIA:{lm:['Po','Or','L1a','L1t'],u:'°',f:G=>lineAng(G.Po,G.Or,G.L1a,G.L1t)},
+  U1NAd:{lm:['U1a','U1t','N','A'],u:'°',f:G=>lineAng(G.U1a,G.U1t,G.N,G.A)},
+  U1NAmm:{lm:['U1t','N','A'],u:'мм',f:G=>{const v=ptLineMM(G.U1t,G.N,G.A);return v==null?null:Math.abs(v);}},
+  L1NBd:{lm:['L1a','L1t','N','B'],u:'°',f:G=>lineAng(G.L1a,G.L1t,G.N,G.B)},
+  L1NBmm:{lm:['L1t','N','B'],u:'мм',f:G=>{const v=ptLineMM(G.L1t,G.N,G.B);return v==null?null:Math.abs(v);}},
+  interinc:{lm:['U1a','U1t','L1a','L1t'],u:'°',f:G=>{const v1=sub(G.U1t,G.U1a),v2=sub(G.L1t,G.L1a);return 180-r2d(Math.acos(Math.max(-1,Math.min(1,dot(v1,v2)/((len(v1)*len(v2))||1)))));}},
+  nasolab:{lm:['Prn','Sn','Ls'],u:'°',f:G=>angAt(G.Sn,G.Prn,G.Ls)},
+  facialAngle:{lm:['Po','Or','N','Pog'],u:'°',f:G=>lineAng(G.Po,G.Or,G.N,G.Pog)},
+  convexD:{lm:['A','N','Pog'],u:'°',f:G=>{const a=180-angAt(G.A,G.N,G.Pog),s=ptLineMM(G.A,G.N,G.Pog);return s==null?a:(s<0?-a:a);}},
+  convexMM:{lm:['A','N','Pog'],u:'мм',f:G=>{const v=ptLineMM(G.A,G.N,G.Pog);return v==null?null:Math.abs(v);}},
+  ABplane:{lm:['A','B','N','Pog'],u:'°',f:G=>lineAng(G.A,G.B,G.N,G.Pog)},
+  yaxis:{lm:['S','Gn','Po','Or'],u:'°',f:G=>lineAng(G.S,G.Gn,G.Po,G.Or)},
+  occFH:{lm:['U1t','L1t','Po','Or'],u:'°',f:G=>lineAng(G.U1t,G.L1t,G.Po,G.Or)},
+  occSN:{lm:['U1t','L1t','S','N'],u:'°',f:G=>lineAng(G.U1t,G.L1t,G.S,G.N)},
+  saddle:{lm:['N','S','Ar'],u:'°',f:G=>angAt(G.S,G.N,G.Ar)},
+  articular:{lm:['S','Ar','Go'],u:'°',f:G=>angAt(G.Ar,G.S,G.Go)},
+  gonial:{lm:['Ar','Go','Me'],u:'°',f:G=>angAt(G.Go,G.Ar,G.Me)},
+  jbSum:{lm:['N','S','Ar','Go','Me'],u:'°',f:G=>angAt(G.S,G.N,G.Ar)+angAt(G.Ar,G.S,G.Go)+angAt(G.Go,G.Ar,G.Me)},
+  jbRatio:{lm:['S','Go','N','Me'],u:'%',f:G=>len(sub(G.Go,G.S))/(len(sub(G.Me,G.N))||1)*100},
+  L1APogd:{lm:['L1a','L1t','A','Pog'],u:'°',f:G=>lineAng(G.L1a,G.L1t,G.A,G.Pog)},
+  L1APogmm:{lm:['L1t','A','Pog'],u:'мм',f:G=>ptLineMM(G.L1t,G.A,G.Pog)},
+  lowerLipE:{lm:['Li','Prn','Pog2'],u:'мм',f:G=>ptLineMM(G.Li,G.Prn,G.Pog2)},
+  PogNB:{lm:['Pog','N','B'],u:'мм',f:G=>{const v=ptLineMM(G.Pog,G.N,G.B);return v==null?null:Math.abs(v);}},
+  AtoNperp:{lm:['Po','Or','N','A'],u:'мм',f:G=>scale?dot(sub(G.A,G.N),norm(sub(G.Or,G.Po)))/scale:null},
+  PogNperp:{lm:['Po','Or','N','Pog'],u:'мм',f:G=>scale?dot(sub(G.Pog,G.N),norm(sub(G.Or,G.Po)))/scale:null},
+  midfaceAr:{lm:['Ar','A'],u:'мм',f:G=>mm2(G.Ar,G.A)},
+  mandLenAr:{lm:['Ar','Gn'],u:'мм',f:G=>mm2(G.Ar,G.Gn)},
+};
+const CEPH_ANALYSES=[
+  {id:'steiner',name:'Steiner',note:'нормы Steiner (взрослый референс).',rows:[
+    {m:'SNA',label:'SNA',lo:80,hi:84,norm:'82±2'},
+    {m:'SNB',label:'SNB',lo:78,hi:82,norm:'80±2'},
+    {m:'ANB',label:'ANB',lo:0,hi:4,norm:'2±2'},
+    {m:'SNGoGn',label:'SN–GoGn',lo:28,hi:36,norm:'32±4'},
+    {m:'U1NAd',label:'U1–NA',lo:18,hi:26,norm:'22±4'},
+    {m:'U1NAmm',label:'U1–NA',lo:2,hi:6,norm:'4±2'},
+    {m:'L1NBd',label:'L1–NB',lo:21,hi:29,norm:'25±4'},
+    {m:'L1NBmm',label:'L1–NB',lo:2,hi:6,norm:'4±2'},
+    {m:'interinc',label:'Межрезцовый',lo:124,hi:138,norm:'131±7'},
+    {m:'PogNB',label:'Pog–NB',lo:0,hi:4,norm:'1…4'},
+    {m:'occSN',label:'Окклюз. пл.–SN',lo:10,hi:18,norm:'14±4'},
+  ]},
+  {id:'ricketts',name:'Ricketts',note:'нормы Ricketts (взрослый референс; глубина лица растёт с возрастом).',rows:[
+    {m:'facialAngle',label:'Глубина лица (FH–NPog)',lo:84,hi:90,norm:'87±3'},
+    {m:'FMA',label:'Нижнечел. пл. (FH–MP)',lo:22,hi:30,norm:'26±4'},
+    {m:'convexMM',label:'Выпуклость (A–NPog)',lo:0,hi:4,norm:'2±2'},
+    {m:'L1APogmm',label:'L1–APog',lo:-1,hi:3,norm:'1±2'},
+    {m:'L1APogd',label:'L1–APog',lo:18,hi:26,norm:'22±4'},
+    {m:'lowerLipE',label:'Нижн. губа–E',lo:-4,hi:0,norm:'−2±2'},
+    {m:'interinc',label:'Межрезцовый',lo:124,hi:138,norm:'130±7'},
+  ]},
+  {id:'mcnamara',name:'McNamara',note:'нормы McNamara (взрослый референс). Длины — Ar вместо Co (оценка).',rows:[
+    {m:'AtoNperp',label:'A–N-перпенд.',lo:-1,hi:3,norm:'1±2'},
+    {m:'PogNperp',label:'Pog–N-перпенд.',lo:-6,hi:2,norm:'−2±4'},
+    {m:'FMA',label:'FH–MP',lo:18,hi:26,norm:'22±4'},
+    {m:'nasolab',label:'Носогубный',lo:92,hi:112,norm:'102±8'},
+    {m:'midfaceAr',label:'Ср. треть (≈Co–A)',info:true,norm:'оценка'},
+    {m:'mandLenAr',label:'Длина н/ч (≈Co–Gn)',info:true,norm:'оценка'},
+  ]},
+  {id:'jarabak',name:'Jarabak',note:'нормы Jarabak (тип роста).',rows:[
+    {m:'saddle',label:'Седловидный (N–S–Ar)',lo:118,hi:128,norm:'123±5'},
+    {m:'articular',label:'Суставной (S–Ar–Go)',lo:137,hi:149,norm:'143±6'},
+    {m:'gonial',label:'Гониальный (Ar–Go–Me)',lo:123,hi:137,norm:'130±7'},
+    {m:'jbSum',label:'Сумма углов',lo:390,hi:402,norm:'396±6'},
+    {m:'jbRatio',label:'Задн./передн. (S-Go/N-Me)',lo:59,hi:63,norm:'62±3 · тип роста'},
+    {m:'SNMP',label:'SN–MP',lo:28,hi:36,norm:'32±5'},
+  ]},
+  {id:'downs',name:'Downs',note:'нормы Downs (взрослый референс).',rows:[
+    {m:'facialAngle',label:'Лицевой угол',lo:84,hi:92,norm:'87.8±3.6'},
+    {m:'convexD',label:'Угол выпуклости',lo:-8,hi:10,norm:'0 (−8…10)'},
+    {m:'ABplane',label:'A–B плоскость',lo:0,hi:9,norm:'0…9 (−)'},
+    {m:'FMA',label:'Нижнечел. плоскость',lo:17,hi:28,norm:'21.9'},
+    {m:'yaxis',label:'Ось Y (S-Gn/FH)',lo:53,hi:66,norm:'59.4±3.8'},
+    {m:'occFH',label:'Окклюз. пл.–FH',lo:1,hi:14,norm:'9.3 (1…14)'},
+    {m:'interinc',label:'Межрезцовый',lo:128,hi:142,norm:'135'},
+  ]},
+  {id:'tweed',name:'Tweed',note:'треугольник Tweed (FMA / IMPA / FMIA).',rows:[
+    {m:'FMA',label:'FMA',lo:22,hi:28,norm:'25 (22–28)'},
+    {m:'IMPA',label:'IMPA',lo:85,hi:95,norm:'88 (85–95)'},
+    {m:'FMIA',label:'FMIA',lo:63,hi:70,norm:'65–68'},
+  ]},
+  {id:'wits',name:'Wits',note:'оценка сагиттального соотношения (Wits).',rows:[
+    {m:'Wits',label:'Wits',lo:-2,hi:2,norm:'0±2 · М −1 / Ж 0'},
+    {m:'ANB',label:'ANB',lo:0,hi:4,norm:'2±2'},
+  ]},
+];
+function analyseNamed(G,which,age){
+  if(!which||which==='orthos')return analyse(G,age);
+  const A=CEPH_ANALYSES.find(x=>x.id===which); if(!A)return analyse(G,age);
+  const rows=[];
+  A.rows.forEach(r=>{const M=CEPH_METRIC[r.m];if(!M)return;
+    const ok=M.lm.every(k=>G[k]); let val=ok?M.f(G):null; if(val!=null&&isNaN(val))val=null;
+    let lo=null,hi=null,st='—';
+    if(!r.info&&r.lo!=null){lo=r.lo;hi=r.hi;if(val!=null)st=val<lo?'ниже':(val>hi?'выше':'норма');}
+    rows.push({key:(r.label||r.m)+(M.u?', '+M.u:''),val,lo,hi,norm:r.norm||'—',st,
+      extra:ok?(r.extra||''):('нужны '+M.lm.filter(k=>!G[k]).join(', ')),aged:false});
+  });
   return rows;
 }
 // ── Фронтальный (прямой, PA) анализ асимметрии ──
@@ -1222,12 +1337,24 @@ function renderPanel(){
       p.querySelectorAll('[data-fk]').forEach(rw=>rw.onclick=()=>{pickF=rw.dataset.fk;renderPanel();render();});
       $('clrF').onclick=()=>{LMF={};pickF=FRONT_IDS[0];renderPanel();render();};
     } else {
-      const age=ageYears(),rows=analyse(LM,age);
+      const age=ageYears(),rows=analyseNamed(LM,cephAnalysis,age);
+      const selStyle='flex:1;min-width:0;padding:6px 9px;border-radius:9px;border:1px solid var(--line,#d8def0);background:var(--card,#fff);color:inherit;font:inherit;cursor:pointer';
+      const opts=[{id:'orthos',name:'ОРТОС — сводный (детские нормы)'},...CEPH_ANALYSES]
+        .map(a=>`<option value="${a.id}"${a.id===cephAnalysis?' selected':''}>${a.name}</option>`).join('');
+      const curA=CEPH_ANALYSES.find(a=>a.id===cephAnalysis);
+      const head=cephAnalysis==='orthos'
+        ? (age!=null?`<div class="mode-chip ok" style="margin-bottom:8px">Нормы <b>детские, для ${age} ${plural(age,'года','лет','лет')}</b> · ↕ = возрастзависимая (ANB, SNB, SN–MP, FMA, межрезцовый)</div>`
+                  :`<div class="mode-chip warn" style="margin-bottom:8px">Возраст не задан — показаны взрослые нормы. Укажите дату рождения на шаге «Пациент».</div>`)
+        : `<div class="mode-chip ok" style="margin-bottom:8px"><b>${curA?curA.name:''}</b> — ${curA?curA.note:''} Классический (взрослый) референс.</div>`;
+      const note=cephAnalysis==='orthos'
+        ? 'Нормы ориентировочные, по данным лонгитюдных исследований роста (Michigan/Riolo, Fels и др.): с возрастом ANB и нижнечелюстной угол убывают, SNB растёт. Проверяйте клинически. Линейные (мм) — по масштабу из МСКТ.'
+        : 'Классические нормы метода — ориентир (взрослый референс); для ребёнка сверяйте со сводным (детские возрастные нормы). Линейные (мм) — по масштабу МСКТ.';
       p.innerHTML=`<div class="card view"><h3>📐 Цефалометрия</h3>${anTog}
-        ${age!=null?`<div class="mode-chip ok" style="margin-bottom:8px">Нормы <b>детские, для ${age} ${plural(age,'года','лет','лет')}</b> · ↕ = возрастзависимая (ANB, SNB, SN–MP, FMA, межрезцовый)</div>`
-                  :`<div class="mode-chip warn" style="margin-bottom:8px">Возраст не задан — показаны взрослые нормы. Укажите дату рождения на шаге «Пациент».</div>`}
+        <div class="slider-row" style="margin:2px 0 10px"><label>Анализ</label><select id="anSel" style="${selStyle}">${opts}</select></div>
+        ${head}
         <div id="anBox">${rows.map(anRow).join('')}</div>
-        <div class="note">Нормы ориентировочные, по данным лонгитюдных исследований роста (Michigan/Riolo, Fels и др.): с возрастом ANB и нижнечелюстной угол убывают, SNB растёт. Проверяйте клинически. Линейные (мм) — по масштабу из МСКТ.</div></div>`;
+        <div class="note">${note}</div></div>`;
+      $('anSel').onchange=e=>{cephAnalysis=e.target.value;renderPanel();render();};
     }
     p.querySelectorAll('[data-av]').forEach(b=>b.onclick=()=>{analysisView=b.dataset.av;renderPanel();render();});
   }
@@ -1517,6 +1644,7 @@ window.__orthos={ loadDicom:f=>loadDicom(f), set:(k,x,y)=>{LM[k]={x,y};skullMesh
     return{site:distr.site,dev:distr.dev,arcDeg:dev.deg,len:distr.len,theta:+distrTheta().toFixed(2),movedPts:moved,maxDispPx:+mxd.toFixed(1),proto:distrProto(),warp:(()=>{const c=buildDistrWarp();return{ok:!!c,w:c&&c.width};})()};},
   setTrgView:v=>{trgView=v;}, frontalInfo:()=>imgF?{ok:true,w:imgF.naturalWidth||imgF.width,h:imgF.naturalHeight||imgF.height}:{ok:false},
   setAnalysisView:v=>{analysisView=v;}, setFrontLM:(k,x,y)=>{LMF[k]={x,y};}, frontalAnalysis:()=>analyseFrontal(LMF),
+  setCephAnalysis:v=>{cephAnalysis=v;}, analyseNamed:w=>analyseNamed(LM,w,ageYears()), cephList:()=>CEPH_ANALYSES.map(a=>a.id),
   setVto:o=>{Object.assign(vto,o);}, vtoSolve:()=>vtoSolve(), vtoApply:()=>{const r=vtoSolve();if(r){plan[r.param]=r.x;invalidateWarp();}return r;},
   setPhotoMode:v=>{photoMode=v;}, setPhotoFLM:(k,x,y)=>{photoFLM[k]={x,y};invalidatePhotoFWarp();}, setPlanF:o=>{Object.assign(planF,o);invalidatePhotoFWarp();}, frontalPhotoAfter:()=>frontalPhotoAfter(),
   injectPhotoF:(w,h)=>{const c=document.createElement('canvas');c.width=w||400;c.height=h||500;const g=c.getContext('2d');g.fillStyle='#bbb';g.fillRect(0,0,c.width,c.height);g.fillStyle='#777';g.fillRect(c.width*0.2,c.height*0.1,c.width*0.6,c.height*0.8);const im=new Image();im.onload=()=>{photoF=im;invalidatePhotoFWarp();};im.src=c.toDataURL();return true;},
