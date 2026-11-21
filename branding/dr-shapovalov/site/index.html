@@ -1,6 +1,6 @@
 <title>Шаповалов Павел Игоревич — детский челюстно-лицевой хирург</title>
 <meta name="description" content="Детский челюстно-лицевой хирург, к.м.н., ЦНИИСиЧЛХ, Москва. Дистракционный остеогенез, кисты и опухоли челюстей, костная пластика. Клинические случаи.">
-<link rel="stylesheet" href="fonts/fonts.css"><!-- Unbounded и Manrope (SIL OFL 1.1) лежат на сайте: посетители не обращаются к серверам Google -->
+<link rel="stylesheet" href="/fonts/fonts.css"><!-- Unbounded и Manrope (SIL OFL 1.1) лежат на сайте: посетители не обращаются к серверам Google -->
 <style>
   /* Layout: a dark clinical instrument. Emerald wave field behind the hero, slow emerald/gold light
      drifting under the whole page so every panel reads as liquid glass, gold for anything measured,
@@ -611,7 +611,7 @@
     <a href="#about">Обо мне</a><a href="#directions">Направления</a><a href="#cases">Кейсы</a><a href="#science">Наука</a><a href="#contacts">Контакты</a>
   </div>
   <div class="nav-end">
-    <a class="lang-sw" id="lang-sw" href="?lang=en" hreflang="en" lang="en" aria-label="English version">EN</a>
+    <a class="lang-sw" id="lang-sw" href="/en/" hreflang="en" lang="en" aria-label="English version">EN</a>
     <a class="pill" id="nav-tg" href="https://t.me/SHAPOVALOV_DR" target="_blank" rel="noopener">Telegram</a>
     <button class="burger" id="burger" type="button" aria-expanded="false" aria-controls="menu"><span></span><span></span><b class="sr">Меню</b></button>
   </div>
@@ -627,7 +627,7 @@
     <a href="#cases">Кейсы</a>
     <a href="#science">Наука</a>
     <a href="#contacts">Контакты</a>
-    <a class="menu-lang" id="menu-lang" href="?lang=en" hreflang="en" lang="en">English version</a>
+    <a class="menu-lang" id="menu-lang" href="/en/" hreflang="en" lang="en">English version</a>
   </nav>
   <div class="menu-foot" id="menu-foot"></div>
 </div>
@@ -635,7 +635,7 @@
 <main class="wrap">
   <header class="hero has-fig" id="top">
     <div id="waves" aria-hidden="true"></div>
-    <img class="hero-fig" id="h-figure" src="img/hero-figure-2.webp" alt="Павел Шаповалов в кабинете" width="900" height="1002" fetchpriority="high" decoding="async">
+    <img class="hero-fig" id="h-figure" src="/img/hero-figure-2.webp" alt="Павел Шаповалов в кабинете" width="900" height="1002" fetchpriority="high" decoding="async">
     <div class="hero-in">
       <div>
         <h1 id="h-name"><span class="given">Павел Игоревич</span> <b>Шаповалов</b></h1>
@@ -651,7 +651,7 @@
         </div>
       </div>
       <aside class="card-id glass">
-        <div class="portrait"><img id="h-portrait" src="img/portrait.jpg" alt="Павел Шаповалов" width="560" height="560"></div>
+        <div class="portrait"><img id="h-portrait" src="/img/portrait.jpg" alt="Павел Шаповалов" width="560" height="560"></div>
         <div>
           <svg class="signature" id="sig" viewBox="0 0 640 213" role="img" aria-label="Dr. Shapovalov">
             <defs><mask id="sig-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="640" height="213">
@@ -666,7 +666,7 @@
                 <path stroke-width="72" d="M500 96 L522 134 L544 96 L566 134 L588 96 L610 134"/>
                 <path stroke-width="16" d="M16 203 C200 196 420 188 628 186"/>
               </g></mask></defs>
-            <image href="img/signature-gold.png" width="640" height="213"/>
+            <image href="/img/signature-gold.png" width="640" height="213"/>
           </svg>
           <p class="id-meta" id="h-card"></p>
         </div>
@@ -866,14 +866,14 @@
     <div class="wordmark" aria-label="Shapovalov">S. H. A. P. O. V. A. L. O. V.</div>
     <div class="foot"><p id="foot-note"></p><span><a href="#top">Наверх ↑</a></span></div>
     <p class="foot-legal" id="foot-legal"><span id="foot-warn">Имеются противопоказания. Необходима консультация специалиста.</span>
-      <a href="privacy/">Политика конфиденциальности</a> <button type="button" class="linkish" id="ck-open">Настройки cookie</button></p>
+      <a href="/privacy/">Политика конфиденциальности</a> <button type="button" class="linkish" id="ck-open">Настройки cookie</button></p>
     <p class="foot-ym" id="foot-ym" hidden>Сайт считает посещения с помощью сервиса <a href="https://yandex.ru/legal/metrica_termsofuse/" target="_blank" rel="noopener">Яндекс Метрика</a>: страницы, источник перехода, город, устройство — без имён и контактов.</p>
   </footer>
 </main>
 
 <div class="tip" id="tip" role="tooltip"></div>
 <div class="ck" id="ck" role="region" aria-label="Cookie-файлы" hidden>
-  <p id="ck-text">Разрешить cookie Яндекс Метрики? <a href="privacy/">Подробнее</a></p>
+  <p id="ck-text">Разрешить cookie Яндекс Метрики? <a href="/privacy/">Подробнее</a></p>
   <div class="ck-btns"><button type="button" id="ck-yes">Принять</button><button type="button" id="ck-no">Отклонить</button></div>
 </div>
 <span id="meta-desc" hidden></span>
@@ -901,7 +901,9 @@
   const $ = (id) => document.getElementById(id);
   let PREVIEW = location.hash === '#preview';   // в админке пустые поля видны как «Добавить»
   /* ---------- язык: ?lang=en — английская версия (текст из content.en.json, подписи интерфейса — из EN) ---------- */
-  const LANG = /[?&]lang=en\b/.test(location.search) ? 'en' : 'ru';
+  const LANG = (/[?&]lang=en\b/.test(location.search) || /^\/en(\/|$)/.test(location.pathname)) ? 'en' : 'ru';
+  // старые ссылки ?lang=en ведут на /en/ (предпросмотр в админке остаётся на ?lang=en)
+  if (/[?&]lang=en\b/.test(location.search) && !/^\/en(\/|$)/.test(location.pathname) && window.top === window && location.hash !== '#preview') location.replace('/en/' + location.hash);
   const EN = {
     'Обо мне': 'About', 'Направления': 'Treatment', 'Кейсы': 'Cases', 'Наука': 'Research', 'Контакты': 'Contacts', 'Меню': 'Menu',
     'Отзывы': 'Reviews', 'Как растёт кость': 'How bone grows', 'Лечение': 'Treatment', 'Родителям': 'For parents', 'Коллегам': 'For colleagues',
@@ -942,11 +944,10 @@
   if (LANG === 'en') {
     document.documentElement.lang = 'en';
     document.title = 'Pavel Shapovalov — pediatric maxillofacial surgeon, Moscow';
-    document.querySelector('link[rel="canonical"]')?.setAttribute('href', location.origin + '/?lang=en');
     document.querySelector('meta[name="description"]')?.setAttribute('content', 'Pavel Shapovalov, MD, PhD, pediatric oral and maxillofacial surgeon in Moscow: mandibular distraction osteogenesis, clinical cases, research.');
-    for (const id of ['lang-sw', 'menu-lang']) { const a = $(id); if (a) { a.href = location.pathname; a.hreflang = 'ru'; a.lang = 'ru'; } }
+    for (const id of ['lang-sw', 'menu-lang']) { const a = $(id); if (a) { a.href = '/'; a.hreflang = 'ru'; a.lang = 'ru'; } }
     $('lang-sw').textContent = 'RU'; $('lang-sw').setAttribute('aria-label', 'Русская версия');
-    $('ck-text').innerHTML = 'Allow Yandex Metrica cookies? <a href="privacy/">Details</a>';
+    $('ck-text').innerHTML = 'Allow Yandex Metrica cookies? <a href="/privacy/">Details</a>';
     i18nDom(document.body);
   }
 
@@ -960,7 +961,7 @@
     .replace(/\[\[([a-z0-9_-]+)\|(.+?)\]\]/gi, (m, k, t) => TERMS[k] ? `<button class="term" type="button" data-term="${k}">${t}</button>` : t);
   const todo = (what) => PREVIEW ? `<span class="todo">Добавить: ${esc(what)}</span>` : '';
   const val = (v, what) => (v && String(v).trim()) ? rich(v) : todo(what);
-  const safeUrl = (u) => /^(https?:|#|mailto:|tel:|img\/|lechenie\/|kejsy\/)/i.test(String(u || '').trim()) ? String(u).trim() : '';
+  const safeUrl = (u) => { const v = String(u || '').trim(); return /^(https?:|#|mailto:|tel:|\/?img\/|\/?lechenie\/|\/?kejsy\/)/i.test(v) ? v.replace(/^(img|lechenie|kejsy)\//i, '/$1/') : ''; };
   const ext = (u) => /^https?:/i.test(u) ? ' target="_blank" rel="noopener"' : '';
   const num = (s) => parseFloat(String(s).replace(',', '.'));
 
@@ -1013,7 +1014,7 @@
       return `<div class="case-gal${ims.length > 3 ? ' many' : ''}">${ims.map((m) => `<figure><button type="button"${m.sensitive ? ' class="sens"' : ''} data-cimg="${esc(safeUrl(m.src))}" data-cap="${esc(m.caption || '')}" data-alt="${esc(m.alt || m.caption || k.title)}" data-case="${esc(k.title)}" aria-label="Открыть крупно: ${esc(m.caption || k.title)}"><img src="${esc(safeUrl(m.src))}" alt="${esc(m.alt || m.caption || '')}" loading="lazy">${m.sensitive ? `<span class="sens-note">${esc(tr('Фото из операционной. Нажмите, чтобы открыть'))}</span>` : ''}</button>${m.caption ? `<figcaption>${rich(m.caption)}</figcaption>` : ''}</figure>`).join('')}</div>${k.consent ? `<p class="case-note">${esc(k.consent)}</p>` : ''}`;
     };
     // у каждого кейса своя страница kejsy/<адрес>/ (её собирает pages.py): адрес из поля slug, иначе метка id
-    const caseHref = (k) => { const s = String(k.slug || k.id || '').trim(); return /^[a-z0-9][a-z0-9-]{0,80}$/.test(s) ? `kejsy/${s}/` : ''; };
+    const caseHref = (k) => { const s = String(k.slug || k.id || '').trim(); return /^[a-z0-9][a-z0-9-]{0,80}$/.test(s) ? `/kejsy/${s}/` : ''; };
     $('case-list').innerHTML = (c.cases || []).map((k) => {
       const max = +k.scaleMax || Math.max(...(k.bars || []).map((b) => +b.value || 0), 1);
       const ticks = [0, .25, .5, .75, 1].map((f) => `<span>${+(max * f).toFixed(1)}</span>`).join('');
@@ -1644,7 +1645,7 @@
   function boot(c) { render(c); i18nDom(document.body); markMeta(); YM_ID = String((c.meta || {}).metrika || '').trim(); consentUi(); if (booted) return; booted = true; animate(); startDx(); startTabs(); writeSignature(); }
   const ready = () => { if (parent !== window) parent.postMessage({ type: 'shapovalov:ready' }, '*'); };   // в сообщении нет ничего секретного
   const loadContent = (f) => fetch(f, { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
-  (LANG === 'en' ? loadContent('content.en.json').catch(() => loadContent('content.json')) : loadContent('content.json')).then((c) => { boot(c); ready(); })
+  (LANG === 'en' ? loadContent('/content.en.json').catch(() => loadContent('/content.json')) : loadContent('/content.json')).then((c) => { boot(c); ready(); })
     .catch(() => { if (PREVIEW) return ready();   // предпросмотр получит текст из админки
       document.body.insertAdjacentHTML('afterbegin', '<p style="position:fixed;z-index:99;bottom:16px;left:16px;right:16px;padding:12px 16px;border-radius:12px;background:#2a2416;color:#e6c987;font-size:14px">Не удалось загрузить content.json. Откройте сайт через веб-сервер, а не как файл.</p>'); });
 })();

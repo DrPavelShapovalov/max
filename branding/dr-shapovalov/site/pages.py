@@ -435,7 +435,7 @@ def main():
         seen.add(s)
         write(f'{CASES}{s}/', [home, ('Клинические случаи', CASES), (plain(k.get('title')), f'{CASES}{s}/')], case_page(c, k))
     today = datetime.date.today().isoformat()
-    urls = [SITE, SITE + '?lang=en'] + [SITE + p for p in out]
+    urls = [SITE, SITE + 'en/'] + [SITE + p for p in out]
     (ROOT / 'sitemap.xml').write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         + ''.join(f'  <url><loc>{u}</loc><lastmod>{today}</lastmod></url>\n' for u in urls) + '</urlset>\n', encoding='utf-8')
     # llms.txt: краткое описание сайта для ИИ-поисковиков (ChatGPT, Perplexity, Claude) — только факты из content.json
@@ -454,7 +454,7 @@ def main():
     for k in c.get('cases', []):
         if slug(k):
             lines.append(f'- [{plain(k.get("title"))}]({SITE}{CASES}{slug(k)}/)')
-    lines += [f'- [English version]({SITE}?lang=en)', '']
+    lines += [f'- [English version]({SITE}en/)', '']
     (ROOT / 'llms.txt').write_text('\n'.join(lines), encoding='utf-8')
     print('pages:', ', '.join(out))
 
