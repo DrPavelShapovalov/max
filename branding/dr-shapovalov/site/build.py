@@ -21,11 +21,11 @@ HERE = pathlib.Path(__file__).resolve().parent
 DIST = HERE / 'dist'
 
 CDN_TO_VENDOR = {
-    'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js': 'vendor/three.min.js',
-    'https://cdn.jsdelivr.net/npm/vanta@0.5.24/dist/vanta.waves.min.js': 'vendor/vanta.waves.min.js',
-    'https://unpkg.com/lenis@1.3.27/dist/lenis.min.js': 'vendor/lenis.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js': 'vendor/gsap.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js': 'vendor/ScrollTrigger.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js': '/vendor/three.min.js',
+    'https://cdn.jsdelivr.net/npm/vanta@0.5.24/dist/vanta.waves.min.js': '/vendor/vanta.waves.min.js',
+    'https://unpkg.com/lenis@1.3.27/dist/lenis.min.js': '/vendor/lenis.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js': '/vendor/gsap.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js': '/vendor/ScrollTrigger.min.js',
 }
 
 COMMON = ("default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; "
@@ -111,7 +111,12 @@ YANDEX_VERIFY = '7bd5bbc6ed6ea4f4'          # Яндекс Вебмастер: �
 GOOGLE_VERIFY = 'VwSnJcJLyzA6f2kcEjWkf8xvmopvSX1PFDmwRdQkYRI'   # Google Search Console: подтверждение прав (мета-тег)
 INDEXNOW_KEY = '4b3c078de10cb0485816cd596851f717'
 SITE = 'https://' + ((HERE / 'CNAME').read_text().strip() if (HERE / 'CNAME').exists() else 'drshapovalov.ru') + '/'
-def seo_head(c):
+EN_TITLE = 'Pavel Shapovalov — pediatric maxillofacial surgeon, Moscow'
+EN_DESC = ('Pavel Shapovalov, MD, PhD, pediatric oral and maxillofacial surgeon in Moscow: '
+           'mandibular distraction osteogenesis, clinical cases, research.')
+
+
+def seo_head(c, en=False):
     import html, json
     h = c.get('hero', {}); m = c.get('meta', {})
     name = ' '.join(x for x in (h.get('firstName'), h.get('middleName'), h.get('lastName')) if x)
@@ -133,18 +138,23 @@ def seo_head(c):
          'about': {'@id': SITE + '#person'}},
         {'@type': 'Person', '@id': SITE + '#person', 'name': name, 'alternateName': alt, 'givenName': h.get('firstName'),
          'additionalName': h.get('middleName'), 'familyName': h.get('lastName'), 'url': SITE, 'image': SITE + 'img/og-cover.jpg',
-         'jobTitle': 'Детский челюстно-лицевой хирург', 'honorificSuffix': 'к.м.н.', 'description': desc, 'worksFor': org, 'sameAs': same},
+         'jobTitle': 'Детский челюстно-лицевой хирург', 'honorificSuffix': 'к.м.н.', 'description': desc, 'worksFor': org, 'sameAs': same,
+         'knowsAbout': [d.get('title') for d in c.get('directions', []) if d.get('title')]},
         {'@type': 'Physician', '@id': SITE + '#physician', 'name': name, 'url': SITE, 'image': SITE + 'img/og-cover.jpg',
          'description': desc, 'address': addr, 'parentOrganization': org, 'sameAs': same}]}
-    return (f'<link rel="canonical" href="{SITE}">\n'
-            f'<link rel="alternate" hreflang="ru" href="{SITE}">\n<link rel="alternate" hreflang="en" href="{SITE}?lang=en">\n'
+    if en:
+        title, desc = EN_TITLE, EN_DESC
+    url = SITE + ('en/' if en else '')
+    return (f'<link rel="canonical" href="{url}">\n'
+            f'<link rel="alternate" hreflang="ru" href="{SITE}">\n<link rel="alternate" hreflang="en" href="{SITE}en/">\n'
             f'<link rel="alternate" hreflang="x-default" href="{SITE}">\n'
-            '<meta property="og:type" content="website">\n<meta property="og:locale" content="ru_RU">\n'
+            f'<meta property="og:type" content="website">\n<meta property="og:locale" content="{"en_US" if en else "ru_RU"}">\n'
             f'<meta property="og:site_name" content="Dr. Shapovalov">\n<meta property="og:title" content="{e(title)}">\n'
-            f'<meta property="og:description" content="{e(desc)}">\n<meta property="og:url" content="{SITE}">\n'
+            f'<meta property="og:description" content="{e(desc)}">\n<meta property="og:url" content="{url}">\n'
             f'<meta property="og:image" content="{SITE}img/og-cover.jpg">\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">\n'
             '<meta name="twitter:card" content="summary_large_image">\n'
             '<meta name="theme-color" content="#05080a">\n'
+            '<link rel="icon" href="/favicon.ico" sizes="48x48">\n<link rel="icon" href="/favicon.svg" type="image/svg+xml">\n<link rel="apple-touch-icon" href="/apple-touch-icon.png">\n'
             f'<meta name="yandex-verification" content="{YANDEX_VERIFY}">\n'
             f'<meta name="google-site-verification" content="{GOOGLE_VERIFY}">\n'
             '<script type="application/ld+json">' + json.dumps(ld, ensure_ascii=False).replace('</', '<\\/') + '</script>\n')
@@ -166,6 +176,14 @@ def main():
     content = _j.loads((HERE / 'content.json').read_text(encoding='utf-8'))
     (DIST / 'index.html').write_text(HEAD + metas(csp) + seo_head(content) + head + '</style>\n</head>\n<body>\n' + body + '\n</body>\n</html>\n',
                                      encoding='utf-8')
+    # английская версия — отдельный адрес /en/ (тот же код и скрипты, английские <title>, description, canonical и hreflang)
+    import html as _h
+    m_t = re.search(r'<title>.*?</title>', head, re.S); m_d = re.search(r'<meta name="description" content="[^"]*">', head)
+    assert m_t and m_d, 'в index.html нет <title> или description'
+    head_en = head.replace(m_t.group(0), f'<title>{_h.escape(EN_TITLE)}</title>', 1).replace(m_d.group(0), f'<meta name="description" content="{_h.escape(EN_DESC, quote=True)}">', 1)
+    (DIST / 'en').mkdir()
+    (DIST / 'en' / 'index.html').write_text(HEAD.replace('<html lang="ru">', '<html lang="en">') + metas(csp) + seo_head(content, en=True) + head_en
+                                            + '</style>\n</head>\n<body>\n' + body + '\n</body>\n</html>\n', encoding='utf-8')
 
     admin = (HERE / 'admin.html').read_text(encoding='utf-8')
     assert '<script src=' not in admin, 'в админке не должно быть внешних скриптов'
@@ -180,6 +198,8 @@ def main():
     copy_images(HERE / 'img', DIST / 'img')
     shutil.copytree(HERE / 'vendor', DIST / 'vendor')
     shutil.copytree(HERE / 'fonts', DIST / 'fonts')            # шрифты на своём сайте (SIL OFL), без Google
+    for f in ('favicon.ico', 'favicon.svg', 'apple-touch-icon.png'):   # иконка сайта (знак «Ш.», script/make_favicon.cjs)
+        shutil.copy2(HERE / 'icons' / f, DIST / f)
     if (HERE / 'CNAME').exists():                          # свой домен для GitHub Pages (drshapovalov.ru)
         shutil.copy2(HERE / 'CNAME', DIST / 'CNAME')
     (DIST / 'robots.txt').write_text(f'User-agent: *\nAllow: /\nDisallow: /admin.html\nSitemap: {SITE}sitemap.xml\n', encoding='utf-8')
@@ -194,6 +214,7 @@ def main():
     # пререндер: текст из content.json вписывается в HTML, чтобы робот без JavaScript видел весь сайт
     if shutil.which('node'):
         subprocess.run(['node', str(HERE / 'prerender.cjs'), str(DIST)], check=True)
+        subprocess.run(['node', str(HERE / 'prerender.cjs'), str(DIST), 'en/index.html'], check=True)
     else:
         print('внимание: нет Node — пререндер пропущен, текст сайта виден роботам только после JavaScript')
     (DIST / '.github' / 'workflows').mkdir(parents=True)          # уведомление поисковиков после выкладки

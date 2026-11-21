@@ -57,6 +57,9 @@ fi
 #   claude-shorts     — скилл shorts: длинное видео → вертикальные шортсы с субтитрами (MIT);
 #                       зависимости (faster-whisper, PyTorch, Remotion) ставит его setup.sh, вручную
 #   brag              — скиллы brag и brag-slim: промо-видео о проекте по его коду (MIT; музыка — CC BY 4.0, Sascha Ende)
+#   playwright-cli    — Playwright CLI и его скилл: управление браузером командами (Apache-2.0, Microsoft)
+#   awesome-design-md — 84 файла DESIGN.md: типографика, отступы, кнопки известных сайтов как референс (MIT, VoltAgent)
+#   img2threejs       — картинка → процедурная 3D-модель Three.js в коде (Apache-2.0)
 GHOST_REPO=https://github.com/kurbaitaev/ghost-editor.git
 GHOST_SHA=ce172726c36293722b08eb57b5b307d4f06389e8
 FFSKILL_REPO=https://github.com/kajisho5/ffmpeg-skill.git
@@ -71,6 +74,13 @@ SHORTS_REPO=https://github.com/AgriciDaniel/claude-shorts.git
 SHORTS_SHA=a369fad9d84287edbb8fa3ab515f268e770f683b
 BRAG_REPO=https://github.com/latent-spaces/brag.git
 BRAG_SHA=669ab9286aa28b6c3ee30e75f181ee74319d012a
+PWCLI_VERSION=0.1.22                                      # @playwright/cli, релиз от 28.09.2026
+PWCLI_REPO=https://github.com/microsoft/playwright-cli.git
+PWCLI_SHA=b85c7a736bb473bf55b584e54a09ffa698d6d871        # тег v0.1.22
+DESIGNMD_REPO=https://github.com/voltagent/awesome-design-md.git
+DESIGNMD_SHA=fcc70284932276d085f01ef9f83edde90b1258cb
+I2T_REPO=https://github.com/img2threejs/img2threejs.git
+I2T_SHA=a669e9a97cea4452b1c2310c5cca6aa0f6657c1f          # тег v2.0.0 (06.09.2026)
 
 # скопировать каталоги-скиллы, не затирая уже установленные с тем же именем
 copy_skills() {
@@ -152,6 +162,65 @@ if [ "$(cat "$marker" 2>/dev/null)" != "$BRAG_SHA" ]; then
   cp "$tmp/repo/LICENSE" "$SKILLS/brag/LICENSE"
   rm -rf "$tmp"
   echo "$BRAG_SHA" > "$marker"
+fi
+# playwright-cli: сама программа из npm + скилл из того же тега; браузер — уже установленный Chromium
+[ "$(playwright-cli --version 2>/dev/null)" = "$PWCLI_VERSION" ] || npm install -g --silent "@playwright/cli@$PWCLI_VERSION" >/dev/null 2>&1 \
+  || echo "playwright-cli: не удалось поставить @playwright/cli@$PWCLI_VERSION"
+mkdir -p "$HOME/.playwright"
+[ -f "$HOME/.playwright/cli.config.json" ] || cat > "$HOME/.playwright/cli.config.json" <<'JSON'
+{ "browser": { "browserName": "chromium", "launchOptions": { "executablePath": "/opt/pw-browsers/chromium-1243/chrome-linux64/chrome", "headless": true, "args": ["--no-sandbox"] } } }
+JSON
+marker="$SKILLS/playwright-cli/.pinned-sha"
+if [ "$(cat "$marker" 2>/dev/null)" != "$PWCLI_SHA" ]; then
+  tmp=$(mktemp -d)
+  fetch_commit "$PWCLI_REPO" "$PWCLI_SHA" "$tmp/repo"
+  rm -rf "$SKILLS/playwright-cli"
+  cp -r "$tmp/repo/skills/playwright-cli" "$SKILLS/playwright-cli"
+  cp "$tmp/repo/LICENSE" "$SKILLS/playwright-cli/LICENSE"
+  cat >> "$SKILLS/playwright-cli/SKILL.md" <<'MD'
+
+## В этой среде (облако Claude Code)
+Браузер не скачивать (`playwright-cli install-browser` не нужен): используется уже установленный Chromium.
+Каждый `open`/`attach` запускайте с `--config=$HOME/.playwright/cli.config.json`.
+MD
+  rm -rf "$tmp"
+  echo "$PWCLI_SHA" > "$marker"
+fi
+# awesome-design-md: библиотека DESIGN.md + короткий SKILL.md-указатель
+marker="$SKILLS/awesome-design-md/.pinned-sha"
+if [ "$(cat "$marker" 2>/dev/null)" != "$DESIGNMD_SHA" ]; then
+  tmp=$(mktemp -d)
+  fetch_commit "$DESIGNMD_REPO" "$DESIGNMD_SHA" "$tmp/repo"
+  rm -rf "$SKILLS/awesome-design-md"
+  mkdir -p "$SKILLS/awesome-design-md"
+  cp -r "$tmp/repo/design-md" "$tmp/repo/LICENSE" "$tmp/repo/README.md" "$SKILLS/awesome-design-md/"
+  cat > "$SKILLS/awesome-design-md/SKILL.md" <<'MD'
+---
+name: awesome-design-md
+description: Reference library of 84 DESIGN.md files (typography scale, spacing, colours, buttons, components) analysed from well-known websites (Apple, Airbnb, Stripe, Linear, Vercel and others). Use as a reference when choosing type sizes, spacing, button and component styles for a page, or when asked "сделай типографику/отступы/кнопки как у <сайт>".
+license: MIT (VoltAgent/awesome-design-md)
+---
+
+# Awesome DESIGN.md: референсы дизайна
+
+Файлы: `design-md/<сайт>/DESIGN.md` (список папок: `ls design-md`).
+
+Как пользоваться:
+1. Выберите 1–3 сайта, близких по задаче, и прочитайте их DESIGN.md.
+2. Берите **систему**: шкалу кеглей, ритм отступов, радиусы, состояния кнопок, плотность.
+3. Не копируйте чужой бренд: логотипы, фирменные цвета и названия не переносятся на чужой проект.
+   У доктора Шаповалова свой утверждённый стиль (изумруд/слоновая кость/золото, Unbounded + Manrope): референс меняет пропорции, а не палитру.
+MD
+  rm -rf "$tmp"
+  echo "$DESIGNMD_SHA" > "$marker"
+fi
+# img2threejs: весь репозиторий — это скилл (Python stdlib); ставим вручную, без npx-установщика
+marker="$SKILLS/img2threejs/.pinned-sha"
+if [ "$(cat "$marker" 2>/dev/null)" != "$I2T_SHA" ]; then
+  rm -rf "$SKILLS/img2threejs"
+  fetch_commit "$I2T_REPO" "$I2T_SHA" "$SKILLS/img2threejs"
+  rm -rf "$SKILLS/img2threejs/.git"
+  echo "$I2T_SHA" > "$marker"
 fi
 [ -x "$HOME/.shorts-skill/bin/python" ] || echo "shorts: зависимости не установлены — перед работой запустите: bash .claude/scripts/shorts-deps.sh"
 

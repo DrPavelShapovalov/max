@@ -6,7 +6,8 @@ const fs = require('fs'), path = require('path'), http = require('http');
 const { chromium } = require('playwright');
 
 const DIST = path.resolve(process.argv[2] || 'dist');
-const FILE = path.join(DIST, 'index.html');
+const PAGE = process.argv[3] || 'index.html';            // en/index.html — английская версия
+const FILE = path.join(DIST, PAGE);
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css',
   '.webp': 'image/webp', '.jpg': 'image/jpeg', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
 
@@ -28,7 +29,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'applic
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
   await page.route('**/*', (r) => (r.request().url().startsWith(base) ? r.continue() : r.abort()));   // без счётчиков и шрифтов
-  await page.goto(base + 'index.html', { waitUntil: 'networkidle' });
+  await page.goto(base + PAGE, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => document.querySelector('#contact-list')?.children.length > 0, null, { timeout: 15000 });
 
   const filled = await page.evaluate((ids) => Object.fromEntries(ids.map((id) => {
@@ -54,5 +55,5 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'applic
   if (scripts(out) !== scripts(src)) throw new Error('пререндер изменил <script>');
   if (/<script/i.test(Object.values(filled).join(''))) throw new Error('в пререндер попал <script>');
   fs.writeFileSync(FILE, out);
-  console.log(`prerender: ${n} блоков, ${chars} символов HTML`);
+  console.log(`prerender ${PAGE}: ${n} блоков, ${chars} символов HTML`);
 })().catch((e) => { console.error(e); process.exit(1); });

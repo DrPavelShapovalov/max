@@ -130,7 +130,7 @@
       {
         "years": "2026",
         "degree": "PhD (Candidate of Medical Sciences)",
-        "place": "Dissertation defended on 30 June 2026; the degree was awarded by order No. 888/нк of the Ministry of Science and Higher Education of the Russian Federation of 13 October 2026"
+        "place": "Dissertation defended on 30 June 2026; the degree was awarded by order No. 888/нк-3 of the Ministry of Science and Higher Education of the Russian Federation of 13 October 2026"
       }
     ],
     "courses": [
@@ -190,8 +190,8 @@
       "code": "TUM",
       "title": "Benign jaw tumours",
       "text": "Removal of benign jaw lesions.",
-      "link": "kejsy/odontoma-nizhnej-chelyusti/",
-      "linkLabel": "Case (in Russian)"
+      "link": "kejsy/",
+      "linkLabel": "Cases (in Russian)"
     },
     {
       "code": "GRAFT",
@@ -406,6 +406,46 @@
         }
       ],
       "consent": "Published with written consent."
+    },
+    {
+      "id": "case-5",
+      "slug": "odontogennaya-opuhol-bez-rezekcii",
+      "tags": [
+        "Odontogenic tumour",
+        "15 years old",
+        "before and 9 months later"
+      ],
+      "title": "Odontogenic ghost cell tumour: the jaw kept without resection",
+      "points": [
+        "A lesion in the body and ramus of the left mandible was found by chance. The May 2025 biopsy was inconclusive: odontogenic fibroma and fibrous osteodysplasia",
+        "[[rezekciya|Resection]] was proposed: remove a segment of the mandible and fix a load-bearing titanium plate",
+        "Surgery on 10 Nov 2025 — **[[ekskohleaciya|enucleation and curettage]]**: the pathological tissue was removed from inside the bone, **the lower border and continuity of the mandible were preserved**. Teeth 37 and 38 within the lesion were extracted",
+        "Histology: **odontogenic ghost cell tumour**, benign (ICD-O 9302/0)",
+        "[[klkt|CBCT]] 9 months later, in August 2026: the swelling of the left mandible is gone"
+      ],
+      "metric": "9",
+      "metricUnit": "months",
+      "metricCaption": "to the follow-up [[klkt|CBCT]]: no swelling, lower border and continuity of the mandible preserved",
+      "scaleMax": 0,
+      "bars": [],
+      "images": [
+        {
+          "src": "img/cases/ghost-3d-en.webp",
+          "caption": "3D CT before surgery and 9 months later: frontal and left views",
+          "alt": "3D CT reconstructions of the skull, frontal and left: before surgery the left mandible bulges, 9 months later the swelling is gone."
+        },
+        {
+          "src": "img/cases/ghost-mpr-en.webp",
+          "caption": "Multiplanar slices before and 9 months later: coronal, axial, sagittal",
+          "alt": "CT slices of the mandible before surgery and 9 months later in coronal, axial and sagittal planes."
+        },
+        {
+          "src": "img/cases/ghost-histo-en.webp",
+          "caption": "Histology after surgery, report excerpt of 13 Nov 2025 (translated)",
+          "alt": "Histopathology excerpt: proliferation of odontogenic epithelium with ghost cells; conclusion — benign odontogenic ghost cell tumour."
+        }
+      ],
+      "consent": "Published with written consent."
     }
   ],
   "steps": {
@@ -471,11 +511,12 @@
       "degree": "Dissertation for the degree of Candidate of Medical Sciences (PhD)",
       "specialty": "3.1.2 Oral and Maxillofacial Surgery",
       "supervisor": "Anatoly A. Kulakov, Academician of the Russian Academy of Sciences, MD, PhD, Professor, Honoured Scientist of the Russian Federation",
-      "year": "Defended on 30 June 2026; degree awarded by order No. 888/нк of the Ministry of Science and Higher Education of the Russian Federation of 13 October 2026",
+      "year": "Defended on 30 June 2026; degree awarded by order No. 888/нк-3 of the Ministry of Science and Higher Education of the Russian Federation of 13 October 2026",
       "place": "Dissertation council 21.1.079.02, Central Research Institute of Dental and Maxillofacial Surgery, Moscow",
       "link": "https://search.rsl.ru/ru/record/01015615229",
       "summary": "Indications for distraction osteogenesis were defined from morphometric measurements, and integral indices were developed to determine these indications.",
-      "image": "img/pubs/dissertation-2026.jpg"
+      "image": "img/pubs/dissertation-2026.jpg",
+      "diploma": "img/pubs/diploma-kmn-2026.jpg"
     },
     "publications": [
       {
@@ -743,6 +784,16 @@
       "key": "otpg",
       "title": "OPG",
       "text": "Orthopantomogram: a panoramic X-ray of both jaws."
+    },
+    {
+      "key": "ekskohleaciya",
+      "title": "Enucleation and curettage",
+      "text": "Removing a lesion from inside the bone by scraping it out. No segment of the jaw is removed, so its continuity is kept."
+    },
+    {
+      "key": "rezekciya",
+      "title": "Jaw resection",
+      "text": "Removing a segment of the jaw together with the lesion; the gap is bridged with a plate or a bone graft."
     }
   ],
   "footer": {
