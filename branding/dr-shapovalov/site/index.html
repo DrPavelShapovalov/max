@@ -1,5 +1,5 @@
-<title>Шаповалов Павел Игоревич — детский челюстно-лицевой хирург, к.м.н. | Москва</title>
-<meta name="description" content="Шаповалов Павел Игоревич — детский челюстно-лицевой хирург, к.м.н., ЦНИИСиЧЛХ, Москва. Дистракционный остеогенез нижней челюсти, сужение челюстей, кисты, костная пластика. Клинические случаи, статьи, запись на приём.">
+<title>Шаповалов Павел Игоревич — детский челюстно-лицевой хирург</title>
+<meta name="description" content="Детский челюстно-лицевой хирург, к.м.н., ЦНИИСиЧЛХ, Москва. Дистракционный остеогенез, кисты и опухоли челюстей, костная пластика. Клинические случаи.">
 <link rel="stylesheet" href="fonts/fonts.css"><!-- Unbounded и Manrope (SIL OFL 1.1) лежат на сайте: посетители не обращаются к серверам Google -->
 <style>
   /* Layout: a dark clinical instrument. Emerald wave field behind the hero, slow emerald/gold light
@@ -638,7 +638,7 @@
     <img class="hero-fig" id="h-figure" src="img/hero-figure-2.webp" alt="Павел Шаповалов в кабинете" width="900" height="1002" fetchpriority="high" decoding="async">
     <div class="hero-in">
       <div>
-        <h1 id="h-name"><span class="given">Павел Игоревич</span><b>Шаповалов</b></h1>
+        <h1 id="h-name"><span class="given">Павел Игоревич</span> <b>Шаповалов</b></h1>
         <p class="lede" id="h-lede"></p>
         <div class="aud" id="aud" role="radiogroup" aria-label="Кому рассказать">
           <span class="aud-ink" id="aud-ink" aria-hidden="true"></span>
@@ -941,6 +941,8 @@
   }
   if (LANG === 'en') {
     document.documentElement.lang = 'en';
+    document.title = 'Pavel Shapovalov — pediatric maxillofacial surgeon, Moscow';
+    document.querySelector('link[rel="canonical"]')?.setAttribute('href', location.origin + '/?lang=en');
     document.querySelector('meta[name="description"]')?.setAttribute('content', 'Pavel Shapovalov, MD, PhD, pediatric oral and maxillofacial surgeon in Moscow: mandibular distraction osteogenesis, clinical cases, research.');
     for (const id of ['lang-sw', 'menu-lang']) { const a = $(id); if (a) { a.href = location.pathname; a.hreflang = 'ru'; a.lang = 'ru'; } }
     $('lang-sw').textContent = 'RU'; $('lang-sw').setAttribute('aria-label', 'Русская версия');
@@ -967,7 +969,7 @@
     CONTENT = c;
     TERMS = Object.fromEntries((c.terms || []).map((t) => [t.key, t]));
     const h = c.hero || {};
-    $('h-name').innerHTML = `<span class="given">${esc([h.firstName, h.middleName].filter(Boolean).join(' '))}</span><b>${esc(h.lastName)}</b>`;
+    $('h-name').innerHTML = `<span class="given">${esc([h.firstName, h.middleName].filter(Boolean).join(' '))}</span> <b>${esc(h.lastName)}</b>`;
     $('h-card').innerHTML = [h.cardLine1, h.cardLine2].filter(Boolean).map(esc).join('<br>');
     if (safeUrl(h.portrait)) $('h-portrait').src = safeUrl(h.portrait);
     const fig = safeUrl(h.figure);

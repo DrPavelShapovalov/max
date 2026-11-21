@@ -30,6 +30,21 @@ def sentences(t, drop=()):
     return ' '.join(p for p in parts if p and not any(d in p.lower() for d in drop))
 
 
+def snippet(*parts, limit=160):
+    """Описание страницы: части через точку, не длиннее limit, обрезка по слову."""
+    out = []
+    for p in parts:
+        p = plain(p).strip()
+        if p:
+            out.append(p if p[-1] in '.!?»' else p + '.')
+    t = re.sub(r'\s+', ' ', ' '.join(out)).strip()
+    if len(t) <= limit:
+        return t
+    cut = t[:limit - 1]
+    cut = cut[:cut.rfind(' ')] if ' ' in cut else cut
+    return cut.rstrip(',;:—- ') + '…'
+
+
 def plain(t):
     t = re.sub(r'\*\*(.+?)\*\*', r'\1', str(t or ''))
     return re.sub(r'\[\[[a-z0-9_-]+\|(.+?)\]\]', r'\1', t, flags=re.I)
@@ -195,8 +210,8 @@ def method_page(c):
     publist = ''.join(f'<li>{e(p.get("authors"))} {e(p.get("title"))} // {e(p.get("journal"))}.'
                       + (f' <a href="https://doi.org/{e(p["doi"])}" target="_blank" rel="noopener">DOI {e(p["doi"])}</a>' if p.get('doi') else '') + '</li>'
                       for p in pubs)
-    title = 'Дистракционный остеогенез нижней челюсти у детей — детский челюстно-лицевой хирург Шаповалов П. И.'
-    desc = plain(f'{intro} {dirs[0].get("text", "")}')[:300]
+    title = 'Дистракционный остеогенез нижней челюсти у детей | Шаповалов П. И.'
+    desc = snippet(intro, dirs[0].get('text', ''))
     body = f'''<article>
 <h1>Дистракционный остеогенез нижней челюсти у детей</h1>
 <p class="lede">{e(intro)}</p>
@@ -230,8 +245,8 @@ def case_page(c, k):
     imgs = ''.join(fig(i) for i in k.get('images') or [] if re.match(r'^img/', str(i.get('src', ''))))
     consent = f'<p class="note">{e(k.get("consent"))}</p>' if k.get('consent') else ''
     others = ''.join(case_card(o) for o in c.get('cases', []) if o is not k and slug(o))
-    title = f'{plain(k.get("title"))} — клинический случай | Шаповалов П. И., детский челюстно-лицевой хирург'
-    desc = plain(' '.join((k.get('points') or [])[:2]))[:300]
+    title = f'{plain(k.get("title"))} | Шаповалов П. И.'
+    desc = snippet(*(k.get('points') or [])[:2])
     body = f'''<article>
 <p class="tags">{tags}</p>
 <h1>{e(k.get("title"))}</h1>
@@ -252,7 +267,7 @@ def case_page(c, k):
 
 def cases_index(c):
     cards = ''.join(case_card(k) for k in c.get('cases', []) if slug(k))
-    title = 'Клинические случаи детского челюстно-лицевого хирурга Шаповалова П. И.'
+    title = 'Клинические случаи | детский хирург Шаповалов П. И.'
     topics = list(dict.fromkeys(str((k.get('tags') or [''])[0]).strip() for k in c.get('cases', []) if slug(k)))
     desc = 'Реальные случаи лечения детей и подростков' + (': ' + ', '.join(t[:1].lower() + t[1:] if not t[:2].isupper() else t for t in topics if t) if topics else '') + '. Цифры до и после лечения, снимки и фото.'
     body = f'<article><h1>Клинические случаи</h1><p class="lede">{e(desc)}</p><ul class="cards">{cards}</ul></article>'
@@ -423,6 +438,24 @@ def main():
     urls = [SITE, SITE + '?lang=en'] + [SITE + p for p in out]
     (ROOT / 'sitemap.xml').write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         + ''.join(f'  <url><loc>{u}</loc><lastmod>{today}</lastmod></url>\n' for u in urls) + '</urlset>\n', encoding='utf-8')
+    # llms.txt: краткое описание сайта для ИИ-поисковиков (ChatGPT, Perplexity, Claude) — только факты из content.json
+    h = c.get('hero', {}); w = c.get('work', {})
+    name = ' '.join(x for x in (h.get('lastName'), h.get('firstName'), h.get('middleName')) if x)
+    dirs = [plain(d.get('title')) for d in c.get('directions', []) if d.get('title')]
+    lines = [f'# {name} — детский челюстно-лицевой хирург, к.м.н.', '',
+             f'> {snippet(h.get("lede"), limit=300)}', '']
+    if w.get('name'):
+        lines += [f'Место работы: {plain(w.get("name"))}' + (f', {plain(w.get("address"))}' if w.get('address') else '') + '.', '']
+    if dirs:
+        lines += ['## Направления', ''] + [f'- {d}' for d in dirs] + ['']
+    lines += ['## Страницы', '', f'- [Главная]({SITE}): о враче, направления, наука, контакты',
+              f'- [Дистракционный остеогенез у детей]({SITE}{METHOD}): как проходит лечение',
+              f'- [Клинические случаи]({SITE}{CASES}): все кейсы с цифрами до и после']
+    for k in c.get('cases', []):
+        if slug(k):
+            lines.append(f'- [{plain(k.get("title"))}]({SITE}{CASES}{slug(k)}/)')
+    lines += [f'- [English version]({SITE}?lang=en)', '']
+    (ROOT / 'llms.txt').write_text('\n'.join(lines), encoding='utf-8')
     print('pages:', ', '.join(out))
 
 

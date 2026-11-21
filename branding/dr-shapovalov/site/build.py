@@ -133,7 +133,8 @@ def seo_head(c):
          'about': {'@id': SITE + '#person'}},
         {'@type': 'Person', '@id': SITE + '#person', 'name': name, 'alternateName': alt, 'givenName': h.get('firstName'),
          'additionalName': h.get('middleName'), 'familyName': h.get('lastName'), 'url': SITE, 'image': SITE + 'img/og-cover.jpg',
-         'jobTitle': 'Детский челюстно-лицевой хирург', 'honorificSuffix': 'к.м.н.', 'description': desc, 'worksFor': org, 'sameAs': same},
+         'jobTitle': 'Детский челюстно-лицевой хирург', 'honorificSuffix': 'к.м.н.', 'description': desc, 'worksFor': org, 'sameAs': same,
+         'knowsAbout': [d.get('title') for d in c.get('directions', []) if d.get('title')]},
         {'@type': 'Physician', '@id': SITE + '#physician', 'name': name, 'url': SITE, 'image': SITE + 'img/og-cover.jpg',
          'description': desc, 'address': addr, 'parentOrganization': org, 'sameAs': same}]}
     return (f'<link rel="canonical" href="{SITE}">\n'
