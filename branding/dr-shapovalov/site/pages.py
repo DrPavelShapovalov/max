@@ -474,7 +474,7 @@ def ring_svg():
                               for x in (80, 320, 140, 260))
     cols = ''.join(f'<path d="M{178 + i * 6} 252 V{308}"/>' for i in range(8))
     return ('<svg class="ring-svg" viewBox="0 0 400 560" role="img"><title>Схема кольцевого аппарата Г. А. Илизарова: '
-            'спицы проходят через кость и натянуты на кольцах, между отломками растёт новая кость.</title>'
+            'спицы проходят через кость и натянуты на кольцах, между фрагментами растёт новая кость.</title>'
             '<defs><linearGradient id="hb" x1="0" x2="1"><stop offset="0" stop-color="#9a7c4e"/><stop offset=".5" stop-color="#efe3c8"/>'
             '<stop offset="1" stop-color="#b89868"/></linearGradient>'
             '<linearGradient id="hs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1f5f6"/><stop offset="1" stop-color="#7d898d"/></linearGradient></defs>'
@@ -500,13 +500,13 @@ def rate_widget():
     cols = ''.join(f'<path d="M{257 + i * 7} 66 V154"/>' for i in range(14))
     return f'''<div class="rate glass rv">
 <fieldset><legend>Темп удлинения в эксперименте</legend><div class="chips">{radios}</div></fieldset>
-<svg class="rate-svg" viewBox="0 40 640 175" role="img"><title>Схема: отломки кости и новая кость между ними при разном темпе удлинения.</title>
+<svg class="rate-svg" viewBox="0 40 640 175" role="img"><title>Схема: фрагменты кости и новая кость между ними при разном темпе удлинения.</title>
 <rect class="frag" x="30" y="60" width="222" height="100" rx="20"/>
 <g class="g05"><rect class="fused" x="250" y="60" width="34" height="100"/></g>
 <g class="g10">{cols}<path class="zone" d="M302 62 V158"/></g>
 <g class="g20"><path d="M262 70 V100 M262 120 V150 M292 66 V90 M322 132 V156 M354 70 V96 M386 120 V152 M404 74 V98"/></g>
 <g class="fr"><rect class="frag" x="282" y="60" width="222" height="100" rx="20"/></g>
-<text class="lbl" x="30" y="200">отломок</text><text class="lbl gap-l" x="320" y="200" text-anchor="middle">новая кость</text></svg>
+<text class="lbl" x="30" y="200">фрагмент</text><text class="lbl gap-l" x="320" y="200" text-anchor="middle">новая кость</text></svg>
 <div class="outs" aria-live="polite">{outs}</div>
 <p class="note">Эксперимент на голени собак: темп 0,5, 1 и 2 мм в сутки, по 1, 4 и 60 шагов в сутки. Чем чаще шаги, тем лучше результат.{ref(2)} Рисунок условный.</p>
 </div>'''
@@ -555,7 +555,7 @@ def history_page(c):
 <section class="ch" id="y1950"><p class="yr rv" aria-hidden="true">≈1950</p><div class="card glass rv">
   <p class="where">Курган, СССР</p>
   <h2>Кость растёт, если её растягивать</h2>
-  <p>Г. А. Илизаров работал в Кургане, во Всесоюзном центре восстановительной травматологии и ортопедии.{ref(1, 3)} Он создал кольцевой чрескостный аппарат: спицы проходят через кость и натягиваются на кольцах снаружи. Аппарат держит отломки и позволяет понемногу их разводить.{ref(3)}</p>
+  <p>Г. А. Илизаров работал в Кургане, во Всесоюзном центре восстановительной травматологии и ортопедии.{ref(1, 3)} Он создал кольцевой чрескостный аппарат: спицы проходят через кость и натягиваются на кольцах снаружи. Аппарат держит фрагменты кости и позволяет понемногу их разводить.{ref(3)}</p>
   <p class="calc">В обзоре 1990 года Илизаров пишет, что развивает эту систему 40 лет.{ref(3)} Отсюда дата: 1990 − 40 ≈ 1950.</p>
   <h3>Условия, которые он считал важными{ref(3)}</h3>
   <ol class="rules">{rules_html}</ol>
