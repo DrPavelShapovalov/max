@@ -322,6 +322,7 @@ CSS = '''/* отдельные страницы: те же цвета и шри�
 :root{--void:#05080a;--deep:#0a1513;--emerald:#164236;--ivory:#ede8de;--mist:#93a19b;--soft:#c3ccc8;--line:rgba(237,232,222,.12);
 --gold:#d6b266;--gold-hi:#f0d48e;--display:'Unbounded','Arial Black',system-ui,sans-serif;--text:'Manrope','Segoe UI',system-ui,sans-serif;color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html{background:var(--void)}
 body{margin:0;background:radial-gradient(120% 60% at 100% 0%,rgba(22,66,54,.55),transparent 60%),var(--void);color:var(--ivory);
 font:16px/1.65 var(--text);-webkit-font-smoothing:antialiased;padding:0 20px 40px}
