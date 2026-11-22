@@ -170,11 +170,25 @@ def main():
         assert f'<script src="{cdn}"></script>' in page, f'нет скрипта {cdn} — обновите CDN_TO_VENDOR'
         page = page.replace(f'<script src="{cdn}"></script>', f'<script src="{local}"></script>')
     assert 'https://' not in ''.join(re.findall(r'<script[^>]*src="[^"]*"', page)), 'остался внешний скрипт'
-    head, body = page.split('</style>', 1)          # всё до конца <style> — в <head>
+    # стили и код главной — отдельными файлами: страница вдвое легче для ИИ-поисковиков (меньше токенов),
+    # а браузер кэширует их между заходами. Имя с отпечатком содержимого, чтобы после правок не брался старый кэш.
+    def external(text, ext):
+        name = f'site-{hashlib.sha256(text.encode("utf-8")).hexdigest()[:10]}.{ext}'
+        (DIST / name).write_text(text, encoding='utf-8')
+        return '/' + name
+    css = re.findall(r'<style>(.*?)</style>', page, flags=re.S)
+    assert len(css) == 1, 'в index.html ожидается ровно один <style>'
+    link = f'<link rel="stylesheet" href="{external(css[0].strip() + chr(10), "css")}">'
+    page = page.replace(f'<style>{css[0]}</style>', link, 1)
+    code = re.findall(r'<script>(.*?)</script>', page, flags=re.S)
+    assert len(code) == 1, 'в index.html ожидается ровно один встроенный <script>'
+    page = page.replace(f'<script>{code[0]}</script>', f'<script src="{external(code[0].strip() + chr(10), "js")}"></script>', 1)
+    head, body = page.split(link, 1)                # всё до стилей включительно — в <head>
+    head += link
     csp = CSP_SITE.format(hashes=inline_hashes(page))
     import json as _j
     content = _j.loads((HERE / 'content.json').read_text(encoding='utf-8'))
-    (DIST / 'index.html').write_text(HEAD + metas(csp) + seo_head(content) + head + '</style>\n</head>\n<body>\n' + body + '\n</body>\n</html>\n',
+    (DIST / 'index.html').write_text(HEAD + metas(csp) + seo_head(content) + head + '\n</head>\n<body>\n' + body + '\n</body>\n</html>\n',
                                      encoding='utf-8')
     # английская версия — отдельный адрес /en/ (тот же код и скрипты, английские <title>, description, canonical и hreflang)
     import html as _h
@@ -183,7 +197,7 @@ def main():
     head_en = head.replace(m_t.group(0), f'<title>{_h.escape(EN_TITLE)}</title>', 1).replace(m_d.group(0), f'<meta name="description" content="{_h.escape(EN_DESC, quote=True)}">', 1)
     (DIST / 'en').mkdir()
     (DIST / 'en' / 'index.html').write_text(HEAD.replace('<html lang="ru">', '<html lang="en">') + metas(csp) + seo_head(content, en=True) + head_en
-                                            + '</style>\n</head>\n<body>\n' + body + '\n</body>\n</html>\n', encoding='utf-8')
+                                            + '\n</head>\n<body>\n' + body + '\n</body>\n</html>\n', encoding='utf-8')
 
     admin = (HERE / 'admin.html').read_text(encoding='utf-8')
     assert '<script src=' not in admin, 'в админке не должно быть внешних скриптов'
