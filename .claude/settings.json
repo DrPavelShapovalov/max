@@ -13,6 +13,18 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/backup-chat.sh",
+            "async": true,
+            "timeout": 600
+          }
+        ]
+      }
     ]
   },
   "enabledPlugins": {
