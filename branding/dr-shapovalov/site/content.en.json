@@ -14,7 +14,7 @@
     "cardLine2": "CRIDMS · pediatric clinic",
     "portrait": "img/portrait.jpg",
     "middleName": "",
-    "ledePro": "Oral and maxillofacial surgeon, PhD (specialty 3.1.2 Oral and Maxillofacial Surgery). Dissertation on the clinical effectiveness of distraction osteogenesis in children with mandibular hypoplasia. 10 papers and 7 talks, including at the EACMFS Congress.",
+    "ledePro": "Oral and maxillofacial surgeon, PhD (specialty 3.1.2 Oral and Maxillofacial Surgery). Dissertation on the clinical effectiveness of distraction osteogenesis in children with mandibular hypoplasia. 13 papers and 7 talks, including at the EACMFS Congress.",
     "figure": "img/hero-figure-2.webp"
   },
   "readings": [
@@ -26,7 +26,7 @@
     },
     {
       "from": "",
-      "to": "10",
+      "to": "13",
       "unit": "papers",
       "label": "in peer-reviewed journals (VAK and Scopus)"
     },
@@ -519,6 +519,30 @@
       "diploma": "img/pubs/diploma-kmn-2026.jpg"
     },
     "publications": [
+      {
+        "authors": "Shapovalov P. I., Gevorkyan O. V., Babichenko I. I., Gevorkyan A. A., Khodyachiy A. E.",
+        "title": "Structural and functional features of mandibular distraction osteogenesis in children and adolescents: a clinical, radiological and morphological study",
+        "journal": "Pediatric Dentistry and Dental Prophylaxis. 2026; 26(3)",
+        "doi": "10.33925/1683-3031-2026-1066",
+        "link": "https://www.detstom.ru/jour/article/view/1066",
+        "image": "img/pubs/sdv-2026-1066.jpg"
+      },
+      {
+        "authors": "Losev F. F., Shapovalov P. I.",
+        "title": "Methodological errors following comparison of ultrasound and CT images of the lower jaw distraction regenerate",
+        "journal": "Plastic Surgery and Aesthetic Medicine. 2026; (4-2): 51–58",
+        "doi": "10.17116/plast.hirurgia202604251",
+        "link": "https://www.mediasphera.ru/issues/plasticheskaya-khirurgiya-i-esteticheskaya-meditsina/2026/4-2/1268673462026042051",
+        "image": "img/pubs/plast-2026-4-2.jpg"
+      },
+      {
+        "authors": "Kulakov A. A., Shapovalov P. I., Gevorkyan O. V., Khodyachiy A. E., Gevorkyan A. A.",
+        "title": "Anatomical lines of the lower jaw as a basis for quantitative assessment of growth dynamics and asymmetry",
+        "journal": "Medical Bulletin of the Ministry of Internal Affairs. 2026; 6(145)",
+        "doi": "10.52341/20738080_2026_145_6_2",
+        "link": "",
+        "image": "img/pubs/mvd-2026.jpg"
+      },
       {
         "authors": "Losev F. F., Shapovalov P. I., Gevorkyan O. V.",
         "title": "Mandibular distraction osteogenesis in adolescents as an alternative to orthognathic surgery: a case series",
