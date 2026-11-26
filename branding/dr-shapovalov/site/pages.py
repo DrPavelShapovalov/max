@@ -174,6 +174,23 @@ def page(c, path, title, desc, body, crumbs, schema, cta=True, head='', cls=''):
 '''
 
 
+def dist_pubs(c):
+    """Статьи по дистракции и нижней челюсти (для страницы метода, кейсов и истории метода): «дистрак…» ловит и
+    «дистракционный», и «дистрактор»; «нижн… челюст…» — морфометрия, асимметрия, показания к дистракции."""
+    out = []
+    for p in (c.get('science') or {}).get('publications', []):
+        t = str(p.get('title', '')).lower()
+        if 'дистрак' in t or re.search(r'нижн\w* челюст', t):
+            out.append(p)
+    return out
+
+
+def pub_list(pubs):
+    return ''.join(f'<li>{e(p.get("authors"))} {e(p.get("title"))} // {e(p.get("journal"))}.'
+                   + (f' <a href="https://doi.org/{e(p["doi"])}" target="_blank" rel="noopener">DOI {e(p["doi"])}</a>' if p.get('doi') else '') + '</li>'
+                   for p in pubs)
+
+
 def is_dist(k):
     """Кейс про дистракционный остеогенез: по словам в заголовке, ярлыках и пунктах."""
     t = plain(' '.join([str(k.get('title', ''))] + [str(x) for x in (k.get('tags') or []) + (k.get('points') or [])])).lower()
@@ -207,10 +224,7 @@ def method_page(c):
     # на странице метода — только кейсы с дистракцией
     cases = ''.join(case_card(k) for k in c.get('cases', []) if slug(k) and is_dist(k))
     sc = c.get('science', {}); ds = sc.get('dissertation', {})
-    pubs = [p for p in sc.get('publications', []) if 'дистракц' in str(p.get('title', '')).lower()]
-    publist = ''.join(f'<li>{e(p.get("authors"))} {e(p.get("title"))} // {e(p.get("journal"))}.'
-                      + (f' <a href="https://doi.org/{e(p["doi"])}" target="_blank" rel="noopener">DOI {e(p["doi"])}</a>' if p.get('doi') else '') + '</li>'
-                      for p in pubs)
+    publist = pub_list(dist_pubs(c))
     title = 'Дистракционный остеогенез нижней челюсти у детей | Шаповалов П. И.'
     desc = snippet(intro, dirs[0].get('text', ''))
     body = f'''<article>
@@ -256,7 +270,8 @@ def case_page(c, k):
 <section class="block"><h2>Ход лечения</h2><ul class="points">{pts}</ul>
 {f'<table class="bars"><caption>Цифры случая</caption>{bars}</table>' if bars else ''}</section>
 {f'<section class="block"><h2>Фото и снимки</h2><div class="gal">{imgs}</div>{consent}</section>' if imgs else ''}
-{f'<section class="block"><h2>О методе</h2><p><a href="/{METHOD}">Дистракционный остеогенез нижней челюсти у детей: как проходит лечение →</a></p></section>' if is_dist(k) else ''}
+{f'<section class="block"><h2>О методе</h2><p><a href="/{METHOD}">Дистракционный остеогенез нижней челюсти у детей: как проходит лечение →</a></p><p><a href="/{HIST}">История метода →</a></p></section>' if is_dist(k) else ''}
+{f'<section class="block"><h2>Статьи по теме</h2><ul class="pubs">{pub_list(dist_pubs(c))}</ul></section>' if is_dist(k) and dist_pubs(c) else ''}
 {glossary(used)}
 {f'<section class="block"><h2>Другие случаи</h2><ul class="cards">{others}</ul></section>' if others else ''}
 </article>'''
@@ -515,7 +530,7 @@ def rate_widget():
 
 def history_page(c):
     sc = c.get('science', {}); ds = sc.get('dissertation', {})
-    pubs = [p for p in sc.get('publications', []) if 'дистракц' in str(p.get('title', '')).lower()]
+    pubs = dist_pubs(c)
     def cover(p):
         img = str(p.get('image') or '')
         card = img.replace('.jpg', '-card.jpg')
@@ -596,7 +611,7 @@ def history_page(c):
   <h2>Показания — по измерениям</h2>
   <p>П. И. Шаповалов защитил кандидатскую диссертацию <strong>«{e(ds.get("title"))}»</strong>. {e(ds.get("place"))}. Научный руководитель — {e(ds.get("supervisor"))}.</p>
   <p>{e(ds.get("summary"))}{f' <a href="{e(ds.get("link"))}" target="_blank" rel="noopener">Запись в РГБ ↗</a>' if ds.get('link') else ''}</p>
-  {f'<h3>Статьи о дистракции</h3><ul class="pubs-g">{pubs_html}</ul>' if pubs_html else ''}
+  {f'<h3>Статьи о дистракции и нижней челюсти</h3><ul class="pubs-g">{pubs_html}</ul>' if pubs_html else ''}
   {f'<h3>Конгресс EACMFS, 2026</h3><ul class="talks">{talks_html}</ul>' if talks_html else ''}
   <p class="row"><a class="btn" href="/{METHOD}">Метод сегодня: как проходит лечение →</a><a class="btn ghost" href="/{CASES}">Клинические случаи →</a></p>
 </div></section>
